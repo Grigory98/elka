@@ -17,11 +17,13 @@ import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
 import { UpdaterService } from "../bindings/terminator-desktop/backend/internal/services/updater";
+import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setUpdateVersionReady, setShowHostGroups, setHostViewMode, setGroupViewMode} = useUIStore();
+    const {setUpdateVersionReady, setShowHostGroups, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
+    const appearance = useUIStore((state) => state.appearance);
     const queryClient = useQueryClient();
     const {i18n} = useTranslation();
 
@@ -34,9 +36,24 @@ export default function App() {
                 setShowHostGroups(settings.showHostGroups ?? true);
                 setHostViewMode(settings.hostViewMode === "list" || settings.hostViewMode === "tree" ? settings.hostViewMode : "cards");
                 setGroupViewMode(settings.groupViewMode === "cards" || settings.groupViewMode === "list" ? settings.groupViewMode : "tree");
+                setAppearance({
+                    appBackgroundColor: settings.appBackgroundColor || DEFAULT_APPEARANCE.appBackgroundColor,
+                    appForegroundColor: settings.appForegroundColor || DEFAULT_APPEARANCE.appForegroundColor,
+                    appAccentColor: settings.appAccentColor || DEFAULT_APPEARANCE.appAccentColor,
+                    appFontFamily: settings.appFontFamily || DEFAULT_APPEARANCE.appFontFamily,
+                    terminalBackgroundColor: settings.terminalBackground || DEFAULT_APPEARANCE.terminalBackgroundColor,
+                    terminalForegroundColor: settings.terminalForeground || DEFAULT_APPEARANCE.terminalForegroundColor,
+                    terminalCursorColor: settings.terminalCursor || DEFAULT_APPEARANCE.terminalCursorColor,
+                    terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
+                    terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
+                });
             })
             .catch(console.error);
-    }, [i18n, setGroupViewMode, setHostViewMode, setShowHostGroups]);
+    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups]);
+
+    useEffect(() => {
+        applyAppAppearance(appearance);
+    }, [appearance]);
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshClosed, (event) => {

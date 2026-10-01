@@ -22,11 +22,30 @@ import {
 import { useSyncStore } from "@/store/syncStore.ts";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
+import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
 import { HostTransferService } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
 
 type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
+
+function AppearanceColorInput({label, value, onChange}: {label: string; value: string; onChange: (value: string) => void}) {
+    return (
+        <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+            <span className="text-sm text-foreground">{label}</span>
+            <span className="flex items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">{value.toUpperCase()}</span>
+                <input
+                    type="color"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                    aria-label={label}
+                />
+            </span>
+        </label>
+    );
+}
 
 export function SettingsPage() {
     const {t, i18n} = useTranslation(["settings", "common", "errors"]);
@@ -43,6 +62,8 @@ export function SettingsPage() {
         groupViewMode,
         setHostViewMode,
         setGroupViewMode,
+        appearance,
+        setAppearance,
     } = useUIStore();
 
     const [isServerModalOpen, setIsServerModalOpen] = useState(false);
@@ -52,6 +73,11 @@ export function SettingsPage() {
     const [exportFormat, setExportFormat] = useState<HostTransferFormat>("tabby");
     const [transferAction, setTransferAction] = useState<"import" | "export" | null>(null);
     const [transferStatus, setTransferStatus] = useState<string | null>(null);
+    const [appearanceDraft, setAppearanceDraft] = useState<AppearanceSettings>(appearance);
+    const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
+    const [isCustomPalette, setIsCustomPalette] = useState(false);
+
+    useEffect(() => setAppearanceDraft(appearance), [appearance]);
 
     useEffect(() => {
         SettingsService.GetSettings()
@@ -160,6 +186,41 @@ export function SettingsPage() {
             setTransferAction(null);
         }
     };
+
+    const updateAppearance = (update: Partial<AppearanceSettings>, customColors = false) => {
+        const next = {...appearanceDraft, ...update};
+        setAppearanceDraft(next);
+        setAppearance(next);
+        if (customColors) setIsCustomPalette(true);
+        setAppearanceStatus(null);
+    };
+
+    const saveAppearance = async () => {
+        try {
+            const current = await SettingsService.GetSettings();
+            await SettingsService.SaveSettings(new AppSettings({
+                ...current,
+                appBackgroundColor: appearanceDraft.appBackgroundColor,
+                appForegroundColor: appearanceDraft.appForegroundColor,
+                appAccentColor: appearanceDraft.appAccentColor,
+                appFontFamily: appearanceDraft.appFontFamily,
+                terminalBackground: appearanceDraft.terminalBackgroundColor,
+                terminalForeground: appearanceDraft.terminalForegroundColor,
+                terminalCursor: appearanceDraft.terminalCursorColor,
+                terminalFontFamily: appearanceDraft.terminalFontFamily,
+                terminalFontSize: appearanceDraft.terminalFontSize,
+            }));
+            setAppearanceStatus(t("appearance_saved"));
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const selectedPalette = isCustomPalette ? "custom" : Object.entries(APP_COLOR_PALETTES).find(([, palette]) =>
+        palette.appBackgroundColor === appearanceDraft.appBackgroundColor &&
+        palette.appForegroundColor === appearanceDraft.appForegroundColor &&
+        palette.appAccentColor === appearanceDraft.appAccentColor
+    )?.[0] || "custom";
 
     return (
         <div className="flex h-full w-full flex-col overflow-y-auto p-8">
@@ -282,6 +343,88 @@ export function SettingsPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">{t("host_transfer_secrets_note")}</p>
                     {transferStatus && <p role="status" className="text-sm text-success">{transferStatus}</p>}
+                </SettingsCard>
+
+                <SettingsCard title={t("appearance_title")} description={t("appearance_desc")}>
+                    <div className="grid gap-6 lg:grid-cols-2">
+                        <section className="flex flex-col gap-3">
+                            <h3 className="text-sm font-semibold text-foreground">{t("app_appearance_title")}</h3>
+                            <label className="grid gap-2">
+                                <span className="text-sm text-foreground">{t("app_palette_label")}</span>
+                                <Select value={selectedPalette} onValueChange={(value) => {
+                                    if (value === "custom") {
+                                        setIsCustomPalette(true);
+                                        return;
+                                    }
+                                    const palette = APP_COLOR_PALETTES[value as keyof typeof APP_COLOR_PALETTES];
+                                    setIsCustomPalette(false);
+                                    updateAppearance(palette);
+                                }}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="dark">{t("palette_dark")}</SelectItem>
+                                        <SelectItem value="light">{t("palette_light")}</SelectItem>
+                                        <SelectItem value="navy">{t("palette_navy")}</SelectItem>
+                                        <SelectItem value="green">{t("palette_green")}</SelectItem>
+                                        <SelectItem value="custom">{t("palette_custom")}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </label>
+                            <AppearanceColorInput label={t("app_background_color")} value={appearanceDraft.appBackgroundColor} onChange={(appBackgroundColor) => updateAppearance({appBackgroundColor}, true)}/>
+                            <AppearanceColorInput label={t("app_text_color")} value={appearanceDraft.appForegroundColor} onChange={(appForegroundColor) => updateAppearance({appForegroundColor}, true)}/>
+                            <AppearanceColorInput label={t("app_accent_color")} value={appearanceDraft.appAccentColor} onChange={(appAccentColor) => updateAppearance({appAccentColor}, true)}/>
+                            <label className="grid gap-2">
+                                <span className="text-sm text-foreground">{t("app_font_label")}</span>
+                                <Select value={appearanceDraft.appFontFamily} onValueChange={(appFontFamily) => updateAppearance({appFontFamily})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        {FONT_FAMILIES.map((font) => <SelectItem key={font.family} value={font.family}>{font.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </label>
+                        </section>
+
+                        <section className="flex flex-col gap-3">
+                            <h3 className="text-sm font-semibold text-foreground">{t("terminal_appearance_title")}</h3>
+                            <AppearanceColorInput label={t("terminal_background_color")} value={appearanceDraft.terminalBackgroundColor} onChange={(terminalBackgroundColor) => updateAppearance({terminalBackgroundColor})}/>
+                            <AppearanceColorInput label={t("terminal_text_color")} value={appearanceDraft.terminalForegroundColor} onChange={(terminalForegroundColor) => updateAppearance({terminalForegroundColor})}/>
+                            <AppearanceColorInput label={t("terminal_cursor_color")} value={appearanceDraft.terminalCursorColor} onChange={(terminalCursorColor) => updateAppearance({terminalCursorColor})}/>
+                            <label className="grid gap-2">
+                                <span className="text-sm text-foreground">{t("terminal_font_label")}</span>
+                                <Select value={appearanceDraft.terminalFontFamily} onValueChange={(terminalFontFamily) => updateAppearance({terminalFontFamily})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Cascadia Code">Cascadia Code (system)</SelectItem>
+                                        {FONT_FAMILIES.map((font) => <SelectItem key={font.family} value={font.family}>{font.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </label>
+                            <label className="grid gap-2">
+                                <span className="flex justify-between text-sm text-foreground">
+                                    {t("terminal_font_size")}
+                                    <span className="text-muted-foreground">{appearanceDraft.terminalFontSize}px</span>
+                                </span>
+                                <input
+                                    type="range"
+                                    min={10}
+                                    max={24}
+                                    value={appearanceDraft.terminalFontSize}
+                                    onChange={(event) => updateAppearance({terminalFontSize: Number(event.target.value)})}
+                                    className="w-full accent-primary"
+                                />
+                            </label>
+                        </section>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+                        <span aria-live="polite" className="text-sm text-success">{appearanceStatus}</span>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={() => {
+                                setIsCustomPalette(false);
+                                updateAppearance(DEFAULT_APPEARANCE);
+                            }}>{t("appearance_reset")}</Button>
+                            <Button onClick={() => void saveAppearance()}>{t("appearance_save")}</Button>
+                        </div>
+                    </div>
                 </SettingsCard>
 
                 <SettingsCard title={t("preferences_title")}>

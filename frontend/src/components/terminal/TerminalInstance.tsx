@@ -3,7 +3,7 @@ import type { CSSProperties, DragEvent as ReactDragEvent } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Events, Clipboard } from "@wailsio/runtime";
-import { TERMINAL_THEME } from "@/lib/terminalTheme";
+import { createTerminalOptions } from "@/lib/terminalTheme";
 import { parseAppError } from "@/lib/error";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { GripVertical, PanelTopClose, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
+import { useUIStore } from "@/store/uiStore";
 
 interface TerminalInstanceProps {
     sessionId: string;
@@ -43,6 +44,7 @@ export function TerminalInstance({
     config,
 }: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
+    const appearance = useUIStore((state) => state.appearance);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<Terminal | null>(null);
@@ -53,6 +55,8 @@ export function TerminalInstance({
     const [isConnected, setIsConnected] = useState(false);
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
+    const appearanceRef = useRef(appearance);
+    appearanceRef.current = appearance;
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
 
@@ -127,7 +131,7 @@ export function TerminalInstance({
         if (!containerRef.current || terminalRef.current) return;
         const container = containerRef.current;
 
-        const term = new Terminal(TERMINAL_THEME);
+        const term = new Terminal(createTerminalOptions(appearanceRef.current));
         const fitAddon = new FitAddon();
 
         term.loadAddon(fitAddon);
@@ -210,6 +214,23 @@ export function TerminalInstance({
             });
         };
     }, [sessionId, config]);
+
+    useEffect(() => {
+        const terminal = terminalRef.current;
+        if (!terminal) return;
+        const options = createTerminalOptions(appearance);
+        terminal.options.fontFamily = options.fontFamily;
+        terminal.options.fontSize = options.fontSize;
+        terminal.options.theme = options.theme;
+        terminal.refresh(0, terminal.rows - 1);
+        fitAndResizeRef.current(true);
+    }, [
+        appearance.terminalBackgroundColor,
+        appearance.terminalCursorColor,
+        appearance.terminalFontFamily,
+        appearance.terminalFontSize,
+        appearance.terminalForegroundColor,
+    ]);
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshData, (event) => {

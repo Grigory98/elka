@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { DEFAULT_APPEARANCE } from "@/lib/appearance";
+import type { AppearanceSettings } from "@/lib/appearance";
 
 export enum ViewType {
     Hosts = "hosts",
@@ -19,11 +21,13 @@ interface UIState {
     selectedHostGroup: string | null;
     hostViewMode: HostViewMode;
     groupViewMode: HostViewMode;
+    appearance: AppearanceSettings;
     setActiveView: (view: ViewType) => void;
     setShowHostGroups: (show: boolean) => void;
     setSelectedHostGroup: (group: string | null) => void;
     setHostViewMode: (mode: HostViewMode) => void;
     setGroupViewMode: (mode: HostViewMode) => void;
+    setAppearance: (appearance: AppearanceSettings) => void;
     toggleSidebar: () => void;
     setUpdateVersionReady: (version: string | null) => void;
 }
@@ -36,11 +40,13 @@ export const useUIStore = create<UIState>((set) => ({
     selectedHostGroup: null,
     hostViewMode: "cards",
     groupViewMode: "tree",
+    appearance: {...DEFAULT_APPEARANCE},
     setActiveView: (view) => set({activeView: view}),
     setShowHostGroups: (show) => set({showHostGroups: show}),
     setSelectedHostGroup: (group) => set({selectedHostGroup: group}),
     setHostViewMode: (mode) => set({hostViewMode: mode}),
     setGroupViewMode: (mode) => set({groupViewMode: mode}),
+    setAppearance: (appearance) => set({appearance}),
     toggleSidebar: () => set((state) => ({isSidebarVisible: !state.isSidebarVisible})),
     setUpdateVersionReady: (version) => set({ updateVersionReady: version }),
 }));

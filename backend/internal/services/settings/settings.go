@@ -17,6 +17,15 @@ type AppSettings struct {
 	ShowHostGroups        bool   `json:"showHostGroups"`
 	HostViewMode          string `json:"hostViewMode"`
 	GroupViewMode         string `json:"groupViewMode"`
+	AppBackgroundColor    string `json:"appBackgroundColor,omitempty"`
+	AppForegroundColor    string `json:"appForegroundColor,omitempty"`
+	AppAccentColor        string `json:"appAccentColor,omitempty"`
+	AppFontFamily         string `json:"appFontFamily,omitempty"`
+	TerminalBackground    string `json:"terminalBackground,omitempty"`
+	TerminalForeground    string `json:"terminalForeground,omitempty"`
+	TerminalCursor        string `json:"terminalCursor,omitempty"`
+	TerminalFontFamily    string `json:"terminalFontFamily,omitempty"`
+	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
 	GroupViewModeVersion  int    `json:"groupViewModeVersion,omitempty"`
 	VaultDirectory        string `json:"vaultDirectory"`
 	PendingVaultDirectory string `json:"pendingVaultDirectory,omitempty"`
@@ -51,6 +60,15 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		ShowHostGroups:       true,
 		HostViewMode:         "cards",
 		GroupViewMode:        "tree",
+		AppBackgroundColor:   "#09090b",
+		AppForegroundColor:   "#fafafa",
+		AppAccentColor:       "#e4e4e7",
+		AppFontFamily:        "Geist Variable",
+		TerminalBackground:   "#09090b",
+		TerminalForeground:   "#fafafa",
+		TerminalCursor:       "#fafafa",
+		TerminalFontFamily:   "Cascadia Code",
+		TerminalFontSize:     14,
 		GroupViewModeVersion: 1,
 		VaultDirectory:       s.appDir,
 	}

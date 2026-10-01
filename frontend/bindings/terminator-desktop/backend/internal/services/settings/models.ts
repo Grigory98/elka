@@ -10,6 +10,15 @@ export class AppSettings {
     "showHostGroups": boolean;
     "hostViewMode": string;
     "groupViewMode": string;
+    "appBackgroundColor"?: string;
+    "appForegroundColor"?: string;
+    "appAccentColor"?: string;
+    "appFontFamily"?: string;
+    "terminalBackground"?: string;
+    "terminalForeground"?: string;
+    "terminalCursor"?: string;
+    "terminalFontFamily"?: string;
+    "terminalFontSize"?: number;
     "groupViewModeVersion"?: number;
     "vaultDirectory": string;
     "pendingVaultDirectory"?: string;

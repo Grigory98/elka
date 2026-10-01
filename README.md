@@ -68,6 +68,14 @@ For development: just
 wails3 dev
 ```
 
+Build a macOS app and compressed DMG in one step:
+
+```sh
+./build-macos-in-docker.sh --arch arm64 --format dmg
+```
+
+Use `--arch amd64` for Intel Macs. `--format app` builds only the `.app`, while `--format both` creates both outputs. Set a custom DMG path or mounted volume name with `--output PATH` and `--volume-name NAME`.
+
 Debug: use remote debug and [delve](https://github.com/go-delve/delve/tree/master/Documentation/installation):
 ```sh
 dlv debug --headless --listen=:2345 ./backend/cmd/terminator-desktop -- dev
