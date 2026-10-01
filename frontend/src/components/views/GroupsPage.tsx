@@ -143,7 +143,14 @@ export function GroupsPage() {
         <button
             key={host.id}
             type="button"
-            onClick={() => connectHost(host)}
+            onDoubleClick={() => connectHost(host)}
+            onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    connectHost(host);
+                }
+            }}
+            title={t("double_click_to_connect", {ns: "common"})}
             onPointerEnter={() => setHoveredHostID(host.id)}
             onPointerLeave={() => setHoveredHostID((current) => current === host.id ? null : current)}
             className={cn(

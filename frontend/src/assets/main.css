@@ -217,6 +217,13 @@
     --wails-resize: all;
 }
 
+html,
+body,
+#root,
+.font-heading {
+    font-family: var(--app-font-family, "Geist Variable", sans-serif) !important;
+}
+
 [data-top-tab-drop-target="true"] {
     outline: 2px solid var(--primary);
     outline-offset: -4px;

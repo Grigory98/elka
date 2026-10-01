@@ -17,6 +17,7 @@ export class AppSettings {
     "terminalBackground"?: string;
     "terminalForeground"?: string;
     "terminalCursor"?: string;
+    "terminalCursorStyle"?: string;
     "terminalFontFamily"?: string;
     "terminalFontSize"?: number;
     "groupViewModeVersion"?: number;

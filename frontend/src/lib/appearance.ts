@@ -6,6 +6,7 @@ export interface AppearanceSettings {
     terminalBackgroundColor: string;
     terminalForegroundColor: string;
     terminalCursorColor: string;
+    terminalCursorStyle: "block" | "underline" | "bar";
     terminalFontFamily: string;
     terminalFontSize: number;
 }
@@ -18,6 +19,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     terminalBackgroundColor: "#09090b",
     terminalForegroundColor: "#fafafa",
     terminalCursorColor: "#fafafa",
+    terminalCursorStyle: "block",
     terminalFontFamily: "Cascadia Code",
     terminalFontSize: 14,
 };
@@ -115,6 +117,8 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     const fontStack = `"${appearance.appFontFamily}", sans-serif`;
     root.style.setProperty("--font-sans", fontStack);
     root.style.setProperty("--font-heading", fontStack);
+    root.style.setProperty("--app-font-family", fontStack);
+    root.style.fontFamily = fontStack;
 }
 
 export function terminalFontStack(fontFamily: string) {

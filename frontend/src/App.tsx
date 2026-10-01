@@ -44,6 +44,9 @@ export default function App() {
                     terminalBackgroundColor: settings.terminalBackground || DEFAULT_APPEARANCE.terminalBackgroundColor,
                     terminalForegroundColor: settings.terminalForeground || DEFAULT_APPEARANCE.terminalForegroundColor,
                     terminalCursorColor: settings.terminalCursor || DEFAULT_APPEARANCE.terminalCursorColor,
+                    terminalCursorStyle: settings.terminalCursorStyle === "underline" || settings.terminalCursorStyle === "bar"
+                        ? settings.terminalCursorStyle
+                        : DEFAULT_APPEARANCE.terminalCursorStyle,
                     terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                 });

@@ -207,6 +207,7 @@ export function SettingsPage() {
                 terminalBackground: appearanceDraft.terminalBackgroundColor,
                 terminalForeground: appearanceDraft.terminalForegroundColor,
                 terminalCursor: appearanceDraft.terminalCursorColor,
+                terminalCursorStyle: appearanceDraft.terminalCursorStyle,
                 terminalFontFamily: appearanceDraft.terminalFontFamily,
                 terminalFontSize: appearanceDraft.terminalFontSize,
             }));
@@ -389,6 +390,17 @@ export function SettingsPage() {
                             <AppearanceColorInput label={t("terminal_background_color")} value={appearanceDraft.terminalBackgroundColor} onChange={(terminalBackgroundColor) => updateAppearance({terminalBackgroundColor})}/>
                             <AppearanceColorInput label={t("terminal_text_color")} value={appearanceDraft.terminalForegroundColor} onChange={(terminalForegroundColor) => updateAppearance({terminalForegroundColor})}/>
                             <AppearanceColorInput label={t("terminal_cursor_color")} value={appearanceDraft.terminalCursorColor} onChange={(terminalCursorColor) => updateAppearance({terminalCursorColor})}/>
+                            <label className="grid gap-2">
+                                <span className="text-sm text-foreground">{t("terminal_cursor_style")}</span>
+                                <Select value={appearanceDraft.terminalCursorStyle} onValueChange={(terminalCursorStyle) => updateAppearance({terminalCursorStyle: terminalCursorStyle as AppearanceSettings["terminalCursorStyle"]})}>
+                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="block">{t("cursor_block")}</SelectItem>
+                                        <SelectItem value="underline">{t("cursor_underline")}</SelectItem>
+                                        <SelectItem value="bar">{t("cursor_bar")}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </label>
                             <label className="grid gap-2">
                                 <span className="text-sm text-foreground">{t("terminal_font_label")}</span>
                                 <Select value={appearanceDraft.terminalFontFamily} onValueChange={(terminalFontFamily) => updateAppearance({terminalFontFamily})}>

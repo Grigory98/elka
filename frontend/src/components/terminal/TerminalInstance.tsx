@@ -282,7 +282,7 @@ export function TerminalInstance({
         >
             {isSplitPane && (
                 <div className={cn(
-                    "mb-2 flex h-9 shrink-0 items-center justify-between gap-2 border-b border-white/20 px-1",
+                    "mb-1 flex h-8 shrink-0 items-center justify-between gap-1 border-b border-white/20 px-1",
                     isActive && "bg-white/[0.035]"
                 )}>
                     <div className="flex min-w-0 items-center gap-2">

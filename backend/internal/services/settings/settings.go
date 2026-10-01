@@ -24,6 +24,7 @@ type AppSettings struct {
 	TerminalBackground    string `json:"terminalBackground,omitempty"`
 	TerminalForeground    string `json:"terminalForeground,omitempty"`
 	TerminalCursor        string `json:"terminalCursor,omitempty"`
+	TerminalCursorStyle   string `json:"terminalCursorStyle,omitempty"`
 	TerminalFontFamily    string `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
 	GroupViewModeVersion  int    `json:"groupViewModeVersion,omitempty"`
@@ -67,6 +68,7 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		TerminalBackground:   "#09090b",
 		TerminalForeground:   "#fafafa",
 		TerminalCursor:       "#fafafa",
+		TerminalCursorStyle:  "block",
 		TerminalFontFamily:   "Cascadia Code",
 		TerminalFontSize:     14,
 		GroupViewModeVersion: 1,
