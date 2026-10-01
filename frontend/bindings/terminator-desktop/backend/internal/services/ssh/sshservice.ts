@@ -17,6 +17,10 @@ export function Disconnect(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2124563103, sessionID);
 }
 
+export function DownloadSFTPFile(sessionID: string, remotePath: string, suggestedFilename: string, dialogTitle: string): $CancellablePromise<boolean> {
+    return $Call.ByID(3804303342, sessionID, remotePath, suggestedFilename, dialogTitle);
+}
+
 /**
  * Input writes data to SSH stdin
  */
@@ -24,6 +28,19 @@ export function Input(sessionID: string, data: string): $CancellablePromise<void
     return $Call.ByID(187872847, sessionID, data);
 }
 
+export function ListSFTPDirectory(sessionID: string, directory: string): $CancellablePromise<$models.SFTPDirectory> {
+    return $Call.ByID(2185363387, sessionID, directory).then(($result: any) => {
+        return $$createType0($result);
+    });
+}
+
 export function Resize(sessionID: string, rows: number, cols: number): $CancellablePromise<void> {
     return $Call.ByID(639676773, sessionID, rows, cols);
 }
+
+export function UploadSFTPFile(sessionID: string, remotePath: string, data: string): $CancellablePromise<void> {
+    return $Call.ByID(2800851959, sessionID, remotePath, data);
+}
+
+// Private type creation functions
+const $$createType0 = $models.SFTPDirectory.createFrom;

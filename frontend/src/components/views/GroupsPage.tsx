@@ -38,6 +38,9 @@ export function GroupsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGroup, setEditingGroup] = useState<HostGroup | null>(null);
     const [groupToDelete, setGroupToDelete] = useState<HostGroup | null>(null);
+    const [hoveredGroupID, setHoveredGroupID] = useState<string | null>(null);
+    const [hoveredHostID, setHoveredHostID] = useState<string | null>(null);
+    const [openGroupMenuID, setOpenGroupMenuID] = useState<string | null>(null);
     const {data: keys} = useKeys();
     const {data: credentials} = useCredentials();
     const {addSession} = useSessionStore();
@@ -141,11 +144,14 @@ export function GroupsPage() {
             key={host.id}
             type="button"
             onClick={() => connectHost(host)}
+            onPointerEnter={() => setHoveredHostID(host.id)}
+            onPointerLeave={() => setHoveredHostID((current) => current === host.id ? null : current)}
             className={cn(
                 "flex min-w-0 items-center gap-4 text-left transition-all hover:border-primary/40 hover:bg-muted/40",
                 compact
                     ? "w-full rounded-md px-3 py-2"
                     : "rounded-xl border border-border bg-card p-5 shadow-sm hover:shadow-md",
+                hoveredHostID === host.id && "border-primary/40 bg-muted/40 shadow-md",
                 treeNode && "relative before:absolute before:-left-4 before:top-1/2 before:w-4 before:border-t before:border-border before:content-['']"
             )}
         >
@@ -205,11 +211,18 @@ export function GroupsPage() {
                 style={groupViewMode === "tree" ? undefined : {gridTemplateColumns: "repeat(auto-fit, minmax(20rem, 1fr))"}}
             >
                 {filteredGroups?.map((group) => (
-                    <div key={group.id} className={groupViewMode === "tree"
-                        ? "group flex flex-wrap items-center border-b border-border last:border-b-0"
-                        : groupViewMode === "list"
-                            ? "group flex items-center justify-between border-b border-border bg-transparent last:border-b-0 hover:bg-muted/40"
-                        : "group flex items-center justify-between rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md"}
+                    <div
+                        key={group.id}
+                        onPointerEnter={() => setHoveredGroupID(group.id)}
+                        onPointerLeave={() => setHoveredGroupID((current) => current === group.id ? null : current)}
+                        className={cn(
+                            groupViewMode === "tree"
+                                ? "group flex flex-wrap items-center border-b border-border last:border-b-0"
+                                : groupViewMode === "list"
+                                    ? "group flex items-center justify-between border-b border-border bg-transparent last:border-b-0 hover:bg-muted/40"
+                                    : "group flex items-center justify-between rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md",
+                            hoveredGroupID === group.id && (groupViewMode === "cards" ? "border-primary/40 shadow-md" : "bg-muted/40")
+                        )}
                     >
                         <button
                             type="button"
@@ -234,9 +247,13 @@ export function GroupsPage() {
                             </span>
                         </button>
                         <div className="flex shrink-0 items-center pr-4">
-                            <DropdownMenu modal={false}>
+                            <DropdownMenu
+                                modal={false}
+                                open={openGroupMenuID === group.id}
+                                onOpenChange={(open) => setOpenGroupMenuID(open ? group.id : null)}
+                            >
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon-sm" className="opacity-60 transition-opacity group-hover:opacity-100 hover:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100">
+                                    <Button variant="ghost" size="icon-sm" className={cn("transition-opacity hover:opacity-100 focus-visible:opacity-100", hoveredGroupID === group.id || openGroupMenuID === group.id ? "opacity-100" : "opacity-60")}>
                                         <MoreHorizontal className="size-4 text-muted-foreground"/>
                                     </Button>
                                 </DropdownMenuTrigger>

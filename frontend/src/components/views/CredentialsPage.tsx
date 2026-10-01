@@ -32,6 +32,8 @@ export function CredentialsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCredential, setEditingCredential] = useState<SavedCredential | null>(null);
     const [credentialToDelete, setCredentialToDelete] = useState<SavedCredential | null>(null);
+    const [hoveredCredentialID, setHoveredCredentialID] = useState<string | null>(null);
+    const [openCredentialMenuID, setOpenCredentialMenuID] = useState<string | null>(null);
 
     const filteredCredentials = useMemo(() => {
         const query = searchQuery.trim().toLocaleLowerCase();
@@ -89,7 +91,12 @@ export function CredentialsPage() {
 
             <div className="grid w-full gap-4" style={{gridTemplateColumns: "repeat(auto-fit, minmax(20rem, 1fr))"}}>
                 {filteredCredentials?.map((credential) => (
-                    <div key={credential.id} className="group flex flex-row justify-between rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md">
+                    <div
+                        key={credential.id}
+                        onPointerEnter={() => setHoveredCredentialID(credential.id)}
+                        onPointerLeave={() => setHoveredCredentialID((current) => current === credential.id ? null : current)}
+                        className={`group flex flex-row justify-between rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md ${hoveredCredentialID === credential.id ? "border-primary/40 shadow-md" : ""}`}
+                    >
                         <div className="flex min-w-0 flex-1 items-center gap-4 p-5">
                             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <KeyRound className="size-5"/>
@@ -109,9 +116,13 @@ export function CredentialsPage() {
                             </div>
                         </div>
                         <div className="flex shrink-0 items-center pr-4">
-                            <DropdownMenu modal={false}>
+                            <DropdownMenu
+                                modal={false}
+                                open={openCredentialMenuID === credential.id}
+                                onOpenChange={(open) => setOpenCredentialMenuID(open ? credential.id : null)}
+                            >
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon-sm" className="opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100 focus-visible:opacity-100">
+                                    <Button variant="ghost" size="icon-sm" className={`transition-opacity focus-visible:opacity-100 ${hoveredCredentialID === credential.id || openCredentialMenuID === credential.id ? "opacity-100" : "opacity-0"}`}>
                                         <MoreHorizontal className="size-4 text-muted-foreground"/>
                                     </Button>
                                 </DropdownMenuTrigger>

@@ -5,6 +5,76 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export class SFTPDirectory {
+    "path": string;
+    "entries": SFTPEntry[];
+
+    /** Creates a new SFTPDirectory instance. */
+    constructor($$source: Partial<SFTPDirectory> = {}) {
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("entries" in $$source)) {
+            this["entries"] = [];
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPDirectory instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPDirectory {
+        const $$createField1_0 = $$createType1;
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("entries" in $$parsedSource) {
+            $$parsedSource["entries"] = $$createField1_0($$parsedSource["entries"]);
+        }
+        return new SFTPDirectory($$parsedSource as Partial<SFTPDirectory>);
+    }
+}
+
+export class SFTPEntry {
+    "name": string;
+    "path": string;
+    "isDir": boolean;
+    "size": number;
+    "modTime": number;
+    "mode": string;
+
+    /** Creates a new SFTPEntry instance. */
+    constructor($$source: Partial<SFTPEntry> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("isDir" in $$source)) {
+            this["isDir"] = false;
+        }
+        if (!("size" in $$source)) {
+            this["size"] = 0;
+        }
+        if (!("modTime" in $$source)) {
+            this["modTime"] = 0;
+        }
+        if (!("mode" in $$source)) {
+            this["mode"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPEntry instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPEntry {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SFTPEntry($$parsedSource as Partial<SFTPEntry>);
+    }
+}
+
 export class SSHConnectionConfig {
     "id": string;
     "host": string;
@@ -39,9 +109,9 @@ export class SSHConnectionConfig {
      * Creates a new SSHConnectionConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): SSHConnectionConfig {
-        const $$createField7_0 = $$createType1;
-        const $$createField8_0 = $$createType2;
-        const $$createField9_0 = $$createType4;
+        const $$createField7_0 = $$createType3;
+        const $$createField8_0 = $$createType4;
+        const $$createField9_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("jumpHost" in $$parsedSource) {
             $$parsedSource["jumpHost"] = $$createField7_0($$parsedSource["jumpHost"]);
@@ -126,8 +196,10 @@ export class SSHPortForward {
 }
 
 // Private type creation functions
-const $$createType0 = SSHJumpHostConfig.createFrom;
-const $$createType1 = $Create.Nullable($$createType0);
-const $$createType2 = $Create.Array($$createType0);
-const $$createType3 = SSHPortForward.createFrom;
-const $$createType4 = $Create.Array($$createType3);
+const $$createType0 = SFTPEntry.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = SSHJumpHostConfig.createFrom;
+const $$createType3 = $Create.Nullable($$createType2);
+const $$createType4 = $Create.Array($$createType2);
+const $$createType5 = SSHPortForward.createFrom;
+const $$createType6 = $Create.Array($$createType5);

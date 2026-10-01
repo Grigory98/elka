@@ -7,6 +7,8 @@ export {
 };
 
 export {
+    SFTPDirectory,
+    SFTPEntry,
     SSHConnectionConfig,
     SSHJumpHostConfig,
     SSHPortForward

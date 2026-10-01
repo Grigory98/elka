@@ -18,6 +18,7 @@ interface TerminalInstanceProps {
     isActive: boolean;
     isVisible: boolean;
     isSplitPane?: boolean;
+    workspaceID?: string;
     paneTitle?: string;
     layoutStyle?: CSSProperties;
     onFocus: () => void;
@@ -32,6 +33,7 @@ export function TerminalInstance({
     isActive,
     isVisible,
     isSplitPane = false,
+    workspaceID,
     paneTitle,
     layoutStyle,
     onFocus,
@@ -244,6 +246,8 @@ export function TerminalInstance({
     return (
         <div
             style={layoutStyle}
+            data-split-pane-id={isSplitPane ? sessionId : undefined}
+            data-workspace-id={isSplitPane ? workspaceID : undefined}
             onDragOver={handleDragOver}
             onDragLeave={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPlacement(null);
@@ -251,12 +255,16 @@ export function TerminalInstance({
             onDrop={handleDrop}
             className={cn(
                 "group relative h-full w-full min-h-0 min-w-0 bg-background p-2",
-                isSplitPane && "overflow-hidden rounded-lg border border-border",
+                isSplitPane && "flex flex-col overflow-hidden rounded-lg border border-white/45",
                 isVisible ? "block" : "hidden"
             )}
         >
             {isSplitPane && (
-                <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-md border border-border bg-popover/95 p-1 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <div className={cn(
+                    "mb-2 flex h-9 shrink-0 items-center justify-between gap-2 border-b border-white/20 px-1",
+                    isActive && "bg-white/[0.035]"
+                )}>
+                    <div className="flex min-w-0 items-center gap-2">
                     <button
                         type="button"
                         draggable
@@ -266,11 +274,13 @@ export function TerminalInstance({
                         }}
                         title={t("drag_pane")}
                         aria-label={t("drag_pane")}
-                        className="flex size-7 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
+                        className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
                     >
                         <GripVertical className="size-4"/>
                     </button>
-                    <span className="max-w-32 truncate px-1 text-xs text-muted-foreground">{paneTitle || config.host}</span>
+                    <span className="truncate text-xs font-medium text-foreground">{paneTitle || config.host}</span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
                     <button
                         type="button"
                         title={t("detach_pane")}
@@ -289,6 +299,7 @@ export function TerminalInstance({
                     >
                         <X className="size-4"/>
                     </button>
+                    </div>
                 </div>
             )}
             {dropPlacement && (
@@ -300,7 +311,7 @@ export function TerminalInstance({
                     dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
                 )}/>
             )}
-            <div ref={containerRef} className="h-full w-full"/>
+            <div ref={containerRef} className={cn("w-full", isSplitPane ? "min-h-0 flex-1" : "h-full")}/>
         </div>
     );
 }

@@ -3,11 +3,17 @@ import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } fr
 import { useUIStore, ViewType } from "@/store/uiStore";
 
 export const TERMINAL_SESSION_DRAG_TYPE = "application/x-terminator-session";
-export const TERMINAL_TAB_ORDER_DRAG_TYPE = "application/x-terminator-tab-order";
-export const SPLIT_WORKSPACE_TAB_ID = "workspace:split";
 
 export function terminalSessionTabID(sessionID: string) {
     return `session:${sessionID}`;
+}
+
+export function splitWorkspaceTabID(workspaceID: string) {
+    return `workspace:${workspaceID}`;
+}
+
+export function terminalTabGroupID(groupID: string) {
+    return `group:${groupID}`;
 }
 
 export interface TerminalSession {
@@ -35,22 +41,42 @@ export type TerminalSplitLayout =
     | {type: "pane"; sessionId: string}
     | {type: "split"; direction: "horizontal" | "vertical"; ratio: number; first: TerminalSplitLayout; second: TerminalSplitLayout};
 
+export interface SplitWorkspace {
+    id: string;
+    title: string;
+    layout: TerminalSplitLayout | null;
+    activeSessionId: string | null;
+}
+
+export interface TerminalTabGroup {
+    id: string;
+    title: string;
+    sessionIds: string[];
+    activeSessionId: string | null;
+}
+
 interface SessionState {
     sessions: TerminalSession[];
     activeSessionId: string | null;
-    splitLayout: TerminalSplitLayout | null;
-    splitSessionIds: string[] | null;
-    splitWorkspaceActive: boolean;
-    splitActiveSessionId: string | null;
+    workspaces: SplitWorkspace[];
+    activeWorkspaceID: string | null;
+    tabGroups: TerminalTabGroup[];
     topTabOrder: string[];
     addSession: (params: CreateSessionParams) => void;
-    addSessionToSplit: (id: string) => void;
-    placeSessionBeside: (referenceID: string, sessionID: string, placement: SplitPlacement) => void;
-    removeSessionFromSplit: (id: string) => void;
-    setSplitRatio: (path: string, ratio: number) => void;
-    setSplitWorkspaceActive: () => void;
-    closeSplitWorkspace: () => void;
-    reorderTopTab: (draggedID: string, targetID: string) => void;
+    createSplitWorkspace: (title: string) => void;
+    renameSplitWorkspace: (workspaceID: string, title: string) => void;
+    setActiveWorkspace: (workspaceID: string) => void;
+    addSessionToSplit: (id: string, workspaceID?: string, defaultWorkspaceTitle?: string) => void;
+    placeSessionBeside: (workspaceID: string, referenceID: string, sessionID: string, placement: SplitPlacement) => void;
+    removeSessionFromSplit: (workspaceID: string, id: string) => void;
+    setSplitRatio: (workspaceID: string, path: string, ratio: number) => void;
+    closeSplitWorkspace: (workspaceID: string) => void;
+    reorderTopTab: (draggedID: string, targetID: string, insertAfter?: boolean) => void;
+    createTabGroup: (sessionID: string, title: string) => void;
+    renameTabGroup: (groupID: string, title: string) => void;
+    moveSessionToGroup: (sessionID: string, groupID: string) => void;
+    removeSessionFromGroup: (sessionID: string) => void;
+    ungroupTabs: (groupID: string) => void;
     duplicateSession: (id: string) => void;
     closeOtherSessions: (id: string) => void;
     removeSession: (id: string) => void;
@@ -139,13 +165,51 @@ function attachBeside(
     return insertPane(base, reference, sessionID, placement).layout;
 }
 
+function removeSessionsFromWorkspaces(workspaces: SplitWorkspace[], sessionIDs: string[]) {
+    return workspaces.map((workspace) => {
+        let layout = workspace.layout;
+        for (const sessionID of sessionIDs) layout = removePane(layout, sessionID).layout;
+        const ids = paneIDs(layout);
+        return {
+            ...workspace,
+            layout,
+            activeSessionId: ids.includes(workspace.activeSessionId || "") ? workspace.activeSessionId : ids[0] || null,
+        };
+    });
+}
+
+function removeSessionsFromGroups(groups: TerminalTabGroup[], sessionIDs: string[]) {
+    const removed = new Set(sessionIDs);
+    return groups
+        .map((group) => {
+            const remaining = group.sessionIds.filter((id) => !removed.has(id));
+            return {
+                ...group,
+                sessionIds: remaining,
+                activeSessionId: remaining.includes(group.activeSessionId || "") ? group.activeSessionId : remaining[0] || null,
+            };
+        })
+        .filter((group) => group.sessionIds.length > 0);
+}
+
+function cleanTabOrderForGroupChanges(
+    order: string[],
+    previousGroups: TerminalTabGroup[],
+    nextGroups: TerminalTabGroup[],
+    removedSessionIDs: string[],
+) {
+    const nextIDs = new Set(nextGroups.map((group) => group.id));
+    const removedGroupTabIDs = new Set(previousGroups.filter((group) => !nextIDs.has(group.id)).map((group) => terminalTabGroupID(group.id)));
+    const removedSessionTabIDs = new Set(removedSessionIDs.map(terminalSessionTabID));
+    return order.filter((id) => !removedGroupTabIDs.has(id) && !removedSessionTabIDs.has(id));
+}
+
 export const useSessionStore = create<SessionState>((set, get) => ({
     sessions: [],
     activeSessionId: null,
-    splitLayout: null,
-    splitSessionIds: null,
-    splitWorkspaceActive: false,
-    splitActiveSessionId: null,
+    workspaces: [],
+    activeWorkspaceID: null,
+    tabGroups: [],
     topTabOrder: [],
 
     addSession: (params) => set((state) => {
@@ -172,7 +236,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         return {
             sessions: [...state.sessions, newSession],
             activeSessionId: newId,
-            splitWorkspaceActive: false,
+            activeWorkspaceID: null,
             topTabOrder: [...state.topTabOrder.filter((tabID) => tabID !== terminalSessionTabID(newId)), terminalSessionTabID(newId)],
         };
     }),
@@ -194,133 +258,260 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         });
     },
 
-    addSessionToSplit: (id) => {
+    createSplitWorkspace: (title) => {
+        const state = get();
+        const id = crypto.randomUUID();
+        const workspace: SplitWorkspace = {id, title, layout: null, activeSessionId: null};
+        useUIStore.getState().setActiveView(ViewType.Terminal);
+        set({
+            workspaces: [...state.workspaces, workspace],
+            activeWorkspaceID: id,
+            activeSessionId: null,
+            topTabOrder: [...state.topTabOrder, splitWorkspaceTabID(id)],
+        });
+    },
+
+    renameSplitWorkspace: (workspaceID, title) => set((state) => ({
+        workspaces: state.workspaces.map((workspace) => workspace.id === workspaceID ? {...workspace, title} : workspace),
+    })),
+
+    setActiveWorkspace: (workspaceID) => {
+        const workspace = get().workspaces.find((item) => item.id === workspaceID);
+        if (!workspace) return;
+        const ids = paneIDs(workspace.layout);
+        const activeSessionId = ids.includes(workspace.activeSessionId || "") ? workspace.activeSessionId : ids[0] || null;
+        useUIStore.getState().setActiveView(ViewType.Terminal);
+        set({activeWorkspaceID: workspaceID, activeSessionId});
+    },
+
+    addSessionToSplit: (id, requestedWorkspaceID, defaultWorkspaceTitle) => {
         const state = get();
         if (!state.sessions.some((session) => session.id === id)) return;
-        if (state.splitLayout && paneIDs(state.splitLayout).includes(id)) return;
-        if (state.splitLayout && paneIDs(state.splitLayout).length >= 6) return;
 
-        const candidate = state.sessions.find((session) => session.id === state.activeSessionId && session.id !== id)
-            || [...state.sessions].reverse().find((session) => session.id !== id);
-        const layout = state.splitLayout
-            ? attachBeside(state.splitLayout, state.activeSessionId || paneIDs(state.splitLayout)[0], id, "right")
-            : candidate
-                ? attachBeside({type: "pane", sessionId: candidate.id}, candidate.id, id, "right")
-                : {type: "pane", sessionId: id} as TerminalSplitLayout;
+        const alreadyInWorkspace = state.workspaces.find((workspace) => paneIDs(workspace.layout).includes(id));
+        let workspaceID = requestedWorkspaceID || state.activeWorkspaceID || alreadyInWorkspace?.id || state.workspaces[0]?.id;
+        let workspaces = state.workspaces;
+        let topTabOrder = state.topTabOrder;
+        let targetWorkspace = workspaceID ? workspaces.find((workspace) => workspace.id === workspaceID) : undefined;
+        let createdWorkspace = false;
+        if (!targetWorkspace) {
+            workspaceID = crypto.randomUUID();
+            const defaultTitle = defaultWorkspaceTitle || `Split workspace ${state.workspaces.length + 1}`;
+            targetWorkspace = {id: workspaceID, title: defaultTitle, layout: null, activeSessionId: null};
+            workspaces = [...workspaces, targetWorkspace];
+            topTabOrder = [...topTabOrder, splitWorkspaceTabID(workspaceID)];
+            createdWorkspace = true;
+        }
+
+        const currentIDs = paneIDs(targetWorkspace.layout);
+        if (currentIDs.includes(id)) {
+            set({activeWorkspaceID: workspaceID, activeSessionId: id});
+            useUIStore.getState().setActiveView(ViewType.Terminal);
+            return;
+        }
+        if (currentIDs.length >= 6) return;
+
+        let candidateID = targetWorkspace.activeSessionId && targetWorkspace.activeSessionId !== id
+            ? targetWorkspace.activeSessionId
+            : currentIDs.find((sessionID) => sessionID !== id);
+        const activeSessionIsInWorkspace = state.workspaces.some((workspace) => paneIDs(workspace.layout).includes(state.activeSessionId || ""));
+        if (!candidateID && createdWorkspace && !alreadyInWorkspace && !activeSessionIsInWorkspace && state.activeSessionId !== id) {
+            candidateID = state.activeSessionId || undefined;
+        }
+        const movedIDs = candidateID && !currentIDs.includes(candidateID) ? [id, candidateID] : [id];
+        const groups = removeSessionsFromGroups(state.tabGroups, movedIDs);
+        topTabOrder = cleanTabOrderForGroupChanges(topTabOrder, state.tabGroups, groups, movedIDs);
+        workspaces = removeSessionsFromWorkspaces(workspaces, [id]);
+
+        let updatedWorkspace = workspaces.find((workspace) => workspace.id === workspaceID);
+        if (!updatedWorkspace) return;
+        let layout = updatedWorkspace.layout;
+        if (candidateID && !paneIDs(layout).includes(candidateID)) {
+            layout = attachBeside(layout, paneIDs(layout)[0] || candidateID, candidateID, "right");
+        }
+        const referenceID = updatedWorkspace.activeSessionId && paneIDs(layout).includes(updatedWorkspace.activeSessionId)
+            ? updatedWorkspace.activeSessionId
+            : paneIDs(layout)[0] || id;
+        layout = attachBeside(layout, referenceID, id, "right");
+        workspaces = workspaces.map((workspace) => workspace.id === workspaceID
+            ? {...workspace, layout, activeSessionId: id}
+            : workspace);
 
         useUIStore.getState().setActiveView(ViewType.Terminal);
-        const ids = paneIDs(layout);
         set({
-            splitLayout: layout,
-            splitSessionIds: ids,
-            splitWorkspaceActive: true,
-            splitActiveSessionId: id,
+            workspaces,
+            tabGroups: groups,
+            activeWorkspaceID: workspaceID,
             activeSessionId: id,
-            topTabOrder: state.topTabOrder.includes(SPLIT_WORKSPACE_TAB_ID)
-                ? state.topTabOrder
-                : [...state.topTabOrder, SPLIT_WORKSPACE_TAB_ID],
+            topTabOrder,
         });
     },
 
-    placeSessionBeside: (referenceID, sessionID, placement) => {
+    placeSessionBeside: (workspaceID, referenceID, sessionID, placement) => {
         const state = get();
         if (referenceID === sessionID || !state.sessions.some((session) => session.id === sessionID)) return;
-        const existingIDs = paneIDs(state.splitLayout);
-        if (!existingIDs.includes(sessionID) && existingIDs.length >= 6) return;
-        let layout: TerminalSplitLayout | null;
-        if (state.splitLayout) {
-            const base = removePane(state.splitLayout, sessionID).layout;
-            if (base) {
-                const remainingIDs = paneIDs(base);
-                const reference = remainingIDs.includes(referenceID) ? referenceID : remainingIDs[0];
-                layout = reference
-                    ? insertPane(base, reference, sessionID, placement).layout
-                    : {type: "pane", sessionId: sessionID};
-            } else {
-                const reference = state.sessions.find((session) => session.id === referenceID && session.id !== sessionID);
-                layout = reference
-                    ? insertPane({type: "pane", sessionId: reference.id}, reference.id, sessionID, placement).layout
-                    : {type: "pane", sessionId: sessionID};
-            }
-        } else {
-            const reference = state.sessions.find((session) => session.id === referenceID && session.id !== sessionID)
-                || state.sessions.find((session) => session.id !== sessionID);
-            layout = reference
-                ? insertPane({type: "pane", sessionId: reference.id}, reference.id, sessionID, placement).layout
-                : {type: "pane", sessionId: sessionID};
-        }
-        if (!layout) return;
+        const targetWorkspace = state.workspaces.find((workspace) => workspace.id === workspaceID);
+        if (!targetWorkspace) return;
+        const currentIDs = paneIDs(targetWorkspace.layout);
+        if (!currentIDs.includes(sessionID) && currentIDs.length >= 6) return;
+
+        const baseLayout = removePane(targetWorkspace.layout, sessionID).layout;
+        const baseIDs = paneIDs(baseLayout);
+        const reference = baseIDs.includes(referenceID) ? referenceID : baseIDs[0];
+        const layout = reference
+            ? insertPane(baseLayout!, reference, sessionID, placement).layout
+            : {type: "pane", sessionId: sessionID} as TerminalSplitLayout;
+        const workspaces = removeSessionsFromWorkspaces(state.workspaces, [sessionID]).map((workspace) =>
+            workspace.id === workspaceID ? {...workspace, layout, activeSessionId: sessionID} : workspace
+        );
+        const tabGroups = removeSessionsFromGroups(state.tabGroups, [sessionID]);
+        const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [sessionID]);
         useUIStore.getState().setActiveView(ViewType.Terminal);
-        const ids = paneIDs(layout);
         set({
-            splitLayout: layout,
-            splitSessionIds: ids,
-            splitWorkspaceActive: true,
-            splitActiveSessionId: sessionID,
+            workspaces,
+            tabGroups,
+            activeWorkspaceID: workspaceID,
             activeSessionId: sessionID,
-            topTabOrder: state.topTabOrder.includes(SPLIT_WORKSPACE_TAB_ID)
-                ? state.topTabOrder
-                : [...state.topTabOrder, SPLIT_WORKSPACE_TAB_ID],
+            topTabOrder,
         });
     },
 
-    removeSessionFromSplit: (id) => set((state) => {
-        const result = removePane(state.splitLayout, id);
+    removeSessionFromSplit: (workspaceID, id) => set((state) => {
+        const workspace = state.workspaces.find((item) => item.id === workspaceID);
+        if (!workspace) return state;
+        const result = removePane(workspace.layout, id);
         if (!result.removed) return state;
         const ids = paneIDs(result.layout);
-        const splitLayout = result.layout;
-        const activeSessionId = state.activeSessionId === id ? (ids[0] || id) : state.activeSessionId;
+        const workspaces = state.workspaces.map((item) => item.id === workspaceID
+            ? {
+                ...item,
+                layout: result.layout,
+                activeSessionId: ids.includes(item.activeSessionId || "") ? item.activeSessionId : ids[0] || null,
+            }
+            : item);
+        const activeSessionId = state.activeWorkspaceID === workspaceID && state.activeSessionId === id
+            ? ids[0] || null
+            : state.activeSessionId;
+        const order = [...state.topTabOrder];
+        const workspaceIndex = order.indexOf(splitWorkspaceTabID(workspaceID));
+        order.splice(workspaceIndex < 0 ? order.length : workspaceIndex + 1, 0, terminalSessionTabID(id));
         useUIStore.getState().setActiveView(ViewType.Terminal);
         return {
-            splitLayout,
-            splitSessionIds: splitLayout ? ids : null,
-            splitWorkspaceActive: !!splitLayout,
-            splitActiveSessionId: splitLayout ? activeSessionId : null,
+            workspaces,
             activeSessionId,
-            topTabOrder: splitLayout
-                ? state.topTabOrder
-                : state.topTabOrder.filter((tabID) => tabID !== SPLIT_WORKSPACE_TAB_ID),
+            topTabOrder: order,
         };
     }),
 
-    setSplitRatio: (path, ratio) => set((state) => ({
-        splitLayout: updateSplitRatio(state.splitLayout, path, Math.max(0.15, Math.min(0.85, ratio))),
+    setSplitRatio: (workspaceID, path, ratio) => set((state) => ({
+        workspaces: state.workspaces.map((workspace) => workspace.id === workspaceID
+            ? {...workspace, layout: updateSplitRatio(workspace.layout, path, Math.max(0.15, Math.min(0.85, ratio)))}
+            : workspace),
     })),
 
-    setSplitWorkspaceActive: () => {
-        const {splitLayout, splitActiveSessionId} = get();
-        if (!splitLayout) return;
-        const ids = paneIDs(splitLayout);
-        const activeSessionId = ids.includes(splitActiveSessionId || "") ? splitActiveSessionId : (ids[0] || null);
-        useUIStore.getState().setActiveView(ViewType.Terminal);
-        set({splitWorkspaceActive: true, splitActiveSessionId: activeSessionId, activeSessionId});
-    },
+    closeSplitWorkspace: (workspaceID) => set((state) => {
+        const workspace = state.workspaces.find((item) => item.id === workspaceID);
+        if (!workspace) return state;
+        const releasedIDs = paneIDs(workspace.layout);
+        const workspaces = state.workspaces.filter((item) => item.id !== workspaceID);
+        const order = [...state.topTabOrder];
+        const workspaceIndex = order.indexOf(splitWorkspaceTabID(workspaceID));
+        if (workspaceIndex >= 0) order.splice(workspaceIndex, 1, ...releasedIDs.map(terminalSessionTabID));
+        const activeWorkspaceID = state.activeWorkspaceID === workspaceID
+            ? releasedIDs.length > 0 ? null : workspaces[0]?.id || null
+            : state.activeWorkspaceID;
+        const activeSessionId = releasedIDs.includes(state.activeSessionId || "")
+            ? state.activeSessionId
+            : activeWorkspaceID
+                ? workspaces.find((item) => item.id === activeWorkspaceID)?.activeSessionId || null
+                : state.sessions.find((session) => !workspaces.some((item) => paneIDs(item.layout).includes(session.id)))?.id || null;
+        return {
+            workspaces,
+            activeWorkspaceID,
+            activeSessionId,
+            topTabOrder: order,
+        };
+    }),
 
-    closeSplitWorkspace: () => {
-        const {splitSessionIds, splitActiveSessionId, activeSessionId} = get();
-        const fallbackSessionId = splitSessionIds?.includes(activeSessionId || "")
-            ? activeSessionId
-            : splitActiveSessionId || splitSessionIds?.[0] || activeSessionId;
-        set({
-            splitLayout: null,
-            splitSessionIds: null,
-            splitWorkspaceActive: false,
-            splitActiveSessionId: null,
-            activeSessionId: fallbackSessionId || null,
-            topTabOrder: get().topTabOrder.filter((tabID) => tabID !== SPLIT_WORKSPACE_TAB_ID),
-        });
-        if (fallbackSessionId) useUIStore.getState().setActiveView(ViewType.Terminal);
-    },
-
-    reorderTopTab: (draggedID, targetID) => set((state) => {
+    reorderTopTab: (draggedID, targetID, insertAfter = false) => set((state) => {
         if (draggedID === targetID) return state;
         const order = [...state.topTabOrder];
         const draggedIndex = order.indexOf(draggedID);
-        const targetIndex = order.indexOf(targetID);
-        if (draggedIndex < 0 || targetIndex < 0) return state;
+        if (draggedIndex < 0 || !order.includes(targetID)) return state;
         order.splice(draggedIndex, 1);
-        order.splice(order.indexOf(targetID), 0, draggedID);
+        const targetIndex = order.indexOf(targetID);
+        order.splice(targetIndex + (insertAfter ? 1 : 0), 0, draggedID);
+        if (order.every((id, index) => id === state.topTabOrder[index])) return state;
         return {topTabOrder: order};
+    }),
+
+    createTabGroup: (sessionID, title) => set((state) => {
+        if (!state.sessions.some((session) => session.id === sessionID)
+            || state.workspaces.some((workspace) => paneIDs(workspace.layout).includes(sessionID))) return state;
+        const id = crypto.randomUUID();
+        const group: TerminalTabGroup = {id, title, sessionIds: [sessionID], activeSessionId: sessionID};
+        const sessionTabID = terminalSessionTabID(sessionID);
+        const order = [...state.topTabOrder];
+        const index = order.indexOf(sessionTabID);
+        if (index < 0) order.push(terminalTabGroupID(id));
+        else order.splice(index, 1, terminalTabGroupID(id));
+        return {tabGroups: [...state.tabGroups, group], topTabOrder: order};
+    }),
+
+    renameTabGroup: (groupID, title) => set((state) => ({
+        tabGroups: state.tabGroups.map((group) => group.id === groupID ? {...group, title} : group),
+    })),
+
+    moveSessionToGroup: (sessionID, groupID) => set((state) => {
+        if (state.workspaces.some((workspace) => paneIDs(workspace.layout).includes(sessionID))) return state;
+        const target = state.tabGroups.find((group) => group.id === groupID);
+        if (!target || !state.sessions.some((session) => session.id === sessionID)) return state;
+        if (target.sessionIds.includes(sessionID)) return state;
+        const groups = state.tabGroups
+            .map((group) => ({...group, sessionIds: group.sessionIds.filter((id) => id !== sessionID)}))
+            .filter((group) => group.sessionIds.length > 0)
+            .map((group) => {
+                if (group.id !== groupID) return group;
+                const sessionIds = [...group.sessionIds, sessionID];
+                return {...group, sessionIds, activeSessionId: sessionID};
+            });
+        const order = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, groups, [sessionID]);
+        const sessionTabID = terminalSessionTabID(sessionID);
+        const sessionIndex = order.indexOf(sessionTabID);
+        const groupTabID = terminalTabGroupID(groupID);
+        const cleanedOrder = order.filter((id) => id !== sessionTabID);
+        if (!cleanedOrder.includes(groupTabID)) cleanedOrder.splice(sessionIndex < 0 ? cleanedOrder.length : Math.min(sessionIndex, cleanedOrder.length), 0, groupTabID);
+        return {tabGroups: groups, topTabOrder: cleanedOrder};
+    }),
+
+    removeSessionFromGroup: (sessionID) => set((state) => {
+        const group = state.tabGroups.find((item) => item.sessionIds.includes(sessionID));
+        if (!group) return state;
+        const remaining = group.sessionIds.filter((id) => id !== sessionID);
+        const tabGroups = remaining.length
+            ? state.tabGroups.map((item) => item.id === group.id
+                ? {...item, sessionIds: remaining, activeSessionId: remaining.includes(item.activeSessionId || "") ? item.activeSessionId : remaining[0]}
+                : item)
+            : state.tabGroups.filter((item) => item.id !== group.id);
+        const order = [...state.topTabOrder];
+        const groupIndex = order.indexOf(terminalTabGroupID(group.id));
+        if (remaining.length) order.splice(groupIndex < 0 ? order.length : groupIndex + 1, 0, terminalSessionTabID(sessionID));
+        else if (groupIndex >= 0) order.splice(groupIndex, 1, terminalSessionTabID(sessionID));
+        else order.push(terminalSessionTabID(sessionID));
+        return {tabGroups, topTabOrder: order};
+    }),
+
+    ungroupTabs: (groupID) => set((state) => {
+        const group = state.tabGroups.find((item) => item.id === groupID);
+        if (!group) return state;
+        const order = [...state.topTabOrder];
+        const index = order.indexOf(terminalTabGroupID(groupID));
+        if (index >= 0) order.splice(index, 1, ...group.sessionIds.map(terminalSessionTabID));
+        else order.push(...group.sessionIds.map(terminalSessionTabID));
+        return {
+            tabGroups: state.tabGroups.filter((item) => item.id !== groupID),
+            topTabOrder: order,
+        };
     }),
 
     closeOtherSessions: (id) => {
@@ -330,8 +521,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const toClose = sessions.filter((session) => session.id !== id);
 
         set({
-            sessions: [keep], activeSessionId: id, splitLayout: null, splitSessionIds: null,
-            splitWorkspaceActive: false, splitActiveSessionId: null,
+            sessions: [keep], activeSessionId: id, workspaces: [], activeWorkspaceID: null, tabGroups: [],
             topTabOrder: [terminalSessionTabID(id)],
         });
         useUIStore.getState().setActiveView(ViewType.Terminal);
@@ -340,46 +530,41 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     removeSession: (id) => set((state) => {
         const newSessions = state.sessions.filter((session) => session.id !== id);
-        const removed = removePane(state.splitLayout, id);
-        const remainingIDs = paneIDs(removed.layout);
-        const splitLayout = removed.layout;
+        const group = state.tabGroups.find((item) => item.sessionIds.includes(id));
+        const groupFallbackID = group?.sessionIds.find((sessionID) => sessionID !== id) || null;
+        const workspaces = removeSessionsFromWorkspaces(state.workspaces, [id]);
+        const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
+        const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
+        const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
         let activeSessionId = state.activeSessionId;
-        let splitActiveSessionId = state.splitActiveSessionId;
-
         if (activeSessionId === id) {
-            const splitFallback = remainingIDs[0];
-            if (splitFallback) {
-                activeSessionId = splitFallback;
-            } else if (newSessions.length > 0) {
-                const closedIndex = state.sessions.findIndex((session) => session.id === id);
-                activeSessionId = (newSessions[closedIndex - 1] || newSessions[0]).id;
-            } else {
-                activeSessionId = null;
-                useUIStore.getState().setActiveView(ViewType.Hosts);
-            }
+            if (groupFallbackID) activeSessionId = groupFallbackID;
+            else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
+            else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
         }
-        if (splitActiveSessionId === id) splitActiveSessionId = remainingIDs[0] || null;
+
+        if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
+
+        const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [id]);
 
         return {
             sessions: newSessions,
             activeSessionId,
-            splitLayout,
-            splitSessionIds: splitLayout ? remainingIDs : null,
-            splitWorkspaceActive: state.splitWorkspaceActive && !!splitLayout,
-            splitActiveSessionId: splitLayout ? splitActiveSessionId : null,
-            topTabOrder: state.topTabOrder.filter((tabID) =>
-                tabID !== terminalSessionTabID(id) && (splitLayout || tabID !== SPLIT_WORKSPACE_TAB_ID)
-            ),
+            workspaces,
+            tabGroups,
+            topTabOrder,
         };
     }),
 
     setActiveSession: (id) => {
         useUIStore.getState().setActiveView(ViewType.Terminal);
-        const isSplitSession = get().splitSessionIds?.includes(id) || false;
+        const state = get();
+        const workspace = state.workspaces.find((item) => paneIDs(item.layout).includes(id));
         set((state) => ({
             activeSessionId: id,
-            splitWorkspaceActive: isSplitSession,
-            splitActiveSessionId: isSplitSession ? id : state.splitActiveSessionId,
+            activeWorkspaceID: workspace?.id || null,
+            workspaces: state.workspaces.map((item) => item.id === workspace?.id ? {...item, activeSessionId: id} : item),
+            tabGroups: state.tabGroups.map((group) => group.sessionIds.includes(id) ? {...group, activeSessionId: id} : group),
         }));
     },
 
@@ -388,8 +573,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         sessions.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
         useUIStore.getState().setActiveView(ViewType.Hosts);
         set({
-            sessions: [], activeSessionId: null, splitLayout: null, splitSessionIds: null,
-            splitWorkspaceActive: false, splitActiveSessionId: null,
+            sessions: [], activeSessionId: null, workspaces: [], activeWorkspaceID: null, tabGroups: [],
             topTabOrder: [],
         });
     },

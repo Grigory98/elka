@@ -11,6 +11,7 @@ import { Host } from "../../../bindings/terminator-desktop/backend/internal/serv
 import { useTranslation } from "react-i18next";
 import { HostViewMode } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 
 interface HostCardProps {
     host: Host;
@@ -24,9 +25,13 @@ interface HostCardProps {
 export function HostCard({host, showGroup = true, viewMode = "cards", onConnect, onEdit, onDelete}: HostCardProps) {
     const {t} = useTranslation("common");
     const isCard = viewMode === "cards";
+    const [isHovered, setIsHovered] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
     return (
         <div
             tabIndex={0}
+            onPointerEnter={() => setIsHovered(true)}
+            onPointerLeave={() => setIsHovered(false)}
             onKeyDown={(e) => {
                 if (e.key === "Enter" && e.target === e.currentTarget) {
                     e.preventDefault();
@@ -37,7 +42,8 @@ export function HostCard({host, showGroup = true, viewMode = "cards", onConnect,
                 "group flex flex-row justify-between transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isCard
                     ? "rounded-xl border border-border bg-card shadow-sm hover:border-primary/40 hover:shadow-md"
-                    : "rounded-md border-b border-border bg-transparent hover:bg-muted/40"
+                    : "rounded-md border-b border-border bg-transparent hover:bg-muted/40",
+                isHovered && (isCard ? "border-primary/40 shadow-md" : "bg-muted/40")
             )}
         >
             <div
@@ -66,14 +72,12 @@ export function HostCard({host, showGroup = true, viewMode = "cards", onConnect,
             </div>
 
             <div className="flex shrink-0 items-center pr-4">
-                <DropdownMenu modal={false}>
+                <DropdownMenu modal={false} open={isMenuOpen} onOpenChange={setIsMenuOpen}>
                     <DropdownMenuTrigger asChild>
                         <Button
                             variant="ghost"
                             size="icon-sm"
-                            className="opacity-60 transition-opacity
-                                       group-hover:opacity-100 hover:opacity-100 data-[state=open]:opacity-100
-                                       focus-visible:opacity-100"
+                            className={cn("transition-opacity hover:opacity-100 focus-visible:opacity-100", isHovered || isMenuOpen ? "opacity-100" : "opacity-60")}
                         >
                             <MoreHorizontal className="size-4 text-muted-foreground"/>
                         </Button>

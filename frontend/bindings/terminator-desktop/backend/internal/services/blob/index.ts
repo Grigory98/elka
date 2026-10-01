@@ -4,11 +4,13 @@
 import * as CredentialService from "./credentialservice.js";
 import * as GroupService from "./groupservice.js";
 import * as HostService from "./hostservice.js";
+import * as HostTransferService from "./hosttransferservice.js";
 import * as KeyService from "./keyservice.js";
 export {
     CredentialService,
     GroupService,
     HostService,
+    HostTransferService,
     KeyService
 };
 
@@ -16,6 +18,7 @@ export {
     CredentialKind,
     Host,
     HostGroup,
+    HostTransferResult,
     ItemType,
     JumpHopMode,
     JumpHostHop,

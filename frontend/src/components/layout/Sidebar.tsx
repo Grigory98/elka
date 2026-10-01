@@ -7,6 +7,7 @@ import { useSyncStore } from "@/store/syncStore.ts";
 import { useTranslation } from "react-i18next";
 import { UpdatePopover } from "@/components/layout/UpdatePopover.tsx";
 import type { ReactNode } from "react";
+import { useState } from "react";
 
 interface SidebarItemProps {
     title: string;
@@ -17,8 +18,16 @@ interface SidebarItemProps {
 }
 
 function SidebarItem({title, active, onClick, children, indicatorClassName}: SidebarItemProps) {
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
-        <div className="group relative">
+        <div
+            className="sidebar-tooltip-parent group relative"
+            onPointerEnter={() => setIsHovered(true)}
+            onPointerLeave={() => setIsHovered(false)}
+            onFocusCapture={() => setIsHovered(true)}
+            onBlurCapture={() => setIsHovered(false)}
+        >
             <Button
                 variant={active ? "secondary" : "ghost"}
                 size="icon"
@@ -34,7 +43,8 @@ function SidebarItem({title, active, onClick, children, indicatorClassName}: Sid
             </Button>
             <span
                 role="tooltip"
-                className="pointer-events-none absolute left-full top-1/2 z-[100] ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+                className="sidebar-tooltip pointer-events-none absolute left-full top-1/2 z-[100] ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md transition-opacity"
+                style={{opacity: isHovered ? 1 : 0}}
             >
                 {title}
             </span>
@@ -55,7 +65,7 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                "wails-drag relative flex shrink-0 flex-col items-center justify-between pb-4 pt-2",
+                "wails-no-drag relative z-30 flex shrink-0 flex-col items-center justify-between pb-4 pt-2",
                 (activeView !== ViewType.Terminal || isSidebarVisible) ? "w-14" : "w-0 overflow-hidden border-r-0"
             )}
         >

@@ -98,8 +98,8 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
     const {
         sessions,
         activeSessionId,
-        splitLayout,
-        splitWorkspaceActive,
+        workspaces,
+        activeWorkspaceID,
         setActiveSession,
         setSplitRatio,
         placeSessionBeside,
@@ -107,9 +107,11 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
         removeSession,
     } = useSessionStore();
     const dragRef = useRef<ResizeDrag | null>(null);
-    const layout = splitWorkspaceActive && splitLayout
-        ? splitLayout
+    const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID);
+    const layout = activeWorkspaceID
+        ? activeWorkspace?.layout || null
         : activeSessionId ? {type: "pane" as const, sessionId: activeSessionId} : null;
+    const splitWorkspaceActive = !!activeWorkspaceID;
     const {panes, dividers} = useMemo(() => layoutPanes(layout), [layout]);
     const paneBySession = useMemo(() => new Map(panes.map((pane) => [pane.sessionId, pane])), [panes]);
 
@@ -135,7 +137,9 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
         const drag = dragRef.current;
         if (!drag || drag.pointerId !== event.pointerId || drag.regionPixels <= 0) return;
         const coordinate = drag.axis === "columns" ? event.clientX : event.clientY;
-        setSplitRatio(drag.path, drag.startRatio + (coordinate - drag.startCoordinate) / drag.regionPixels);
+        if (activeWorkspaceID) {
+            setSplitRatio(activeWorkspaceID, drag.path, drag.startRatio + (coordinate - drag.startCoordinate) / drag.regionPixels);
+        }
     };
 
     const endResize = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -147,13 +151,19 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
 
     return (
         <div className={cn("absolute inset-0 overflow-hidden bg-background", isVisible ? "block" : "hidden")}>
+            {splitWorkspaceActive && !activeWorkspace?.layout && isVisible && (
+                <div className="absolute inset-0 flex items-center justify-center px-8 text-center text-sm text-muted-foreground">
+                    {t("empty_split_workspace")}
+                </div>
+            )}
             {sessions.map((session) => {
                 const pane = paneBySession.get(session.id);
+                const isRightmostPane = !!pane && Math.abs(pane.rect.left + pane.rect.width - 1) < 0.001;
                 const layoutStyle: CSSProperties | undefined = pane ? {
                     position: "absolute",
                     left: `${pane.rect.left * 100}%`,
                     top: `${pane.rect.top * 100}%`,
-                    width: `${pane.rect.width * 100}%`,
+                    width: isRightmostPane ? `calc(${pane.rect.width * 100}% - 10px)` : `${pane.rect.width * 100}%`,
                     height: `${pane.rect.height * 100}%`,
                 } : undefined;
 
@@ -165,16 +175,19 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
                         isActive={session.id === activeSessionId}
                         isVisible={isVisible && !!pane}
                         isSplitPane={splitWorkspaceActive && !!pane}
+                        workspaceID={splitWorkspaceActive ? activeWorkspaceID || undefined : undefined}
                         paneTitle={session.title}
                         layoutStyle={layoutStyle}
                         onFocus={() => setActiveSession(session.id)}
-                        onDetachPane={() => removeSessionFromSplit(session.id)}
+                        onDetachPane={() => activeWorkspaceID && removeSessionFromSplit(activeWorkspaceID, session.id)}
                         onCloseSession={() => removeSession(session.id)}
-                        onDropSession={(draggedID, targetID, placement) => placeSessionBeside(targetID, draggedID, placement)}
+                        onDropSession={(draggedID, targetID, placement) => {
+                            if (activeWorkspaceID) placeSessionBeside(activeWorkspaceID, targetID, draggedID, placement);
+                        }}
                     />
                 );
             })}
-            {splitWorkspaceActive && splitLayout && dividers.map((divider) => (
+            {splitWorkspaceActive && activeWorkspace?.layout && dividers.map((divider) => (
                 <div
                     key={divider.path || "root"}
                     role="separator"

@@ -10,6 +10,7 @@ export class AppSettings {
     "showHostGroups": boolean;
     "hostViewMode": string;
     "groupViewMode": string;
+    "groupViewModeVersion"?: number;
     "vaultDirectory": string;
     "pendingVaultDirectory"?: string;
     "pendingVaultAction"?: string;

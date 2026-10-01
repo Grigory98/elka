@@ -107,6 +107,39 @@ export class HostGroup {
     }
 }
 
+export class HostTransferResult {
+    "hosts": number;
+    "groups": number;
+    "skipped": number;
+    "cancelled": boolean;
+
+    /** Creates a new HostTransferResult instance. */
+    constructor($$source: Partial<HostTransferResult> = {}) {
+        if (!("hosts" in $$source)) {
+            this["hosts"] = 0;
+        }
+        if (!("groups" in $$source)) {
+            this["groups"] = 0;
+        }
+        if (!("skipped" in $$source)) {
+            this["skipped"] = 0;
+        }
+        if (!("cancelled" in $$source)) {
+            this["cancelled"] = false;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HostTransferResult instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HostTransferResult {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HostTransferResult($$parsedSource as Partial<HostTransferResult>);
+    }
+}
+
 export enum ItemType {
     /**
      * The Go zero value for the underlying type of the enum.

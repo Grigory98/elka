@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen } from "lucide-react";
+import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen, Download, Upload, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SwitchServerModal } from "@/components/views/SwitchServerModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -21,10 +22,16 @@ import {
 import { useSyncStore } from "@/store/syncStore.ts";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
+import { HostTransferService } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
+import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
+
+type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
 
 export function SettingsPage() {
     const {t, i18n} = useTranslation(["settings", "common", "errors"]);
     const {data: user, refetch} = useCurrentUser();
+    const queryClient = useQueryClient();
     const {setUnlocked, setHasUser} = useAuthStore();
     const {clearSessions} = useSessionStore();
     const {lastError} = useSyncStore();
@@ -41,6 +48,10 @@ export function SettingsPage() {
     const [isServerModalOpen, setIsServerModalOpen] = useState(false);
     const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
     const [vaultDirectory, setVaultDirectory] = useState("");
+    const [importFormat, setImportFormat] = useState<HostTransferFormat>("tabby");
+    const [exportFormat, setExportFormat] = useState<HostTransferFormat>("tabby");
+    const [transferAction, setTransferAction] = useState<"import" | "export" | null>(null);
+    const [transferStatus, setTransferStatus] = useState<string | null>(null);
 
     useEffect(() => {
         SettingsService.GetSettings()
@@ -118,6 +129,35 @@ export function SettingsPage() {
             else setGroupViewMode(mode);
         } catch (error) {
             handleAppError(error);
+        }
+    };
+
+    const transferHosts = async (action: "import" | "export") => {
+        setTransferAction(action);
+        setTransferStatus(null);
+        try {
+            const result = action === "import"
+                ? await HostTransferService.Import(importFormat)
+                : await HostTransferService.Export(exportFormat);
+            if (result.cancelled) return;
+            if (action === "import") {
+                await queryClient.invalidateQueries({queryKey: HOSTS_QUERY_KEY});
+                await queryClient.invalidateQueries({queryKey: GROUPS_QUERY_KEY});
+                setTransferStatus(t("host_transfer_import_result", {
+                    hosts: result.hosts,
+                    groups: result.groups,
+                    skipped: result.skipped,
+                }));
+            } else {
+                setTransferStatus(t("host_transfer_export_result", {
+                    hosts: result.hosts,
+                    groups: result.groups,
+                }));
+            }
+        } catch (error) {
+            handleAppError(error);
+        } finally {
+            setTransferAction(null);
         }
     };
 
@@ -200,6 +240,48 @@ export function SettingsPage() {
                             </Button>
                         </div>
                     </div>
+                </SettingsCard>
+
+                <SettingsCard title={t("host_transfer_title")} description={t("host_transfer_desc")}>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="grid min-w-52 flex-1 gap-2">
+                            <label className="text-sm font-medium text-foreground" htmlFor="host-import-format">{t("host_import_format")}</label>
+                            <Select value={importFormat} onValueChange={(value) => setImportFormat(value as HostTransferFormat)}>
+                                <SelectTrigger id="host-import-format"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
+                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
+                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button variant="outline" disabled={!!transferAction} onClick={() => void transferHosts("import")}>
+                            {transferAction === "import" ? <LoaderCircle className="size-4 animate-spin"/> : <Upload className="size-4"/>}
+                            {t("host_import_button")}
+                        </Button>
+                    </div>
+
+                    <div className="my-2 h-px w-full bg-border"/>
+
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="grid min-w-52 flex-1 gap-2">
+                            <label className="text-sm font-medium text-foreground" htmlFor="host-export-format">{t("host_export_format")}</label>
+                            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as HostTransferFormat)}>
+                                <SelectTrigger id="host-export-format"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
+                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
+                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button disabled={!!transferAction} onClick={() => void transferHosts("export")}>
+                            {transferAction === "export" ? <LoaderCircle className="size-4 animate-spin"/> : <Download className="size-4"/>}
+                            {t("host_export_button")}
+                        </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t("host_transfer_secrets_note")}</p>
+                    {transferStatus && <p role="status" className="text-sm text-success">{transferStatus}</p>}
                 </SettingsCard>
 
                 <SettingsCard title={t("preferences_title")}>

@@ -141,6 +141,32 @@
     --wails-resize: all;
 }
 
+[data-top-tab-drop-target="true"] {
+    outline: 2px solid var(--primary);
+    outline-offset: -4px;
+}
+
+[role="menuitem"]:hover {
+    background-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+}
+
+[role="menuitem"][data-app-menu-hovered="true"] {
+    background-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+}
+
+[role="menuitem"]:focus:not(:hover) {
+    background-color: transparent !important;
+    color: inherit !important;
+}
+
+.sidebar-tooltip-parent:hover .sidebar-tooltip,
+.sidebar-tooltip-parent:focus-within .sidebar-tooltip {
+    opacity: 1 !important;
+}
+
+
 .app-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(161, 161, 170, 0.38) transparent;

@@ -192,8 +192,9 @@ func main() {
 
 	authService := auth.NewAuthService(queries, v, client)
 	syncService := sync.NewSyncService(queries, client, v, syncEmitter, nil)
-	sshService := ssh.NewSshService(sshEmitter)
+	sshService := ssh.NewSshService(sshEmitter, app)
 	hostService := blob.NewHostService(queries, v)
+	hostTransferService := blob.NewHostTransferService(queries, v, app)
 	keyService := blob.NewKeyService(queries, v)
 	credentialService := blob.NewCredentialService(queries, v)
 	groupService := blob.NewGroupService(queries, v)
@@ -203,6 +204,7 @@ func main() {
 	app.RegisterService(application.NewService(syncService))
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(hostService))
+	app.RegisterService(application.NewService(hostTransferService))
 	app.RegisterService(application.NewService(keyService))
 	app.RegisterService(application.NewService(credentialService))
 	app.RegisterService(application.NewService(groupService))
@@ -220,7 +222,8 @@ func main() {
 		EnableFileDrop: true,
 		Frameless:      runtime.GOOS == "windows",
 		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 56,
+			// Keep the native drag zone above the tab row; tabs start below this strip.
+			InvisibleTitleBarHeight: 16,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},

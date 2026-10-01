@@ -1,15 +1,21 @@
 package ssh
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"terminator-desktop/backend/internal/apperror"
 	"time"
 
+	"github.com/pkg/sftp"
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -48,6 +54,20 @@ type SSHPortForward struct {
 	TargetPort    int    `json:"targetPort"`
 }
 
+type SFTPEntry struct {
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	IsDir   bool   `json:"isDir"`
+	Size    int64  `json:"size"`
+	ModTime int64  `json:"modTime"`
+	Mode    string `json:"mode"`
+}
+
+type SFTPDirectory struct {
+	Path    string      `json:"path"`
+	Entries []SFTPEntry `json:"entries"`
+}
+
 type SSHPortForwardMode string
 
 const (
@@ -65,6 +85,7 @@ type activeSession struct {
 
 type SshService struct {
 	emitter  SSHEmitter
+	app      *application.App
 	mu       sync.RWMutex
 	sessions map[string]*activeSession
 }
@@ -74,9 +95,10 @@ const timeout = 15 * time.Second
 
 const batchRatePerSecond = 60
 
-func NewSshService(emitter SSHEmitter) *SshService {
+func NewSshService(emitter SSHEmitter, app *application.App) *SshService {
 	return &SshService{
 		emitter:  emitter,
+		app:      app,
 		sessions: make(map[string]*activeSession),
 	}
 }
@@ -371,6 +393,153 @@ func (s *SshService) Resize(sessionID string, rows, cols int) error {
 	}
 
 	return active.session.WindowChange(rows, cols)
+}
+
+func (s *SshService) ListSFTPDirectory(sessionID, directory string) (SFTPDirectory, error) {
+	client, err := s.newSFTPClient(sessionID)
+	if err != nil {
+		return SFTPDirectory{}, err
+	}
+	defer client.Close()
+
+	directory, err = resolveSFTPPath(client, directory)
+	if err != nil {
+		return SFTPDirectory{}, fmt.Errorf("resolve remote directory: %w", err)
+	}
+	files, err := client.ReadDir(directory)
+	if err != nil {
+		return SFTPDirectory{}, fmt.Errorf("read remote directory %s: %w", directory, err)
+	}
+
+	entries := make([]SFTPEntry, 0, len(files))
+	for _, file := range files {
+		if file.Name() == "." || file.Name() == ".." {
+			continue
+		}
+		entries = append(entries, SFTPEntry{
+			Name:    file.Name(),
+			Path:    path.Join(directory, file.Name()),
+			IsDir:   file.IsDir(),
+			Size:    file.Size(),
+			ModTime: file.ModTime().Unix(),
+			Mode:    file.Mode().String(),
+		})
+	}
+	return SFTPDirectory{Path: directory, Entries: entries}, nil
+}
+
+func (s *SshService) DownloadSFTPFile(sessionID, remotePath, suggestedFilename, dialogTitle string) (bool, error) {
+	client, err := s.newSFTPClient(sessionID)
+	if err != nil {
+		return false, err
+	}
+	defer client.Close()
+
+	remotePath, err = resolveSFTPPath(client, remotePath)
+	if err != nil {
+		return false, fmt.Errorf("resolve remote file: %w", err)
+	}
+	if s.app == nil {
+		return false, fmt.Errorf("file save dialog is unavailable")
+	}
+	if strings.TrimSpace(suggestedFilename) == "" {
+		suggestedFilename = path.Base(remotePath)
+	}
+	if strings.TrimSpace(dialogTitle) == "" {
+		dialogTitle = "Save remote file"
+	}
+	localPath, err := s.app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
+		Title:                dialogTitle,
+		Filename:             suggestedFilename,
+		CanCreateDirectories: true,
+	}).PromptForSingleSelection()
+	if err != nil {
+		return false, fmt.Errorf("choose a local destination: %w", err)
+	}
+	if localPath == "" {
+		return false, nil
+	}
+
+	remoteFile, err := client.Open(remotePath)
+	if err != nil {
+		return false, fmt.Errorf("open remote file %s: %w", remotePath, err)
+	}
+	defer remoteFile.Close()
+	localFile, err := os.OpenFile(localPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	if err != nil {
+		return false, fmt.Errorf("create local file %s: %w", localPath, err)
+	}
+	if _, err = io.Copy(localFile, remoteFile); err != nil {
+		_ = localFile.Close()
+		return false, fmt.Errorf("download remote file %s: %w", remotePath, err)
+	}
+	if err = localFile.Close(); err != nil {
+		return false, fmt.Errorf("close local file %s: %w", localPath, err)
+	}
+	return true, nil
+}
+
+func (s *SshService) UploadSFTPFile(sessionID, remotePath string, data []byte) error {
+	client, err := s.newSFTPClient(sessionID)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	remotePath, err = resolveSFTPPath(client, remotePath)
+	if err != nil {
+		return fmt.Errorf("resolve remote file: %w", err)
+	}
+	file, err := client.Create(remotePath)
+	if err != nil {
+		return fmt.Errorf("create remote file %s: %w", remotePath, err)
+	}
+	if _, err = io.Copy(file, bytes.NewReader(data)); err != nil {
+		_ = file.Close()
+		return fmt.Errorf("write remote file %s: %w", remotePath, err)
+	}
+	if err = file.Close(); err != nil {
+		return fmt.Errorf("close remote file %s: %w", remotePath, err)
+	}
+	return nil
+}
+
+func (s *SshService) newSFTPClient(sessionID string) (*sftp.Client, error) {
+	s.mu.RLock()
+	active, exists := s.sessions[sessionID]
+	s.mu.RUnlock()
+	if !exists || active.client == nil {
+		return nil, apperror.SSHSessionNotFound()
+	}
+	client, err := sftp.NewClient(active.client)
+	if err != nil {
+		return nil, fmt.Errorf("start SFTP subsystem: %w", err)
+	}
+	return client, nil
+}
+
+func resolveSFTPPath(client *sftp.Client, requested string) (string, error) {
+	requested = strings.TrimSpace(requested)
+	if requested == "" || requested == "~" || strings.HasPrefix(requested, "~/") {
+		home, err := client.Getwd()
+		if err != nil || home == "" {
+			home = "."
+		}
+		if requested == "" || requested == "~" {
+			requested = home
+		} else {
+			requested = path.Join(home, strings.TrimPrefix(requested, "~/"))
+		}
+	}
+	requested = path.Clean(requested)
+	if path.IsAbs(requested) {
+		return requested, nil
+	}
+	workingDirectory, err := client.Getwd()
+	if err != nil || workingDirectory == "" {
+		return requested, nil
+	}
+	return path.Join(workingDirectory, requested), nil
 }
 
 func (s *SshService) Disconnect(sessionID string) {
