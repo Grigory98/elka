@@ -9,7 +9,6 @@
   "edit_title": "Edit Key",
   "new_title": "New Key",
   "key_name_label": "Key Name",
-  "key_name_placeholder": "e.g. AWS Production",
   "private_key_label": "Private Key",
   "load_from_file": "Load from file",
   "drop_to_autofill": "Drop a file to autofill, or click to browse",

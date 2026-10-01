@@ -16,6 +16,8 @@ void i18n
                 "errors",
                 "hosts",
                 "keys",
+                "credentials",
+                "groups",
                 "settings",
                 "terminal",
                 "update"

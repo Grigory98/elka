@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { SSHConnectionConfig, SshService } from "../../bindings/terminator-desktop/backend/internal/services/ssh";
+import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } from "../../bindings/terminator-desktop/backend/internal/services/ssh";
 import { useUIStore, ViewType } from "@/store/uiStore";
 
 export interface TerminalSession {
@@ -14,6 +14,10 @@ export interface CreateSessionParams {
     username: string;
     password?: string;
     privateKey?: string;
+    privateKeyPassphrase?: string;
+    jumpHost?: SSHJumpHostConfig;
+    jumpHosts?: SSHJumpHostConfig[];
+    portForwards?: SSHPortForward[];
     title?: string;
 }
 
@@ -21,6 +25,8 @@ interface SessionState {
     sessions: TerminalSession[];
     activeSessionId: string | null;
     addSession: (params: CreateSessionParams) => void;
+    duplicateSession: (id: string) => void;
+    closeOtherSessions: (id: string) => void;
     removeSession: (id: string) => void;
     setActiveSession: (id: string) => void;
     clearSessions: () => void;
@@ -40,6 +46,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             username: params.username,
             password: params.password,
             privateKey: params.privateKey,
+            privateKeyPassphrase: params.privateKeyPassphrase,
+            jumpHost: params.jumpHost,
+            jumpHosts: params.jumpHosts,
+            portForwards: params.portForwards,
         });
 
         const newSession: TerminalSession = {
@@ -55,6 +65,34 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             activeSessionId: newId,
         };
     }),
+
+    duplicateSession: (id) => {
+        const session = get().sessions.find((item) => item.id === id);
+        if (!session) return;
+        get().addSession({
+            host: session.config.host,
+            port: session.config.port,
+            username: session.config.username,
+            password: session.config.password,
+            privateKey: session.config.privateKey,
+            privateKeyPassphrase: session.config.privateKeyPassphrase,
+            jumpHost: session.config.jumpHost || undefined,
+            jumpHosts: session.config.jumpHosts,
+            portForwards: session.config.portForwards,
+            title: session.title,
+        });
+    },
+
+    closeOtherSessions: (id) => {
+        const {sessions} = get();
+        const keep = sessions.find((session) => session.id === id);
+        if (!keep) return;
+        const toClose = sessions.filter((session) => session.id !== id);
+
+        set({sessions: [keep], activeSessionId: id});
+        useUIStore.getState().setActiveView(ViewType.Terminal);
+        toClose.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
+    },
 
     removeSession: (id) => set((state) => {
         const newSessions = state.sessions.filter((s) => s.id !== id);

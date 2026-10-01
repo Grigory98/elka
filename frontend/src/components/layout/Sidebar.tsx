@@ -1,4 +1,4 @@
-import { Server, Key, Settings } from "lucide-react";
+import { Server, Key, KeyRound, FolderTree, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
@@ -6,10 +6,45 @@ import { SyncStatus } from "../../../bindings/terminator-desktop/backend/interna
 import { useSyncStore } from "@/store/syncStore.ts";
 import { useTranslation } from "react-i18next";
 import { UpdatePopover } from "@/components/layout/UpdatePopover.tsx";
+import type { ReactNode } from "react";
+
+interface SidebarItemProps {
+    title: string;
+    active: boolean;
+    onClick: () => void;
+    children: ReactNode;
+    indicatorClassName?: string;
+}
+
+function SidebarItem({title, active, onClick, children, indicatorClassName}: SidebarItemProps) {
+    return (
+        <div className="group relative">
+            <Button
+                variant={active ? "secondary" : "ghost"}
+                size="icon"
+                onClick={onClick}
+                className="wails-no-drag"
+                title={title}
+                aria-label={title}
+            >
+                {children}
+                {indicatorClassName && (
+                    <span className={cn("absolute right-1 top-1 size-2 rounded-full border border-sidebar", indicatorClassName)}/>
+                )}
+            </Button>
+            <span
+                role="tooltip"
+                className="pointer-events-none absolute left-full top-1/2 z-[100] ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+            >
+                {title}
+            </span>
+        </div>
+    );
+}
 
 export function Sidebar() {
-    const {t} = useTranslation(["hosts", "update"]);
-    const {activeView, setActiveView, isSidebarVisible} = useUIStore();
+    const {t} = useTranslation(["hosts", "keys", "update", "credentials", "groups", "settings"]);
+    const {activeView, setActiveView, isSidebarVisible, toggleSidebar, setSelectedHostGroup} = useUIStore();
     const {status} = useSyncStore();
 
     let dotColor = "bg-muted-foreground";
@@ -20,52 +55,71 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                "wails-drag flex shrink-0 flex-col items-center justify-between " +
-                "border-r border-border bg-sidebar pb-4 pt-2",
+                "wails-drag relative flex shrink-0 flex-col items-center justify-between pb-4 pt-2",
                 (activeView !== ViewType.Terminal || isSidebarVisible) ? "w-14" : "w-0 overflow-hidden border-r-0"
             )}
         >
-            <nav className="flex flex-col gap-2">
-                <Button
-                    variant={activeView === ViewType.Hosts ? "secondary" : "ghost"}
-                    size="icon"
-                    onClick={() => setActiveView(ViewType.Hosts)}
-                    className="wails-no-drag"
-                    title={t("page_title", { ns: "hosts" })}
+            <div className="pointer-events-none absolute inset-0 rounded-t-xl bg-sidebar" aria-hidden="true"/>
+
+            <nav className="relative z-10 flex flex-col gap-2">
+                <SidebarItem
+                    title={t("page_title", {ns: "hosts"})}
+                    active={activeView === ViewType.Hosts}
+                    onClick={() => {
+                        setSelectedHostGroup(null);
+                        setActiveView(ViewType.Hosts);
+                    }}
                 >
                     <Server className="size-5"/>
-                </Button>
+                </SidebarItem>
 
-                <Button
-                    variant={activeView === ViewType.Keys ? "secondary" : "ghost"}
-                    size="icon"
+                <SidebarItem
+                    title={t("page_title", {ns: "groups"})}
+                    active={activeView === ViewType.Groups}
+                    onClick={() => setActiveView(ViewType.Groups)}
+                >
+                    <FolderTree className="size-5"/>
+                </SidebarItem>
+
+                <SidebarItem
+                    title={t("page_title", {ns: "keys"})}
+                    active={activeView === ViewType.Keys}
                     onClick={() => setActiveView(ViewType.Keys)}
-                    className="wails-no-drag"
-                    title={t("page_title", { ns: "keys" })}
                 >
                     <Key className="size-5"/>
-                </Button>
+                </SidebarItem>
+
+                <SidebarItem
+                    title={t("page_title", {ns: "credentials"})}
+                    active={activeView === ViewType.Credentials}
+                    onClick={() => setActiveView(ViewType.Credentials)}
+                >
+                    <KeyRound className="size-5"/>
+                </SidebarItem>
+
             </nav>
 
-            <nav className="flex flex-col gap-2">
+            <nav className="relative z-10 flex flex-col gap-2">
                 <UpdatePopover/>
 
-                <div className="relative">
-                    <Button
-                        variant={activeView === ViewType.Settings ? "secondary" : "ghost"}
-                        size="icon"
-                        onClick={() => setActiveView(ViewType.Settings)}
-                        className="wails-no-drag text-muted-foreground hover:text-foreground"
-                        title={t("page_title", { ns: "settings" })}
-                    >
-                        <Settings className="size-5"/>
-                    </Button>
+                <SidebarItem
+                    title={t(isSidebarVisible ? "hide_sidebar" : "show_sidebar", {ns: "common"})}
+                    active={false}
+                    onClick={toggleSidebar}
+                >
+                    {isSidebarVisible
+                        ? <PanelLeftClose className="size-5"/>
+                        : <PanelLeftOpen className="size-5"/>}
+                </SidebarItem>
 
-                    <div className={cn(
-                        "absolute right-1 top-1 size-2 rounded-full border border-sidebar",
-                        dotColor
-                    )}/>
-                </div>
+                <SidebarItem
+                    title={t("page_title", {ns: "settings"})}
+                    active={activeView === ViewType.Settings}
+                    onClick={() => setActiveView(ViewType.Settings)}
+                    indicatorClassName={dotColor}
+                >
+                    <Settings className="size-5"/>
+                </SidebarItem>
             </nav>
         </aside>
     );

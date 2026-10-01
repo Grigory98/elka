@@ -1,8 +1,11 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"net"
+	"strconv"
 	"sync"
 	"terminator-desktop/backend/internal/apperror"
 	"time"
@@ -16,18 +19,48 @@ type SSHEmitter interface {
 }
 
 type SSHConnectionConfig struct {
-	ID         string `json:"id"`
-	Host       string `json:"host"`
-	Port       int    `json:"port"`
-	Username   string `json:"username"`
-	Password   string `json:"password,omitempty"`
-	PrivateKey string `json:"privateKey,omitempty"`
+	ID                   string              `json:"id"`
+	Host                 string              `json:"host"`
+	Port                 int                 `json:"port"`
+	Username             string              `json:"username"`
+	Password             string              `json:"password,omitempty"`
+	PrivateKey           string              `json:"privateKey,omitempty"`
+	PrivateKeyPassphrase string              `json:"privateKeyPassphrase,omitempty"`
+	JumpHost             *SSHJumpHostConfig  `json:"jumpHost,omitempty"`
+	JumpHosts            []SSHJumpHostConfig `json:"jumpHosts,omitempty"`
+	PortForwards         []SSHPortForward    `json:"portForwards,omitempty"`
 }
 
+type SSHJumpHostConfig struct {
+	Host                 string `json:"host"`
+	Port                 int    `json:"port"`
+	Username             string `json:"username"`
+	Password             string `json:"password,omitempty"`
+	PrivateKey           string `json:"privateKey,omitempty"`
+	PrivateKeyPassphrase string `json:"privateKeyPassphrase,omitempty"`
+}
+
+type SSHPortForward struct {
+	Mode          string `json:"mode"`
+	ListenAddress string `json:"listenAddress"`
+	ListenPort    int    `json:"listenPort"`
+	TargetAddress string `json:"targetAddress"`
+	TargetPort    int    `json:"targetPort"`
+}
+
+type SSHPortForwardMode string
+
+const (
+	SSHPortForwardLocal  SSHPortForwardMode = "local"
+	SSHPortForwardRemote SSHPortForwardMode = "remote"
+)
+
 type activeSession struct {
-	client  *ssh.Client
-	session *ssh.Session
-	stdin   io.WriteCloser
+	client      *ssh.Client
+	jumpClients []*ssh.Client
+	session     *ssh.Session
+	stdin       io.WriteCloser
+	forwarders  []io.Closer
 }
 
 type SshService struct {
@@ -49,49 +82,45 @@ func NewSshService(emitter SSHEmitter) *SshService {
 }
 
 func (s *SshService) Connect(config *SSHConnectionConfig) error {
-	var authMethods []ssh.AuthMethod
-
-	if config.PrivateKey != "" {
-		signer, err := ssh.ParsePrivateKey([]byte(config.PrivateKey))
-		if err != nil {
-			return apperror.DecryptionFailed(err)
-		}
-		authMethods = append(authMethods, ssh.PublicKeys(signer))
-	} else if config.Password != "" {
-		authMethods = append(authMethods, ssh.Password(config.Password))
-	}
-
-	clientConfig := &ssh.ClientConfig{
-		User: config.Username,
-		Auth: authMethods,
-		// TODO proper host key handling
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         timeout,
-	}
-
-	addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
-	client, err := ssh.Dial("tcp", addr, clientConfig)
+	client, jumpClients, err := connectSSH(config)
 	if err != nil {
-		return apperror.SSHConnectionFailed(fmt.Sprintf("failed to connect to %s", addr), err)
+		return apperror.SSHConnectionFailed(fmt.Sprintf("failed to connect to %s", net.JoinHostPort(config.Host, strconv.Itoa(config.Port))), err)
+	}
+	forwarders := make([]io.Closer, 0, len(config.PortForwards))
+	for _, forwardConfig := range config.PortForwards {
+		forwarder, forwardErr := startPortForward(client, forwardConfig)
+		if forwardErr != nil {
+			closeForwarders(forwarders)
+			_ = client.Close()
+			closeJumpClients(jumpClients)
+			return apperror.SSHConnectionFailed("failed to start port forwarding", forwardErr)
+		}
+		forwarders = append(forwarders, forwarder)
 	}
 
 	session, err := client.NewSession()
 	if err != nil {
+		closeForwarders(forwarders)
 		_ = client.Close()
+		closeJumpClients(jumpClients)
 		return apperror.SSHConnectionFailed("failed to create session", err)
 	}
 
 	stdin, err := session.StdinPipe()
 	if err != nil {
 		_ = session.Close()
+		closeForwarders(forwarders)
 		_ = client.Close()
+		closeJumpClients(jumpClients)
 		return err
 	}
 
 	stdout, err := session.StdoutPipe()
 	if err != nil {
 		_ = session.Close()
+		closeForwarders(forwarders)
 		_ = client.Close()
+		closeJumpClients(jumpClients)
 		return err
 	}
 
@@ -106,21 +135,27 @@ func (s *SshService) Connect(config *SSHConnectionConfig) error {
 	// 24x80 is just the default
 	if err = session.RequestPty("xterm-256color", 24, 80, modes); err != nil {
 		_ = session.Close()
+		closeForwarders(forwarders)
 		_ = client.Close()
+		closeJumpClients(jumpClients)
 		return apperror.SSHConnectionFailed("failed to request PTY", err)
 	}
 
 	if err = session.Shell(); err != nil {
 		_ = session.Close()
+		closeForwarders(forwarders)
 		_ = client.Close()
+		closeJumpClients(jumpClients)
 		return apperror.SSHConnectionFailed("failed to start shell", err)
 	}
 
 	s.mu.Lock()
 	currentSession := &activeSession{
-		client:  client,
-		session: session,
-		stdin:   stdin,
+		client:      client,
+		jumpClients: jumpClients,
+		session:     session,
+		stdin:       stdin,
+		forwarders:  forwarders,
 	}
 	s.sessions[config.ID] = currentSession
 	s.mu.Unlock()
@@ -128,6 +163,188 @@ func (s *SshService) Connect(config *SSHConnectionConfig) error {
 	go s.streamOutput(config.ID, stdout, currentSession)
 
 	return nil
+}
+
+func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error) {
+	clientConfig, err := newClientConfig(config.Username, config.Password, config.PrivateKey, config.PrivateKeyPassphrase)
+	if err != nil {
+		return nil, nil, apperror.DecryptionFailed(err)
+	}
+	targetAddress := net.JoinHostPort(config.Host, strconv.Itoa(config.Port))
+	hops := config.JumpHosts
+	if len(hops) == 0 && config.JumpHost != nil {
+		hops = []SSHJumpHostConfig{*config.JumpHost}
+	}
+	if len(hops) == 0 {
+		client, err := ssh.Dial("tcp", targetAddress, clientConfig)
+		return client, nil, err
+	}
+
+	jumpClients := make([]*ssh.Client, 0, len(hops))
+	var routeClient *ssh.Client
+	for index, jump := range hops {
+		if jump.Host == "" || jump.Port < 1 || jump.Port > 65535 {
+			closeJumpClients(jumpClients)
+			return nil, nil, fmt.Errorf("invalid jump host address at step %d", index+1)
+		}
+		jumpConfig, configErr := newClientConfig(jump.Username, jump.Password, jump.PrivateKey, jump.PrivateKeyPassphrase)
+		if configErr != nil {
+			closeJumpClients(jumpClients)
+			return nil, nil, apperror.DecryptionFailed(configErr)
+		}
+		jumpAddress := net.JoinHostPort(jump.Host, strconv.Itoa(jump.Port))
+		if routeClient == nil {
+			routeClient, err = ssh.Dial("tcp", jumpAddress, jumpConfig)
+			if err != nil {
+				closeJumpClients(jumpClients)
+				return nil, nil, fmt.Errorf("jump host %s: %w", jumpAddress, err)
+			}
+			jumpClients = append(jumpClients, routeClient)
+			continue
+		}
+
+		connection, dialErr := routeClient.Dial("tcp", jumpAddress)
+		if dialErr != nil {
+			closeJumpClients(jumpClients)
+			return nil, nil, fmt.Errorf("tunnel to jump host %s: %w", jumpAddress, dialErr)
+		}
+		clientConnection, channels, requests, handshakeErr := ssh.NewClientConn(connection, jumpAddress, jumpConfig)
+		if handshakeErr != nil {
+			_ = connection.Close()
+			closeJumpClients(jumpClients)
+			return nil, nil, fmt.Errorf("authenticate to jump host %s: %w", jumpAddress, handshakeErr)
+		}
+		routeClient = ssh.NewClient(clientConnection, channels, requests)
+		jumpClients = append(jumpClients, routeClient)
+	}
+
+	connection, err := routeClient.Dial("tcp", targetAddress)
+	if err != nil {
+		closeJumpClients(jumpClients)
+		return nil, nil, fmt.Errorf("tunnel to target %s: %w", targetAddress, err)
+	}
+	clientConnection, channels, requests, err := ssh.NewClientConn(connection, targetAddress, clientConfig)
+	if err != nil {
+		_ = connection.Close()
+		closeJumpClients(jumpClients)
+		return nil, nil, err
+	}
+	return ssh.NewClient(clientConnection, channels, requests), jumpClients, nil
+}
+
+func closeJumpClients(clients []*ssh.Client) {
+	for index := len(clients) - 1; index >= 0; index-- {
+		_ = clients[index].Close()
+	}
+}
+
+func newClientConfig(username, password, privateKey, passphrase string) (*ssh.ClientConfig, error) {
+	var authMethods []ssh.AuthMethod
+	if privateKey != "" {
+		signer, err := parsePrivateKey(privateKey, passphrase)
+		if err != nil {
+			return nil, err
+		}
+		authMethods = append(authMethods, ssh.PublicKeys(signer))
+	}
+	if password != "" {
+		authMethods = append(authMethods, ssh.Password(password))
+	}
+	return &ssh.ClientConfig{
+		User: username,
+		Auth: authMethods,
+		// TODO proper host key handling
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         timeout,
+	}, nil
+}
+
+func startPortForward(client *ssh.Client, config SSHPortForward) (io.Closer, error) {
+	if config.ListenPort < 1 || config.ListenPort > 65535 || config.TargetPort < 1 || config.TargetPort > 65535 {
+		return nil, fmt.Errorf("port numbers must be between 1 and 65535")
+	}
+	if config.TargetAddress == "" {
+		return nil, fmt.Errorf("target address is required")
+	}
+	if config.ListenAddress == "" {
+		config.ListenAddress = "127.0.0.1"
+	}
+	listenAddress := net.JoinHostPort(config.ListenAddress, strconv.Itoa(config.ListenPort))
+	targetAddress := net.JoinHostPort(config.TargetAddress, strconv.Itoa(config.TargetPort))
+
+	var listener net.Listener
+	var err error
+	switch config.Mode {
+	case "local":
+		listener, err = net.Listen("tcp", listenAddress)
+	case "remote":
+		listener, err = client.Listen("tcp", listenAddress)
+	default:
+		return nil, fmt.Errorf("unsupported port forwarding mode %q", config.Mode)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("listen on %s: %w", listenAddress, err)
+	}
+
+	go acceptForwards(listener, func() (net.Conn, error) {
+		if config.Mode == "local" {
+			return client.Dial("tcp", targetAddress)
+		}
+		return net.DialTimeout("tcp", targetAddress, timeout)
+	})
+	return listener, nil
+}
+
+func acceptForwards(listener net.Listener, dialTarget func() (net.Conn, error)) {
+	for {
+		incoming, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			outgoing, err := dialTarget()
+			if err != nil {
+				_ = incoming.Close()
+				return
+			}
+			bridgeConnections(incoming, outgoing)
+		}()
+	}
+}
+
+func bridgeConnections(left, right net.Conn) {
+	copyDone := make(chan struct{}, 2)
+	go func() {
+		_, _ = io.Copy(right, left)
+		copyDone <- struct{}{}
+	}()
+	go func() {
+		_, _ = io.Copy(left, right)
+		copyDone <- struct{}{}
+	}()
+	<-copyDone
+	_ = left.Close()
+	_ = right.Close()
+	<-copyDone
+}
+
+func closeForwarders(forwarders []io.Closer) {
+	for _, forwarder := range forwarders {
+		_ = forwarder.Close()
+	}
+}
+
+func parsePrivateKey(privateKey, passphrase string) (ssh.Signer, error) {
+	signer, err := ssh.ParsePrivateKey([]byte(privateKey))
+	if err == nil || passphrase == "" {
+		return signer, err
+	}
+
+	var passphraseMissing *ssh.PassphraseMissingError
+	if !errors.As(err, &passphraseMissing) {
+		return nil, err
+	}
+	return ssh.ParsePrivateKeyWithPassphrase([]byte(privateKey), []byte(passphrase))
 }
 
 // Input writes data to SSH stdin
@@ -165,8 +382,10 @@ func (s *SshService) Disconnect(sessionID string) {
 	s.mu.Unlock()
 
 	if exists {
+		closeForwarders(active.forwarders)
 		_ = active.session.Close()
 		_ = active.client.Close()
+		closeJumpClients(active.jumpClients)
 		s.emitter.EmitClosed(sessionID)
 	}
 }
@@ -236,9 +455,11 @@ func (s *SshService) cleanupSession(sessionID string, current *activeSession) {
 		if current.session != nil {
 			_ = current.session.Close()
 		}
+		closeForwarders(current.forwarders)
 		if current.client != nil {
 			_ = current.client.Close()
 		}
+		closeJumpClients(current.jumpClients)
 		s.emitter.EmitClosed(sessionID)
 	} else {
 		s.mu.Unlock()

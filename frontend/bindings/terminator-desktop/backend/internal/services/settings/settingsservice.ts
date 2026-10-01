@@ -15,8 +15,26 @@ export function GetSettings(): $CancellablePromise<$models.AppSettings> {
     });
 }
 
+/**
+ * MoveVaultToDirectory schedules an offline database move and restarts the app.
+ */
+export function MoveVaultToDirectory(directory: string): $CancellablePromise<void> {
+    return $Call.ByID(3831032522, directory);
+}
+
 export function SaveSettings(settings: $models.AppSettings): $CancellablePromise<void> {
     return $Call.ByID(532647211, settings);
+}
+
+export function SelectVaultDirectory(): $CancellablePromise<string> {
+    return $Call.ByID(516025752);
+}
+
+/**
+ * SwitchVaultDirectory activates another vault directory without moving the current database.
+ */
+export function SwitchVaultDirectory(directory: string): $CancellablePromise<void> {
+    return $Call.ByID(3069812536, directory);
 }
 
 // Private type creation functions

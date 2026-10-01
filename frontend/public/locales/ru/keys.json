@@ -9,7 +9,6 @@
   "edit_title": "Изменить ключ",
   "new_title": "Новый ключ",
   "key_name_label": "Имя ключа",
-  "key_name_placeholder": "напр. AWS Production",
   "private_key_label": "Закрытый ключ",
   "load_from_file": "Загрузить из файла",
   "drop_to_autofill": "Перетащите файл для заполнения или нажмите для выбора",

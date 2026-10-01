@@ -1,7 +1,9 @@
-import { X } from "lucide-react";
+import { CopyPlus, X } from "lucide-react";
 import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { TerminalSession } from "@/store/sessionStore";
+import { useTranslation } from "react-i18next";
+import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 
 const tabStyles = cva(
     "wails-no-drag group my-1 mt-2 flex h-8 min-w-30 max-w-50 cursor-pointer items-center " +
@@ -39,36 +41,62 @@ interface TerminalTabProps {
     isActive: boolean;
     onClick: () => void;
     onClose: () => void;
+    onDuplicate: () => void;
+    onCloseOthers: () => void;
+    canCloseOthers: boolean;
 }
 
-export function TerminalTab({session, isActive, onClick, onClose}: TerminalTabProps) {
+export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, onCloseOthers, canCloseOthers}: TerminalTabProps) {
+    const {t} = useTranslation("terminal");
     const state = isActive ? "active" : "inactive";
 
     return (
-        <div onClick={onClick}
-             tabIndex={0}
-             role="tab"
-             aria-selected={isActive}
-             onKeyDown={(e) => {
-                 if (e.key === "Enter" || e.key === " ") {
-                     e.preventDefault();
-                     onClick();
-                 }
-             }}
-             className={cn(tabStyles({state}))}>
-            <span className="truncate">{session.title}</span>
-            <button
-                type="button"
-                title="Close tab"
-                aria-label={`Close ${session.title}`}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onClose();
-                }}
-                className={cn(closeButtonStyles({state}))}
-            >
-                <X className="size-3"/>
-            </button>
-        </div>
+        <ContextMenuPrimitive.Root>
+            <ContextMenuPrimitive.Trigger asChild>
+                <div onClick={onClick}
+                     tabIndex={0}
+                     role="tab"
+                     aria-selected={isActive}
+                     onKeyDown={(e) => {
+                         if (e.key === "Enter" || e.key === " ") {
+                             e.preventDefault();
+                             onClick();
+                         }
+                     }}
+                     className={cn(tabStyles({state}))}>
+                    <span className="truncate">{session.title}</span>
+                    <button
+                        type="button"
+                        title={t("close_tab")}
+                        aria-label={t("close_named_tab", {name: session.title})}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onClose();
+                        }}
+                        className={cn(closeButtonStyles({state}))}
+                    >
+                        <X className="size-3"/>
+                    </button>
+                </div>
+            </ContextMenuPrimitive.Trigger>
+            <ContextMenuPrimitive.Portal>
+                <ContextMenuPrimitive.Content className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md outline-none">
+                    <ContextMenuPrimitive.Item onSelect={onDuplicate} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
+                        <CopyPlus className="size-4"/>{t("duplicate_tab")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Item onSelect={onClose} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
+                        <X className="size-4"/>{t("close_tab")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Separator className="my-1 h-px bg-border"/>
+                    <ContextMenuPrimitive.Item
+                        disabled={!canCloseOthers}
+                        onSelect={onCloseOthers}
+                        className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    >
+                        <X className="size-4"/>{t("close_other_tabs")}
+                    </ContextMenuPrimitive.Item>
+                </ContextMenuPrimitive.Content>
+            </ContextMenuPrimitive.Portal>
+        </ContextMenuPrimitive.Root>
     );
 }

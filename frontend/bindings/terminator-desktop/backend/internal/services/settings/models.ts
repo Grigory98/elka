@@ -7,11 +7,29 @@ import { Create as $Create } from "@wailsio/runtime";
 
 export class AppSettings {
     "language": string;
+    "showHostGroups": boolean;
+    "hostViewMode": string;
+    "groupViewMode": string;
+    "vaultDirectory": string;
+    "pendingVaultDirectory"?: string;
+    "pendingVaultAction"?: string;
 
     /** Creates a new AppSettings instance. */
     constructor($$source: Partial<AppSettings> = {}) {
         if (!("language" in $$source)) {
             this["language"] = "";
+        }
+        if (!("showHostGroups" in $$source)) {
+            this["showHostGroups"] = false;
+        }
+        if (!("hostViewMode" in $$source)) {
+            this["hostViewMode"] = "";
+        }
+        if (!("groupViewMode" in $$source)) {
+            this["groupViewMode"] = "";
+        }
+        if (!("vaultDirectory" in $$source)) {
+            this["vaultDirectory"] = "";
         }
 
         Object.assign(this, $$source);

@@ -1,6 +1,6 @@
 import { useState, useEffect, SyntheticEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { Lock, Server, Shield, ArrowLeft } from "lucide-react";
+import { FolderOpen, Lock, Server, Shield, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,11 +10,12 @@ import { useAuthStore } from "@/store/authStore";
 import { handleAppError } from "@/lib/error";
 import { formatServerUrl } from "@/lib/utils.ts";
 import { defaultServerUrl } from "@/lib/defaultServer.ts";
+import { SettingsService } from "../../../bindings/terminator-desktop/backend/internal/services/settings";
 
 type Mode = "select" | "create" | "connect" | "login";
 
 export function LockScreen() {
-    const {t} = useTranslation(["auth", "common"]);
+    const {t} = useTranslation(["auth", "common", "settings"]);
 
     const {setHasUser, setUnlocked} = useAuthStore();
     const [mode, setMode] = useState<Mode>("select");
@@ -24,6 +25,7 @@ export function LockScreen() {
     const [password, setPassword] = useState("");
     const [url, setUrl] = useState(defaultServerUrl);
     const [isLoading, setIsLoading] = useState(false);
+    const [vaultDirectory, setVaultDirectory] = useState("");
 
     useEffect(() => {
         AuthService.HasUser()
@@ -33,7 +35,21 @@ export function LockScreen() {
             })
             .catch(handleAppError)
             .finally(() => setIsChecking(false));
+        SettingsService.GetSettings()
+            .then((settings) => setVaultDirectory(settings.vaultDirectory || ""))
+            .catch(handleAppError);
     }, [setHasUser]);
+
+    const chooseVaultDirectory = async () => {
+        try {
+            const directory = await SettingsService.SelectVaultDirectory();
+            if (!directory) return;
+            await SettingsService.SwitchVaultDirectory(directory);
+            setVaultDirectory(directory);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
 
     const handleLogin = async (e: SyntheticEvent) => {
         e.preventDefault();
@@ -114,6 +130,17 @@ export function LockScreen() {
                             <h2 className="text-2xl font-bold tracking-tight">{t("vault_locked_title")}</h2>
                             <p className="mt-1 text-sm text-muted-foreground">{t("vault_locked_desc")}</p>
                         </div>
+                        <div className="rounded-lg border border-border bg-background p-3">
+                            <div className="mb-2 text-xs font-medium text-muted-foreground">{t("vault_location_title", {ns: "settings"})}</div>
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="min-w-0 truncate text-xs text-foreground" title={vaultDirectory}>
+                                    {vaultDirectory || t("vault_default_location", {ns: "settings"})}
+                                </span>
+                                <Button type="button" variant="outline" size="sm" disabled={isLoading} onClick={chooseVaultDirectory}>
+                                    <FolderOpen className="mr-2 size-4"/>{t("switch_vault_location", {ns: "settings"})}
+                                </Button>
+                            </div>
+                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="password-login">{t("master_password")}</Label>
                             <Input
@@ -168,6 +195,21 @@ export function LockScreen() {
                                 <div className="text-xs text-muted-foreground">{t("restore_server_desc")}</div>
                             </div>
                         </Button>
+
+                        <div className="mt-3 rounded-lg border border-border bg-background p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="text-sm font-medium text-foreground">{t("vault_location_title", {ns: "settings"})}</div>
+                                    <div className="truncate text-xs text-muted-foreground" title={vaultDirectory}>
+                                        {vaultDirectory || t("vault_default_location", {ns: "settings"})}
+                                    </div>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={chooseVaultDirectory}>
+                                    <FolderOpen className="mr-2 size-4"/>{t("choose_vault_location", {ns: "settings"})}
+                                </Button>
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground">{t("vault_location_restart", {ns: "settings"})}</p>
+                        </div>
                     </div>
                 )}
 

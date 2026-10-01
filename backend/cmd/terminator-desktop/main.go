@@ -7,9 +7,11 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"sync/atomic"
 	"terminator-desktop/backend/cmd/terminator-desktop/emitters"
 	"terminator-desktop/backend/cmd/terminator-desktop/env"
 	"terminator-desktop/backend/internal/api"
@@ -22,6 +24,7 @@ import (
 	"terminator-desktop/backend/internal/services/sync"
 	"terminator-desktop/backend/internal/services/updater"
 	"terminator-desktop/backend/internal/vault"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/quaadgras/velopack-go/velopack"
@@ -143,7 +146,29 @@ func main() {
 		},
 	})
 
-	dbPath := getDbDir(appDir, isDebug)
+	databaseName := dbFile
+	if isDebug {
+		databaseName = devDbFile
+	}
+	restartVault := &atomic.Bool{}
+	settingsService := settings.NewSettingsService(appDir, databaseName, app, func() {
+		restartVault.Store(true)
+		go func() {
+			time.Sleep(350 * time.Millisecond)
+			app.Quit()
+		}()
+	})
+	if err = settings.ApplyPendingVaultDirectory(appDir, databaseName); err != nil {
+		slog.Error("failed to move vault to its pending location", "error", err)
+	}
+	appSettings, err := settingsService.GetSettings()
+	if err != nil {
+		log.Fatal(fmt.Errorf("error reading app settings: %w", err))
+	}
+	dbPath := getDbDir(appDir, isDebug, appSettings.VaultDirectory)
+	if err = os.MkdirAll(filepath.Dir(dbPath), 0700); err != nil {
+		log.Fatal(fmt.Errorf("error creating vault directory: %w", err))
+	}
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatal(fmt.Errorf("error building db: %w", err))
@@ -170,7 +195,8 @@ func main() {
 	sshService := ssh.NewSshService(sshEmitter)
 	hostService := blob.NewHostService(queries, v)
 	keyService := blob.NewKeyService(queries, v)
-	settingsService := settings.NewSettingsService(appDir)
+	credentialService := blob.NewCredentialService(queries, v)
+	groupService := blob.NewGroupService(queries, v)
 	updaterService := updater.NewUpdaterService(updateUrl, updaterEmitter)
 
 	app.RegisterService(application.NewService(authService))
@@ -178,6 +204,8 @@ func main() {
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(hostService))
 	app.RegisterService(application.NewService(keyService))
+	app.RegisterService(application.NewService(credentialService))
+	app.RegisterService(application.NewService(groupService))
 	app.RegisterService(application.NewService(settingsService))
 	app.RegisterService(application.NewService(updaterService))
 	app.RegisterService(application.NewService(&WindowControls{mainWindow}))
@@ -192,7 +220,7 @@ func main() {
 		EnableFileDrop: true,
 		Frameless:      runtime.GOOS == "windows",
 		Mac: application.MacWindow{
-			InvisibleTitleBarHeight: 50,
+			InvisibleTitleBarHeight: 56,
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
@@ -209,6 +237,20 @@ func main() {
 	// If an error occurred while running the application, log it and exit.
 	if err != nil {
 		log.Fatal(err)
+	}
+	if restartVault.Load() {
+		syncService.StopAutoSync()
+		if err = db.Close(); err != nil {
+			slog.Error("failed to close the current vault", "error", err)
+		}
+		executablePath, executableErr := os.Executable()
+		if executableErr != nil {
+			log.Fatal(fmt.Errorf("failed to locate executable for restart: %w", executableErr))
+		}
+		if err = exec.Command(executablePath, os.Args[1:]...).Start(); err != nil {
+			log.Fatal(fmt.Errorf("failed to restart after vault move: %w", err))
+		}
+		return
 	}
 }
 
@@ -236,7 +278,14 @@ func getAppDir(isDebug bool) (string, error) {
 	return appDir, nil
 }
 
-func getDbDir(appDir string, isDebug bool) string {
+func getDbDir(appDir string, isDebug bool, vaultDirectory string) string {
+	if vaultDirectory != "" {
+		fileName := dbFile
+		if isDebug {
+			fileName = devDbFile
+		}
+		return filepath.Join(vaultDirectory, fileName)
+	}
 	if isDebug {
 		return filepath.Join(appDir, devDbFile)
 	}

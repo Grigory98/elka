@@ -7,5 +7,7 @@ export {
 };
 
 export {
-    SSHConnectionConfig
+    SSHConnectionConfig,
+    SSHJumpHostConfig,
+    SSHPortForward
 } from "./models.js";

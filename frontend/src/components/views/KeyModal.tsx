@@ -60,7 +60,6 @@ export function KeyModal({isOpen, onClose, onSave, initialData, isSaving}: KeyMo
                         <Label htmlFor="name">{t("key_name_label")}</Label>
                         <Input
                             id="name"
-                            placeholder={t("key_name_placeholder")}
                             required
                             value={name}
                             onChange={(e) => setName(e.target.value)}

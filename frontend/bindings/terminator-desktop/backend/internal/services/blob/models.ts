@@ -5,6 +5,17 @@
 // @ts-ignore: Unused imports
 import { Create as $Create } from "@wailsio/runtime";
 
+export enum CredentialKind {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    CredentialKindPassword = "password",
+    CredentialKindPassphrase = "passphrase",
+    CredentialKindPrivateKey = "private_key",
+};
+
 export class Host {
     "id": string;
     "type": ItemType;
@@ -13,7 +24,17 @@ export class Host {
     "port": number;
     "username": string;
     "password"?: string;
+    "passphrase"?: string;
     "keyId"?: string;
+    "passwordCredentialId"?: string;
+    "passphraseCredentialId"?: string;
+    "privateKeyCredentialId"?: string;
+    "credentialId"?: string;
+    "jumpHostId"?: string;
+    "jumpHops"?: JumpHostHop[];
+    "portForwards"?: PortForward[];
+    "usePasswordAsPassphrase"?: boolean;
+    "group"?: string;
 
     /** Creates a new Host instance. */
     constructor($$source: Partial<Host> = {}) {
@@ -43,8 +64,46 @@ export class Host {
      * Creates a new Host instance from a string or object.
      */
     static createFrom($$source: any = {}): Host {
+        const $$createField14_0 = $$createType1;
+        const $$createField15_0 = $$createType3;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("jumpHops" in $$parsedSource) {
+            $$parsedSource["jumpHops"] = $$createField14_0($$parsedSource["jumpHops"]);
+        }
+        if ("portForwards" in $$parsedSource) {
+            $$parsedSource["portForwards"] = $$createField15_0($$parsedSource["portForwards"]);
+        }
         return new Host($$parsedSource as Partial<Host>);
+    }
+}
+
+export class HostGroup {
+    "id": string;
+    "type": ItemType;
+    "name": string;
+    "credentialId"?: string;
+
+    /** Creates a new HostGroup instance. */
+    constructor($$source: Partial<HostGroup> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("type" in $$source)) {
+            this["type"] = ItemType.$zero;
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new HostGroup instance from a string or object.
+     */
+    static createFrom($$source: any = {}): HostGroup {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new HostGroup($$parsedSource as Partial<HostGroup>);
     }
 }
 
@@ -56,7 +115,125 @@ export enum ItemType {
 
     TypeHost = "host",
     TypeKey = "key",
+    TypeCredential = "credential",
+    TypeGroup = "group",
 };
+
+export enum JumpHopMode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    JumpHopSavedHost = "saved_host",
+    JumpHopManual = "manual",
+};
+
+export class JumpHostHop {
+    "mode": JumpHopMode;
+    "hostId"?: string;
+    "host"?: string;
+    "port"?: number;
+
+    /** Creates a new JumpHostHop instance. */
+    constructor($$source: Partial<JumpHostHop> = {}) {
+        if (!("mode" in $$source)) {
+            this["mode"] = JumpHopMode.$zero;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new JumpHostHop instance from a string or object.
+     */
+    static createFrom($$source: any = {}): JumpHostHop {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new JumpHostHop($$parsedSource as Partial<JumpHostHop>);
+    }
+}
+
+export class PortForward {
+    "mode": PortForwardMode;
+    "listenAddress": string;
+    "listenPort": number;
+    "targetAddress": string;
+    "targetPort": number;
+
+    /** Creates a new PortForward instance. */
+    constructor($$source: Partial<PortForward> = {}) {
+        if (!("mode" in $$source)) {
+            this["mode"] = PortForwardMode.$zero;
+        }
+        if (!("listenAddress" in $$source)) {
+            this["listenAddress"] = "";
+        }
+        if (!("listenPort" in $$source)) {
+            this["listenPort"] = 0;
+        }
+        if (!("targetAddress" in $$source)) {
+            this["targetAddress"] = "";
+        }
+        if (!("targetPort" in $$source)) {
+            this["targetPort"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new PortForward instance from a string or object.
+     */
+    static createFrom($$source: any = {}): PortForward {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new PortForward($$parsedSource as Partial<PortForward>);
+    }
+}
+
+export enum PortForwardMode {
+    /**
+     * The Go zero value for the underlying type of the enum.
+     */
+    $zero = "",
+
+    PortForwardLocal = "local",
+    PortForwardRemote = "remote",
+};
+
+export class SavedCredential {
+    "id": string;
+    "type": ItemType;
+    "name": string;
+    "username"?: string;
+    "password"?: string;
+    "passphrase"?: string;
+    "privateKey"?: string;
+    "kind"?: CredentialKind;
+    "secret"?: string;
+
+    /** Creates a new SavedCredential instance. */
+    constructor($$source: Partial<SavedCredential> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("type" in $$source)) {
+            this["type"] = ItemType.$zero;
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SavedCredential instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SavedCredential {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SavedCredential($$parsedSource as Partial<SavedCredential>);
+    }
+}
 
 export class SavedKey {
     "id": string;
@@ -90,3 +267,9 @@ export class SavedKey {
         return new SavedKey($$parsedSource as Partial<SavedKey>);
     }
 }
+
+// Private type creation functions
+const $$createType0 = JumpHostHop.createFrom;
+const $$createType1 = $Create.Array($$createType0);
+const $$createType2 = PortForward.createFrom;
+const $$createType3 = $Create.Array($$createType2);

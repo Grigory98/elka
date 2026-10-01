@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Events, Clipboard } from "@wailsio/runtime";
@@ -13,10 +13,11 @@ import { AppEvent } from "@/lib/events.ts";
 interface TerminalInstanceProps {
     sessionId: string;
     isActive: boolean;
+    isVisible: boolean;
     config: SSHConnectionConfig;
 }
 
-export function TerminalInstance({sessionId, isActive, config}: TerminalInstanceProps) {
+export function TerminalInstance({sessionId, isActive, isVisible, config}: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -24,6 +25,34 @@ export function TerminalInstance({sessionId, isActive, config}: TerminalInstance
     const fitAddonRef = useRef<FitAddon | null>(null);
     const hasConnectedRef = useRef(false);
     const isReadyRef = useRef(false);
+    const lastSizeRef = useRef({rows: 0, cols: 0});
+    const [isConnected, setIsConnected] = useState(false);
+    const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
+
+    fitAndResizeRef.current = (forceResize = false) => {
+        if (!isActive || !isVisible || !isReadyRef.current) return;
+
+        window.requestAnimationFrame(() => {
+            const container = containerRef.current;
+            const terminal = terminalRef.current;
+            const fitAddon = fitAddonRef.current;
+            if (!container || !terminal || !fitAddon || container.clientWidth === 0 || container.clientHeight === 0) return;
+
+            try {
+                fitAddon.fit();
+                terminal.refresh(0, terminal.rows - 1);
+                terminal.focus();
+
+                const sizeChanged = lastSizeRef.current.rows !== terminal.rows || lastSizeRef.current.cols !== terminal.cols;
+                if (forceResize || sizeChanged) {
+                    lastSizeRef.current = {rows: terminal.rows, cols: terminal.cols};
+                    SshService.Resize(sessionId, terminal.rows, terminal.cols).catch(printErrorToTerminal);
+                }
+            } catch (error) {
+                console.warn("xterm fit failed:", error);
+            }
+        });
+    };
 
     const printErrorToTerminal = (error: unknown) => {
         if (!terminalRef.current) return;
@@ -96,13 +125,7 @@ export function TerminalInstance({sessionId, isActive, config}: TerminalInstance
             SshService.Connect(config)
                 .then(() => {
                     isReadyRef.current = true;
-
-                    if (terminalRef.current && fitAddonRef.current) {
-                        fitAddonRef.current.fit();
-
-                        SshService.Resize(sessionId, terminalRef.current.rows, terminalRef.current.cols)
-                            .catch(console.error);
-                    }
+                    setIsConnected(true);
                 })
                 .catch((err) => {
                     printErrorToTerminal(err);
@@ -140,29 +163,25 @@ export function TerminalInstance({sessionId, isActive, config}: TerminalInstance
     }, [sessionId]);
 
     useEffect(() => {
-        if (!containerRef.current) return;
+        if (!isActive || !isVisible || !isConnected) return;
 
-        const resizeObserver = new ResizeObserver(() => {
-            if (!isActive || !isReadyRef.current) return;
-
-            const fit = fitAddonRef.current;
-            const term = terminalRef.current;
-            if (!fit || !term) return;
-
-            try {
-                fit.fit();
-                term.focus();
-                SshService.Resize(sessionId, term.rows, term.cols).catch((err) => {
-                    printErrorToTerminal(err);
-                });
-            } catch (e) {
-                console.warn("xterm fit failed:", e);
-            }
+        const frameIds: number[] = [];
+        const firstFrame = window.requestAnimationFrame(() => {
+            const secondFrame = window.requestAnimationFrame(() => fitAndResizeRef.current(true));
+            frameIds.push(secondFrame);
         });
+        frameIds.push(firstFrame);
+        return () => frameIds.forEach((frame) => window.cancelAnimationFrame(frame));
+    }, [isActive, isConnected, isVisible, sessionId]);
 
-        resizeObserver.observe(containerRef.current);
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container || !isActive || !isVisible || !isConnected) return;
+
+        const resizeObserver = new ResizeObserver(() => fitAndResizeRef.current());
+        resizeObserver.observe(container);
         return () => resizeObserver.disconnect();
-    }, [isActive, sessionId]);
+    }, [isActive, isConnected, isVisible, sessionId]);
 
     return (
         <div className={cn("h-full w-full bg-background p-2", isActive ? "block" : "hidden")}>

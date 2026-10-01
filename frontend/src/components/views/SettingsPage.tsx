@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { User, Server, Lock, Trash2, Globe, AlertTriangle } from "lucide-react";
+import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SwitchServerModal } from "@/components/views/SwitchServerModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -19,6 +19,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { useSyncStore } from "@/store/syncStore.ts";
+import { HostViewMode, useUIStore } from "@/store/uiStore";
+import { saveHostViewPreference } from "@/lib/viewSettings";
 
 export function SettingsPage() {
     const {t, i18n} = useTranslation(["settings", "common", "errors"]);
@@ -26,9 +28,40 @@ export function SettingsPage() {
     const {setUnlocked, setHasUser} = useAuthStore();
     const {clearSessions} = useSessionStore();
     const {lastError} = useSyncStore();
+    const {
+        showHostGroups,
+        setShowHostGroups,
+        setSelectedHostGroup,
+        hostViewMode,
+        groupViewMode,
+        setHostViewMode,
+        setGroupViewMode,
+    } = useUIStore();
 
     const [isServerModalOpen, setIsServerModalOpen] = useState(false);
     const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
+    const [vaultDirectory, setVaultDirectory] = useState("");
+
+    useEffect(() => {
+        SettingsService.GetSettings()
+            .then((settings) => setVaultDirectory(settings.vaultDirectory || ""))
+            .catch(handleAppError);
+    }, []);
+
+    const chooseVaultDirectory = async (action: "switch" | "move") => {
+        try {
+            const directory = await SettingsService.SelectVaultDirectory();
+            if (!directory) return;
+            if (action === "switch") {
+                await SettingsService.SwitchVaultDirectory(directory);
+            } else {
+                await SettingsService.MoveVaultToDirectory(directory);
+            }
+            setVaultDirectory(directory);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
 
     const handleLockVault = async () => {
         try {
@@ -62,6 +95,27 @@ export function SettingsPage() {
 
             await SettingsService.SaveSettings(updated);
             void i18n.changeLanguage(lng);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const changeShowHostGroups = async (show: boolean) => {
+        try {
+            const current = await SettingsService.GetSettings();
+            await SettingsService.SaveSettings(new AppSettings({...current, showHostGroups: show}));
+            setShowHostGroups(show);
+            if (!show) setSelectedHostGroup(null);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const saveViewMode = async (field: "hostViewMode" | "groupViewMode", mode: HostViewMode) => {
+        try {
+            await saveHostViewPreference(field, mode);
+            if (field === "hostViewMode") setHostViewMode(mode);
+            else setGroupViewMode(mode);
         } catch (error) {
             handleAppError(error);
         }
@@ -130,6 +184,24 @@ export function SettingsPage() {
                     )}
                 </SettingsCard>
 
+                <SettingsCard title={t("vault_location_title")} description={t("vault_location_desc")}>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="min-w-0">
+                            <span className="block truncate text-sm text-muted-foreground" title={vaultDirectory}>
+                                {vaultDirectory || t("vault_default_location")}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" className="shrink-0" onClick={() => void chooseVaultDirectory("switch")}>
+                                <FolderOpen className="mr-2 size-4"/>{t("switch_vault_location")}
+                            </Button>
+                            <Button variant="secondary" className="shrink-0" onClick={() => void chooseVaultDirectory("move")}>
+                                <FolderOpen className="mr-2 size-4"/>{t("move_vault_location")}
+                            </Button>
+                        </div>
+                    </div>
+                </SettingsCard>
+
                 <SettingsCard title={t("preferences_title")}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
@@ -152,6 +224,47 @@ export function SettingsPage() {
                             </SelectContent>
                         </Select>
                     </div>
+
+                    <div className="my-2 h-px w-full bg-border"/>
+
+                    <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-medium text-foreground">{t("host_view_mode_label")}</span>
+                        <Select value={hostViewMode} onValueChange={(value) => void saveViewMode("hostViewMode", value as HostViewMode)}>
+                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
+                                <SelectItem value="list">{t("view_list")}</SelectItem>
+                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-medium text-foreground">{t("group_view_mode_label")}</span>
+                        <Select value={groupViewMode} onValueChange={(value) => void saveViewMode("groupViewMode", value as HostViewMode)}>
+                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
+                                <SelectItem value="list">{t("view_list")}</SelectItem>
+                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="my-2 h-px w-full bg-border"/>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("show_host_groups_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("show_host_groups_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={showHostGroups}
+                            onChange={(event) => void changeShowHostGroups(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
                 </SettingsCard>
 
                 <SettingsCard title={t("security_title")} description={t("security_desc")}>

@@ -12,6 +12,10 @@ export class SSHConnectionConfig {
     "username": string;
     "password"?: string;
     "privateKey"?: string;
+    "privateKeyPassphrase"?: string;
+    "jumpHost"?: SSHJumpHostConfig | null;
+    "jumpHosts"?: SSHJumpHostConfig[];
+    "portForwards"?: SSHPortForward[];
 
     /** Creates a new SSHConnectionConfig instance. */
     constructor($$source: Partial<SSHConnectionConfig> = {}) {
@@ -35,7 +39,95 @@ export class SSHConnectionConfig {
      * Creates a new SSHConnectionConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): SSHConnectionConfig {
+        const $$createField7_0 = $$createType1;
+        const $$createField8_0 = $$createType2;
+        const $$createField9_0 = $$createType4;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        if ("jumpHost" in $$parsedSource) {
+            $$parsedSource["jumpHost"] = $$createField7_0($$parsedSource["jumpHost"]);
+        }
+        if ("jumpHosts" in $$parsedSource) {
+            $$parsedSource["jumpHosts"] = $$createField8_0($$parsedSource["jumpHosts"]);
+        }
+        if ("portForwards" in $$parsedSource) {
+            $$parsedSource["portForwards"] = $$createField9_0($$parsedSource["portForwards"]);
+        }
         return new SSHConnectionConfig($$parsedSource as Partial<SSHConnectionConfig>);
     }
 }
+
+export class SSHJumpHostConfig {
+    "host": string;
+    "port": number;
+    "username": string;
+    "password"?: string;
+    "privateKey"?: string;
+    "privateKeyPassphrase"?: string;
+
+    /** Creates a new SSHJumpHostConfig instance. */
+    constructor($$source: Partial<SSHJumpHostConfig> = {}) {
+        if (!("host" in $$source)) {
+            this["host"] = "";
+        }
+        if (!("port" in $$source)) {
+            this["port"] = 0;
+        }
+        if (!("username" in $$source)) {
+            this["username"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSHJumpHostConfig instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSHJumpHostConfig {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSHJumpHostConfig($$parsedSource as Partial<SSHJumpHostConfig>);
+    }
+}
+
+export class SSHPortForward {
+    "mode": string;
+    "listenAddress": string;
+    "listenPort": number;
+    "targetAddress": string;
+    "targetPort": number;
+
+    /** Creates a new SSHPortForward instance. */
+    constructor($$source: Partial<SSHPortForward> = {}) {
+        if (!("mode" in $$source)) {
+            this["mode"] = "";
+        }
+        if (!("listenAddress" in $$source)) {
+            this["listenAddress"] = "";
+        }
+        if (!("listenPort" in $$source)) {
+            this["listenPort"] = 0;
+        }
+        if (!("targetAddress" in $$source)) {
+            this["targetAddress"] = "";
+        }
+        if (!("targetPort" in $$source)) {
+            this["targetPort"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSHPortForward instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSHPortForward {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSHPortForward($$parsedSource as Partial<SSHPortForward>);
+    }
+}
+
+// Private type creation functions
+const $$createType0 = SSHJumpHostConfig.createFrom;
+const $$createType1 = $Create.Nullable($$createType0);
+const $$createType2 = $Create.Array($$createType0);
+const $$createType3 = SSHPortForward.createFrom;
+const $$createType4 = $Create.Array($$createType3);

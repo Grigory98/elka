@@ -1,3 +1,7 @@
 {
-  "error_message": "Ошибка: {{message}}\r\n{{error}}"
+  "error_message": "Ошибка: {{message}}\r\n{{error}}",
+  "duplicate_tab": "Дублировать вкладку",
+  "close_tab": "Закрыть вкладку",
+  "close_named_tab": "Закрыть {{name}}",
+  "close_other_tabs": "Закрыть другие вкладки"
 }

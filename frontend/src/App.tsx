@@ -9,6 +9,8 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts.ts";
 import { KEYS_QUERY_KEY } from "@/hooks/useKeys.ts";
+import { CREDENTIALS_QUERY_KEY } from "@/hooks/useCredentials.ts";
+import { GROUPS_QUERY_KEY } from "@/hooks/useGroups.ts";
 import { SettingsService } from "../bindings/terminator-desktop/backend/internal/services/settings";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
@@ -19,7 +21,7 @@ import { UpdaterService } from "../bindings/terminator-desktop/backend/internal/
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setUpdateVersionReady} = useUIStore();
+    const {setUpdateVersionReady, setShowHostGroups, setHostViewMode, setGroupViewMode} = useUIStore();
     const queryClient = useQueryClient();
     const {i18n} = useTranslation();
 
@@ -29,9 +31,12 @@ export default function App() {
                 if (settings.language && settings.language !== i18n.language) {
                     void i18n.changeLanguage(settings.language);
                 }
+                setShowHostGroups(settings.showHostGroups ?? true);
+                setHostViewMode(settings.hostViewMode === "list" || settings.hostViewMode === "tree" ? settings.hostViewMode : "cards");
+                setGroupViewMode(settings.groupViewMode === "cards" || settings.groupViewMode === "list" ? settings.groupViewMode : "tree");
             })
             .catch(console.error);
-    }, [i18n]);
+    }, [i18n, setGroupViewMode, setHostViewMode, setShowHostGroups]);
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshClosed, (event) => {
@@ -52,6 +57,8 @@ export default function App() {
 
             void queryClient.invalidateQueries({queryKey: HOSTS_QUERY_KEY});
             void queryClient.invalidateQueries({queryKey: KEYS_QUERY_KEY});
+            void queryClient.invalidateQueries({queryKey: CREDENTIALS_QUERY_KEY});
+            void queryClient.invalidateQueries({queryKey: GROUPS_QUERY_KEY});
         });
 
         return () => unsubscribe();
