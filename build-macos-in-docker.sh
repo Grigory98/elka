@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="terminator-cross:local"
+IMAGE_NAME="elka-cross:local"
 REQUESTED_ARCH=""
 PACKAGE_FORMAT="app"
 DMG_PATH=""
-VOLUME_NAME="Terminator"
+VOLUME_NAME="Elka"
 
 usage() {
   printf '%s\n' \
@@ -17,8 +17,8 @@ usage() {
     '  --format FORMAT      Output: app, dmg, or both (default: app)' \
     '  --dmg                Shortcut for --format dmg' \
     '  --both               Shortcut for --format both' \
-    '  --output PATH        DMG destination (default: bin/Terminator-macos-ARCH.dmg)' \
-    '  --volume-name NAME   Name shown when the DMG is mounted (default: Terminator)' \
+    '  --output PATH        DMG destination (default: bin/Elka-macos-ARCH.dmg)' \
+    '  --volume-name NAME   Name shown when the DMG is mounted (default: Elka)' \
     '  -h, --help           Show this help'
 }
 
@@ -122,7 +122,7 @@ if [[ "$PACKAGE_FORMAT" != "app" ]]; then
     printf 'hdiutil is required to create a DMG (run this script on macOS).\n' >&2
     exit 1
   }
-  DMG_PATH="${DMG_PATH:-$ROOT_DIR/bin/Terminator-macos-$BUILD_ARCH.dmg}"
+  DMG_PATH="${DMG_PATH:-$ROOT_DIR/bin/Elka-macos-$BUILD_ARCH.dmg}"
   if [[ "$DMG_PATH" != /* ]]; then
     DMG_PATH="$ROOT_DIR/$DMG_PATH"
   fi
@@ -144,6 +144,20 @@ if ! command -v codesign >/dev/null 2>&1; then
 fi
 
 printf 'Building Docker image %s...\n' "$IMAGE_NAME"
+if command -v wails3 >/dev/null 2>&1; then
+  (cd "$ROOT_DIR/build" && wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico)
+  (cd "$ROOT_DIR/build" && wails3 generate icons \
+    -input darwin/mac-icon.png \
+    -macfilename darwin/icons.icns)
+else
+  printf 'wails3 CLI not found; using the checked-in platform icons.\n'
+fi
+
+if [[ ! -f "$ROOT_DIR/build/darwin/icons.icns" ]]; then
+  printf 'Missing macOS icon: build/darwin/icons.icns\n' >&2
+  exit 1
+fi
+
 docker build \
   --tag "$IMAGE_NAME" \
   --file "$ROOT_DIR/build/docker/Dockerfile.cross" \
@@ -153,22 +167,19 @@ printf 'Compiling macOS %s binary in Docker...\n' "$BUILD_ARCH"
 docker run --rm \
   --volume "$ROOT_DIR:/app" \
   --workdir /app \
-  --env APP_NAME=terminator \
+  --env APP_NAME=elka \
   --env BUILD_ARCH="$BUILD_ARCH" \
   --entrypoint /bin/sh \
   "$IMAGE_NAME" \
   -ec 'cd frontend && corepack pnpm install --frozen-lockfile && pnpm run build && cd /app && /usr/local/bin/build.sh darwin "$BUILD_ARCH"'
 
-APP_STAGE="$ROOT_DIR/bin/.terminator.app.build.app"
-APP_PATH="$ROOT_DIR/bin/terminator.app"
+APP_STAGE="$ROOT_DIR/bin/.Elka.app.build.app"
+APP_PATH="$ROOT_DIR/bin/Elka.app"
 
 rm -rf "$APP_STAGE"
 mkdir -p "$APP_STAGE/Contents/MacOS" "$APP_STAGE/Contents/Resources"
-cp "$ROOT_DIR/bin/terminator-darwin-$BUILD_ARCH" "$APP_STAGE/Contents/MacOS/terminator"
+cp "$ROOT_DIR/bin/elka-darwin-$BUILD_ARCH" "$APP_STAGE/Contents/MacOS/elka"
 cp "$ROOT_DIR/build/darwin/icons.icns" "$APP_STAGE/Contents/Resources/icons.icns"
-if [[ -f "$ROOT_DIR/build/darwin/Assets.car" ]]; then
-  cp "$ROOT_DIR/build/darwin/Assets.car" "$APP_STAGE/Contents/Resources/Assets.car"
-fi
 cp "$ROOT_DIR/build/darwin/Info.plist" "$APP_STAGE/Contents/Info.plist"
 
 codesign --force --deep --sign - "$APP_STAGE"

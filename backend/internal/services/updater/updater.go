@@ -34,6 +34,9 @@ func NewUpdaterService(updateURL string, emitter Emitter) *UpdaterService {
 func (s *UpdaterService) CheckForUpdates() (*UpdateInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.updateURL == "" {
+		return &UpdateInfo{IsAvailable: false}, nil
+	}
 
 	manager, err := velopack.NewUpdateManager(s.updateURL)
 	if err != nil {

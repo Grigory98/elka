@@ -49,12 +49,13 @@ func init() {
 	application.RegisterEvent[uint](emitters.UpdaterProgressEvent)
 }
 
-const AppName = "Terminator"
+const AppName = "Elka"
+const appDataDirName = "Terminator" // Keep the existing user-data folder so current vaults remain available.
 const dbFile = "terminator.db"
 const devDbFile = "dev.db"
 const logFileName = "terminator.log"
 const crashLogFileName = "crash.log"
-const updateUrl = "https://github.com/terminator-ssh/terminator-desktop/releases/latest/download/"
+const updateUrl = "" // Set this to Elka's release feed once its repository URL is known.
 
 func main() {
 	velopack.Run(velopack.App{
@@ -118,7 +119,7 @@ func main() {
 	// 'Mac' options tailor the application when running an macOS.
 	app := application.New(application.Options{
 		Name:        AppName,
-		Description: "SSH client",
+		Description: "Elka SSH client",
 		Logger:      logger,
 		//Services: []application.Service{
 		//},
@@ -132,7 +133,7 @@ func main() {
 			WebviewUserDataPath: filepath.Join(appDir, "webview2"),
 		},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "com.terminator.desktop",
+			UniqueID: "com.elka.desktop",
 			OnSecondInstanceLaunch: func(data application.SecondInstanceData) {
 				if mainWindow != nil {
 					mainWindow.Restore()
@@ -219,6 +220,8 @@ func main() {
 	// 'URL' is the URL that will be loaded into the webview.
 	mainWindow = app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:          AppName,
+		Width:          1200,
+		Height:         900,
 		EnableFileDrop: true,
 		Frameless:      runtime.GOOS == "windows",
 		Mac: application.MacWindow{
@@ -272,7 +275,7 @@ func getAppDir(isDebug bool) (string, error) {
 		return "", err
 	}
 
-	appDir := filepath.Join(userDir, AppName)
+	appDir := filepath.Join(userDir, appDataDirName)
 
 	if err = os.MkdirAll(appDir, 0755); err != nil {
 		return "", err

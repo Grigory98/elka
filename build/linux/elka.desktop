@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=terminator
-Exec=terminator
-Icon=terminator
+Name=Elka
+Exec=elka
+Icon=elka
 Categories=Development;
 Terminal=false
 Keywords=wails

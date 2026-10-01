@@ -5,11 +5,11 @@ version: '3'
 
 # This information is used to generate the build assets.
 info:
-  companyName: "Terminator" # The name of the company
-  productName: "Terminator" # The name of the application
-  productIdentifier: "com.terminator.desktop" # The unique product identifier
-  description: "Terminator" # The application description
-  copyright: "(c) now, Terminator" # Copyright text
+  companyName: "Elka" # The name of the company
+  productName: "Elka" # The name of the application
+  productIdentifier: "com.elka.desktop" # The unique product identifier
+  description: "Elka SSH client" # The application description
+  copyright: "Copyright Elka" # Copyright text
   comments: "SSH client" # Comments
   version: "0.0.1" # The application version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)

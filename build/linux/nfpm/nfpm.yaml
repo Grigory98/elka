@@ -3,26 +3,25 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "terminator"
+name: "elka"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.0.1"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
-description: "Terminator"
-vendor: "Terminator"
-homepage: "https://wails.io"
+description: "Elka SSH client"
+vendor: "Elka"
 license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/terminator"
-    dst: "/usr/local/bin/terminator"
+  - src: "./bin/elka"
+    dst: "/usr/local/bin/elka"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/terminator.png"
-  - src: "./build/linux/terminator.desktop"
-    dst: "/usr/share/applications/terminator.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/elka.png"
+  - src: "./build/linux/elka.desktop"
+    dst: "/usr/share/applications/elka.desktop"
 
 # Default dependencies for Debian 12/Ubuntu 22.04+ with WebKit 4.1
 depends:

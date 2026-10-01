@@ -19,11 +19,11 @@ Unicode true
 ####
 ## The following information is taken from the wails_tools.nsh file, but they can be overwritten here.
 ####
-## !define INFO_PROJECTNAME    "my-project" # Default "terminator"
-## !define INFO_COMPANYNAME    "My Company" # Default "Terminator"
-## !define INFO_PRODUCTNAME    "My Product Name" # Default "Terminator"
+## !define INFO_PROJECTNAME    "my-project" # Default "elka"
+## !define INFO_COMPANYNAME    "My Company" # Default "Elka"
+## !define INFO_PRODUCTNAME    "My Product Name" # Default "Elka"
 ## !define INFO_PRODUCTVERSION "1.0.0"     # Default "0.1.0"
-## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "© now, Terminator"
+## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "Copyright Elka"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
 ## !define UNINST_KEY_NAME     "UninstKeyInRegistry"  # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"

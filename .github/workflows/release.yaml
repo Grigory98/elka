@@ -28,18 +28,18 @@ jobs:
           dotnet tool install -g vpk
           
           vpk download github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel windows-stable \
             --token "${{ github.token }}" \
             --outputDir releases || true
           
           vpk pack \
-            --packId "Terminator" \
+            --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
             --packDir "bin" \
-            --mainExe "terminator.exe" \
-            --packTitle "Terminator" \
-            --packAuthors "Terminator SSH" \
+            --mainExe "elka.exe" \
+            --packTitle "Elka" \
+            --packAuthors "Elka" \
             --channel windows-stable \
             --icon "build/windows/icon.ico" \
             --outputDir releases
@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           vpk upload github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel windows-stable \
             --token "${{ github.token }}" \
             --outputDir releases \
@@ -94,18 +94,18 @@ jobs:
           dotnet tool install -g vpk
           
           vpk download github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel linux-stable \
             --token "${{ github.token }}" \
             --outputDir releases || true
           
           vpk pack \
-            --packId "Terminator" \
+            --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
             --packDir "bin" \
-            --mainExe "terminator" \
-            --packTitle "Terminator" \
-            --packAuthors "Terminator SSH" \
+            --mainExe "elka" \
+            --packTitle "Elka" \
+            --packAuthors "Elka" \
             --channel linux-stable \
             --icon "build/appicon.png" \
             --outputDir releases
@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: |
           vpk upload github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel linux-stable \
             --token "${{ github.token }}" \
             --outputDir releases \
@@ -150,7 +150,7 @@ jobs:
           dotnet tool install -g vpk
           
           vpk download github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel macos-stable \
             --token "${{ github.token }}" \
             --outputDir releases || true
@@ -158,12 +158,12 @@ jobs:
           APP_BUNDLE=$(find bin -maxdepth 1 -name "*.app" | head -n 1)
           
           vpk pack \
-            --packId "Terminator" \
+            --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
             --packDir "$APP_BUNDLE" \
-            --mainExe "terminator" \
-            --packTitle "Terminator" \
-            --packAuthors "Terminator SSH" \
+            --mainExe "elka" \
+            --packTitle "Elka" \
+            --packAuthors "Elka" \
             --channel macos-stable \
             --runtime osx-arm64 \
             --icon "build/darwin/icons.icns" \
@@ -179,7 +179,7 @@ jobs:
         shell: bash
         run: |
           vpk upload github \
-            --repoUrl "https://github.com/terminator-ssh/terminator-desktop" \
+            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --channel macos-stable \
             --token "${{ github.token }}" \
             --outputDir releases \

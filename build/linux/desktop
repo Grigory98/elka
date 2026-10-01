@@ -1,13 +1,13 @@
 [Desktop Entry]
 Version=1.0
-Name=Terminator
-Comment=Terminator
+Name=Elka
+Comment=Elka
 # The Exec line includes %u to pass the URL to the application
-Exec=/usr/local/bin/terminator %u
+Exec=/usr/local/bin/elka %u
 Terminal=false
 Type=Application
-Icon=terminator
+Icon=elka
 Categories=Utility;
-StartupWMClass=terminator
+StartupWMClass=elka
 
  

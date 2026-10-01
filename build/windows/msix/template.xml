@@ -8,27 +8,27 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="terminator.exe"
+        Path="elka.exe"
         Arguments=""
-        InstallLocation="C:\Program Files\Terminator\Terminator">
+        InstallLocation="C:\Program Files\Elka\Elka">
     </Installer>
     <PackageInformation
-        PackageName="Terminator"
-        PackageDisplayName="Terminator"
-        PublisherName="CN=Terminator"
-        PublisherDisplayName="Terminator"
+        PackageName="Elka"
+        PackageDisplayName="Elka"
+        PublisherName="CN=Elka"
+        PublisherDisplayName="Elka"
         Version="0.1.0.0"
-        PackageDescription="Terminator Description">
+        PackageDescription="Elka SSH client">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
         </Capabilities>
         <Applications>
             <Application
-                Id="com.terminator.desktop"
-                Description="Terminator Description"
-                DisplayName="Terminator"
-                ExecutableName="terminator.exe"
+                Id="com.elka.desktop"
+                Description="Elka SSH client"
+                DisplayName="Elka"
+                ExecutableName="elka.exe"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -41,13 +41,13 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>Terminator</DisplayName>
-            <PublisherDisplayName>Terminator</PublisherDisplayName>
-            <Description>Terminator Description</Description>
+            <DisplayName>Elka</DisplayName>
+            <PublisherDisplayName>Elka</PublisherDisplayName>
+            <Description>Elka SSH client</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="terminator.msix" />
+    <SaveLocation PackagePath="elka.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

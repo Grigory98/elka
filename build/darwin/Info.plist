@@ -3,17 +3,15 @@
 <plist version="1.0">
 	<dict>
 		<key>CFBundleExecutable</key>
-		<string>terminator</string>
+		<string>elka</string>
 		<key>CFBundleGetInfoString</key>
-		<string>SSH client</string>
+		<string>Elka SSH client</string>
 		<key>CFBundleIconFile</key>
 		<string>icons</string>
-		<key>CFBundleIconName</key>
-		<string>appicon</string>
 		<key>CFBundleIdentifier</key>
-		<string>com.terminator.desktop</string>
+		<string>com.elka.desktop</string>
 		<key>CFBundleName</key>
-		<string>Terminator</string>
+		<string>Elka</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -25,6 +23,6 @@
 		<key>NSHighResolutionCapable</key>
 		<string>true</string>
 		<key>NSHumanReadableCopyright</key>
-		<string>(c) now, Terminator</string>
+		<string>Copyright Elka</string>
 	</dict>
 </plist>

@@ -1,8 +1,8 @@
 <h1 align="center">
 
-Terminator
+Elka
 
-   <img src="build/appicon.png" width=250 alt="Terminator logo"/>
+   <img src="build/appicon.png" width=250 alt="Elka logo"/>
 
 </h1>
 
@@ -16,20 +16,18 @@ Terminator
    Self-hostable SSH client with sync
 </h3>
 
-Terminator is a cross-platform SSH client built with [Wails v3](https://v3.wails.io/) and Go. Supports self-hosted servers for sync.
+Elka is a cross-platform SSH client built with [Wails v3](https://v3.wails.io/) and Go. Supports self-hosted servers for sync.
 
 ## Features
 - **Encryption.** All sensitive data is encrypted locally using Argon2id and AES-256GCM.
 - **Sync** encrypted data across multiple devices. Data is encrypted *before* it leaves the client!
 - **Lightweight.** ~15MB binaries, ~10MB RAM.
 - Cross-platform:
-   - [Windows](https://github.com/terminator-ssh/terminator-desktop/releases/latest/download/Terminator-windows-stable-Setup.exe)
-   - [Linux](https://github.com/terminator-ssh/terminator-desktop/releases/latest/download/Terminator-linux-stable.AppImage)
-   - [MacOS](https://github.com/terminator-ssh/terminator-desktop/releases/latest/download/Terminator-macos-stable-Setup.pkg)
+   - Windows, Linux, and macOS builds will be published in this repository's releases.
 - Local first. You *don't have to* use a server!
 
 ## Server
-Terminator is designed as a local-first app, but it supports E2E encrypted sync. Grab the server [here](https://github.com/terminator-ssh/terminator-server)!
+Elka is designed as a local-first app, but it supports E2E encrypted sync with a self-hosted server.
 
 ## Roadmap
 - [x] Encryption
@@ -44,11 +42,11 @@ Terminator is designed as a local-first app, but it supports E2E encrypted sync.
 - [ ] CLI client
 - [ ] SFTP
 
-Something missing? Suggest more! [Issues](https://github.com/terminator-ssh/terminator-desktop/issues/new) | [Discord](https://discord.gg/x7K9BRrQJE)
+Something missing? Suggest more in the community Discord: [Join here](https://discord.gg/x7K9BRrQJE).
 
 ## Screenshots
-<img src="assets/term-en-white.png" width="1600" alt="Terminator main screen"/>
-<img src="assets/term-t-white.png" width="1600" alt="Terminator terminal"/>
+<img src="assets/term-en-white.png" width="1600" alt="Elka main screen"/>
+<img src="assets/term-t-white.png" width="1600" alt="Elka terminal"/>
 
 ## Development
 
