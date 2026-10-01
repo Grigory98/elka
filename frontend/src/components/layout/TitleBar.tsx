@@ -1,8 +1,9 @@
 import { PanelLeftOpen, Plus } from "lucide-react";
-import { useSessionStore } from "@/store/sessionStore";
+import { SPLIT_WORKSPACE_TAB_ID, terminalSessionTabID, useSessionStore } from "@/store/sessionStore";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { WindowControls } from "@/components/layout/WindowControls";
 import { TerminalTab } from "@/components/layout/TerminalTab";
+import { SplitWorkspaceTab } from "@/components/layout/SplitWorkspaceTab";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore.ts";
@@ -10,7 +11,23 @@ import React, { useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 export function TitleBar() {
-    const {sessions, activeSessionId, setActiveSession, removeSession, duplicateSession, closeOtherSessions} = useSessionStore();
+    const {
+        sessions,
+        activeSessionId,
+        splitSessionIds,
+        splitLayout,
+        splitWorkspaceActive,
+        topTabOrder,
+        setActiveSession,
+        removeSession,
+        duplicateSession,
+        closeOtherSessions,
+        addSessionToSplit,
+        placeSessionBeside,
+        setSplitWorkspaceActive,
+        closeSplitWorkspace,
+        reorderTopTab,
+    } = useSessionStore();
     const {activeView, isSidebarVisible, toggleSidebar, setActiveView, setSelectedHostGroup} = useUIStore();
 
     const isTerminalView = activeView === ViewType.Terminal;
@@ -28,6 +45,17 @@ export function TitleBar() {
             scrollRef.current.scrollLeft += scrollAmount;
         }
     };
+
+    const visibleSessions = sessions.filter((session) => !splitSessionIds?.includes(session.id));
+    const visibleTabIDs = [
+        ...visibleSessions.map((session) => terminalSessionTabID(session.id)),
+        ...(splitLayout ? [SPLIT_WORKSPACE_TAB_ID] : []),
+    ];
+    const orderedTabIDs = [
+        ...topTabOrder.filter((tabID) => visibleTabIDs.includes(tabID)),
+        ...visibleTabIDs.filter((tabID) => !topTabOrder.includes(tabID)),
+    ];
+    const sessionByTabID = new Map(visibleSessions.map((session) => [terminalSessionTabID(session.id), session]));
 
     return (
         <header className="wails-drag flex h-14 shrink-0 items-end justify-between bg-background pr-0">
@@ -78,18 +106,45 @@ export function TitleBar() {
                  className="flex h-full flex-1 items-center gap-1 pl-2
                             overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
             >
-                {sessions.map((session) => (
-                    <TerminalTab
-                        key={session.id}
-                        session={session}
-                        isActive={isTerminalView && session.id === activeSessionId}
-                        onClick={() => setActiveSession(session.id)}
-                        onClose={() => removeSession(session.id)}
-                        onDuplicate={() => duplicateSession(session.id)}
-                        onCloseOthers={() => closeOtherSessions(session.id)}
-                        canCloseOthers={sessions.length > 1}
-                    />
-                ))}
+                {orderedTabIDs.map((tabID) => {
+                    if (tabID === SPLIT_WORKSPACE_TAB_ID) {
+                        return (
+                            <SplitWorkspaceTab
+                                key={tabID}
+                                isActive={isTerminalView && splitWorkspaceActive}
+                                onClick={setSplitWorkspaceActive}
+                                onClose={closeSplitWorkspace}
+                                onDropSession={addSessionToSplit}
+                                onReorder={reorderTopTab}
+                            />
+                        );
+                    }
+                    const session = sessionByTabID.get(tabID);
+                    if (!session) return null;
+                    return (
+                        <TerminalTab
+                            key={session.id}
+                            session={session}
+                            isActive={isTerminalView && !splitWorkspaceActive && session.id === activeSessionId}
+                            onClick={() => setActiveSession(session.id)}
+                            onClose={() => removeSession(session.id)}
+                            onDuplicate={() => duplicateSession(session.id)}
+                            onCloseOthers={() => closeOtherSessions(session.id)}
+                            canCloseOthers={sessions.length > 1}
+                            isInSplit={false}
+                            canAddToSplit={!splitSessionIds || splitSessionIds.length < 6}
+                            canPlaceRelative={sessions.length > 1 && (!splitSessionIds || splitSessionIds.length < 6)}
+                            onToggleSplit={() => addSessionToSplit(session.id)}
+                            onPlaceRelative={(placement) => {
+                                const referenceID = activeSessionId && activeSessionId !== session.id
+                                    ? activeSessionId
+                                    : sessions.find((item) => item.id !== session.id)?.id;
+                                if (referenceID) placeSessionBeside(referenceID, session.id, placement);
+                            }}
+                            onReorder={reorderTopTab}
+                        />
+                    );
+                })}
                 {isUnlocked && sessions.length > 0 && (
                     <Button
                         type="button"

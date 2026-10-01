@@ -52,6 +52,8 @@ Something missing? Suggest more! [Issues](https://github.com/terminator-ssh/term
 
 ## Development
 
+Карта модулей и подсказки, где искать код для изменений: [PROJECT_MAP_RU.md](PROJECT_MAP_RU.md).
+
 ### Prerequisites
 
 1. [**Go**](https://go.dev/dl/) (1.25+)

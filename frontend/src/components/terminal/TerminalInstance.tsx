@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, DragEvent as ReactDragEvent } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Events, Clipboard } from "@wailsio/runtime";
@@ -9,15 +10,36 @@ import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/terminator-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
+import { GripVertical, PanelTopClose, X } from "lucide-react";
+import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
 
 interface TerminalInstanceProps {
     sessionId: string;
     isActive: boolean;
     isVisible: boolean;
+    isSplitPane?: boolean;
+    paneTitle?: string;
+    layoutStyle?: CSSProperties;
+    onFocus: () => void;
+    onDetachPane?: () => void;
+    onCloseSession?: () => void;
+    onDropSession?: (draggedSessionID: string, targetSessionID: string, placement: SplitPlacement) => void;
     config: SSHConnectionConfig;
 }
 
-export function TerminalInstance({sessionId, isActive, isVisible, config}: TerminalInstanceProps) {
+export function TerminalInstance({
+    sessionId,
+    isActive,
+    isVisible,
+    isSplitPane = false,
+    paneTitle,
+    layoutStyle,
+    onFocus,
+    onDetachPane,
+    onCloseSession,
+    onDropSession,
+    config,
+}: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -27,10 +49,13 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
     const isReadyRef = useRef(false);
     const lastSizeRef = useRef({rows: 0, cols: 0});
     const [isConnected, setIsConnected] = useState(false);
+    const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
+    const onFocusRef = useRef(onFocus);
+    onFocusRef.current = onFocus;
 
     fitAndResizeRef.current = (forceResize = false) => {
-        if (!isActive || !isVisible || !isReadyRef.current) return;
+        if (!isVisible || !isReadyRef.current) return;
 
         window.requestAnimationFrame(() => {
             const container = containerRef.current;
@@ -41,7 +66,7 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
             try {
                 fitAddon.fit();
                 terminal.refresh(0, terminal.rows - 1);
-                terminal.focus();
+                if (isActive) terminal.focus();
 
                 const sizeChanged = lastSizeRef.current.rows !== terminal.rows || lastSizeRef.current.cols !== terminal.cols;
                 if (forceResize || sizeChanged) {
@@ -66,6 +91,36 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
         terminalRef.current.write(`\r\n\x1b[31m${translated}\x1b[0m\r\n`)
     };
 
+    const getDropPlacement = (event: ReactDragEvent<HTMLDivElement>): SplitPlacement => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        const x = (event.clientX - bounds.left) / bounds.width;
+        const y = (event.clientY - bounds.top) / bounds.height;
+        const distances: [SplitPlacement, number][] = [
+            ["left", x],
+            ["right", 1 - x],
+            ["above", y],
+            ["below", 1 - y],
+        ];
+        return distances.reduce((closest, candidate) => candidate[1] < closest[1] ? candidate : closest)[0];
+    };
+
+    const handleDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
+        if (!isSplitPane || !event.dataTransfer.types.includes(TERMINAL_SESSION_DRAG_TYPE)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        setDropPlacement(getDropPlacement(event));
+    };
+
+    const handleDrop = (event: ReactDragEvent<HTMLDivElement>) => {
+        if (!isSplitPane) return;
+        const draggedSessionID = event.dataTransfer.getData(TERMINAL_SESSION_DRAG_TYPE);
+        if (!draggedSessionID) return;
+        event.preventDefault();
+        const placement = getDropPlacement(event);
+        setDropPlacement(null);
+        if (draggedSessionID !== sessionId) onDropSession?.(draggedSessionID, sessionId, placement);
+    };
+
     useEffect(() => {
         if (!containerRef.current || terminalRef.current) return;
         const container = containerRef.current;
@@ -78,6 +133,8 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
 
         terminalRef.current = term;
         fitAddonRef.current = fitAddon;
+        const handleFocus = () => onFocusRef.current();
+        container.addEventListener("focusin", handleFocus);
 
         term.attachCustomKeyEventHandler((arg) => {
             if (arg.type === "keydown") {
@@ -142,6 +199,7 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
 
         return () => {
             container.removeEventListener("contextmenu", handleContextMenu);
+            container.removeEventListener("focusin", handleFocus);
             onDataDisposable.dispose();
             term.dispose();
             terminalRef.current = null;
@@ -163,7 +221,7 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
     }, [sessionId]);
 
     useEffect(() => {
-        if (!isActive || !isVisible || !isConnected) return;
+        if (!isVisible || !isConnected) return;
 
         const frameIds: number[] = [];
         const firstFrame = window.requestAnimationFrame(() => {
@@ -176,7 +234,7 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
 
     useEffect(() => {
         const container = containerRef.current;
-        if (!container || !isActive || !isVisible || !isConnected) return;
+        if (!container || !isVisible || !isConnected) return;
 
         const resizeObserver = new ResizeObserver(() => fitAndResizeRef.current());
         resizeObserver.observe(container);
@@ -184,7 +242,64 @@ export function TerminalInstance({sessionId, isActive, isVisible, config}: Termi
     }, [isActive, isConnected, isVisible, sessionId]);
 
     return (
-        <div className={cn("h-full w-full bg-background p-2", isActive ? "block" : "hidden")}>
+        <div
+            style={layoutStyle}
+            onDragOver={handleDragOver}
+            onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPlacement(null);
+            }}
+            onDrop={handleDrop}
+            className={cn(
+                "group relative h-full w-full min-h-0 min-w-0 bg-background p-2",
+                isSplitPane && "overflow-hidden rounded-lg border border-border",
+                isVisible ? "block" : "hidden"
+            )}
+        >
+            {isSplitPane && (
+                <div className="absolute right-3 top-3 z-20 flex items-center gap-1 rounded-md border border-border bg-popover/95 p-1 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <button
+                        type="button"
+                        draggable
+                        onDragStart={(event) => {
+                            event.dataTransfer.setData(TERMINAL_SESSION_DRAG_TYPE, sessionId);
+                            event.dataTransfer.effectAllowed = "move";
+                        }}
+                        title={t("drag_pane")}
+                        aria-label={t("drag_pane")}
+                        className="flex size-7 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
+                    >
+                        <GripVertical className="size-4"/>
+                    </button>
+                    <span className="max-w-32 truncate px-1 text-xs text-muted-foreground">{paneTitle || config.host}</span>
+                    <button
+                        type="button"
+                        title={t("detach_pane")}
+                        aria-label={t("detach_pane")}
+                        onClick={onDetachPane}
+                        className="flex size-7 items-center justify-center rounded hover:bg-muted"
+                    >
+                        <PanelTopClose className="size-4"/>
+                    </button>
+                    <button
+                        type="button"
+                        title={t("close_tab")}
+                        aria-label={t("close_named_tab", {name: paneTitle || config.host})}
+                        onClick={onCloseSession}
+                        className="flex size-7 items-center justify-center rounded hover:bg-destructive/20 hover:text-destructive"
+                    >
+                        <X className="size-4"/>
+                    </button>
+                </div>
+            )}
+            {dropPlacement && (
+                <div className={cn(
+                    "pointer-events-none absolute z-10 rounded-md border-2 border-primary bg-primary/15",
+                    dropPlacement === "left" && "inset-y-1 left-1 w-1/2",
+                    dropPlacement === "right" && "inset-y-1 right-1 w-1/2",
+                    dropPlacement === "above" && "inset-x-1 top-1 h-1/2",
+                    dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
+                )}/>
+            )}
             <div ref={containerRef} className="h-full w-full"/>
         </div>
     );

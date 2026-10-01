@@ -1,9 +1,11 @@
-import { CopyPlus, X } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns2, CopyPlus, X } from "lucide-react";
 import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils";
-import { TerminalSession } from "@/store/sessionStore";
+import { SplitPlacement, TerminalSession, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
 import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
+import { useState } from "react";
+import { TERMINAL_TAB_ORDER_DRAG_TYPE, terminalSessionTabID } from "@/store/sessionStore";
 
 const tabStyles = cva(
     "wails-no-drag group my-1 mt-2 flex h-8 min-w-30 max-w-50 cursor-pointer items-center " +
@@ -44,16 +46,46 @@ interface TerminalTabProps {
     onDuplicate: () => void;
     onCloseOthers: () => void;
     canCloseOthers: boolean;
+    isInSplit: boolean;
+    canAddToSplit: boolean;
+    onToggleSplit: () => void;
+    canPlaceRelative: boolean;
+    onPlaceRelative: (placement: SplitPlacement) => void;
+    onReorder: (draggedTabID: string, targetTabID: string) => void;
 }
 
-export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, onCloseOthers, canCloseOthers}: TerminalTabProps) {
+export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, onCloseOthers, canCloseOthers, isInSplit, canAddToSplit, onToggleSplit, canPlaceRelative, onPlaceRelative, onReorder}: TerminalTabProps) {
     const {t} = useTranslation("terminal");
     const state = isActive ? "active" : "inactive";
+    const [isDropTarget, setIsDropTarget] = useState(false);
 
     return (
         <ContextMenuPrimitive.Root>
             <ContextMenuPrimitive.Trigger asChild>
                 <div onClick={onClick}
+                     draggable
+                     onDragStart={(event) => {
+                         event.dataTransfer.setData(TERMINAL_SESSION_DRAG_TYPE, session.id);
+                         event.dataTransfer.setData(TERMINAL_TAB_ORDER_DRAG_TYPE, terminalSessionTabID(session.id));
+                         event.dataTransfer.effectAllowed = "move";
+                     }}
+                     onDragOver={(event) => {
+                         if (!event.dataTransfer.types.includes(TERMINAL_TAB_ORDER_DRAG_TYPE)) return;
+                         event.preventDefault();
+                         event.dataTransfer.dropEffect = "move";
+                         setIsDropTarget(true);
+                     }}
+                     onDragLeave={(event) => {
+                         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsDropTarget(false);
+                     }}
+                     onDrop={(event) => {
+                         const draggedTabID = event.dataTransfer.getData(TERMINAL_TAB_ORDER_DRAG_TYPE);
+                         if (!draggedTabID) return;
+                         event.preventDefault();
+                         event.stopPropagation();
+                         setIsDropTarget(false);
+                         onReorder(draggedTabID, terminalSessionTabID(session.id));
+                     }}
                      tabIndex={0}
                      role="tab"
                      aria-selected={isActive}
@@ -63,7 +95,7 @@ export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, o
                              onClick();
                          }
                      }}
-                     className={cn(tabStyles({state}))}>
+                     className={cn(tabStyles({state}), isDropTarget && "ring-2 ring-primary")}>
                     <span className="truncate">{session.title}</span>
                     <button
                         type="button"
@@ -83,6 +115,26 @@ export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, o
                 <ContextMenuPrimitive.Content className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md outline-none">
                     <ContextMenuPrimitive.Item onSelect={onDuplicate} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
                         <CopyPlus className="size-4"/>{t("duplicate_tab")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Item
+                        disabled={!isInSplit && !canAddToSplit}
+                        onSelect={onToggleSplit}
+                        className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+                    >
+                        <Columns2 className="size-4"/>{t(isInSplit ? "remove_from_split" : "add_to_split")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Separator className="my-1 h-px bg-border"/>
+                    <ContextMenuPrimitive.Item disabled={!canPlaceRelative} onSelect={() => onPlaceRelative("left")} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                        <ArrowLeft className="size-4"/>{t("place_left_of_active")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Item disabled={!canPlaceRelative} onSelect={() => onPlaceRelative("right")} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                        <ArrowRight className="size-4"/>{t("place_right_of_active")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Item disabled={!canPlaceRelative} onSelect={() => onPlaceRelative("above")} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                        <ArrowUp className="size-4"/>{t("place_above_active")}
+                    </ContextMenuPrimitive.Item>
+                    <ContextMenuPrimitive.Item disabled={!canPlaceRelative} onSelect={() => onPlaceRelative("below")} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                        <ArrowDown className="size-4"/>{t("place_below_active")}
                     </ContextMenuPrimitive.Item>
                     <ContextMenuPrimitive.Item onSelect={onClose} className="flex cursor-default items-center gap-2 rounded px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground">
                         <X className="size-4"/>{t("close_tab")}
