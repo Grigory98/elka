@@ -2,7 +2,6 @@
 
 Elka
 
-<img src="build/appicon.png" width="220" alt="Elka"/>
 
 SSH-клиент с шифрованным хранилищем и синхронизацией
 
@@ -38,6 +37,7 @@ Elka — SSH-клиент: всё хранится в зашифрованном
 ## Где лежат данные
 
 Настройки и база хранятся в `~/Library/Application Support/Elka` на macOS, в `%AppData%\Elka` на Windows и в `~/.config/Elka` на Linux.
+
 ## Сборка
 
 Нужны Go 1.25+, Node.js 24+, pnpm и [Wails v3 CLI](https://v3.wails.io/getting-started/installation/).
@@ -68,3 +68,7 @@ dlv debug --headless --listen=:2345 ./backend/cmd/elka-desktop -- dev
 ## Благодарности
 
 Авторам - https://github.com/terminator-ssh/terminator-desktop
+
+<p align="center">
+  <img src="build/appicon.png" width="220" alt="Elka"/>
+</p>
