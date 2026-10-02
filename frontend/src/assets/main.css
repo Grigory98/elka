@@ -81,6 +81,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* The desktop build has no touch input, so :hover must not be gated behind a media query.
+   Tailwind v4 otherwise emits every hover utility inside @media (hover: hover), and WebKit
+   drops the whole highlight set when the webview reports that it has no hovering pointer. */
+@custom-variant hover (&:hover);
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;

@@ -150,7 +150,6 @@ export function GroupsPage() {
                     connectHost(host);
                 }
             }}
-            title={t("double_click_to_connect", {ns: "common"})}
             onPointerEnter={() => setHoveredHostID(host.id)}
             onPointerLeave={() => setHoveredHostID((current) => current === host.id ? null : current)}
             className={cn(

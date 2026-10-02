@@ -48,7 +48,6 @@ export function HostCard({host, showGroup = true, viewMode = "cards", onConnect,
         >
             <div
                 onDoubleClick={() => onConnect(host)}
-                title={t("double_click_to_connect")}
                 className={cn("flex min-w-0 flex-1 cursor-pointer items-center gap-3", isCard ? "p-5" : "px-3 py-2")}
             >
                 <div className={cn(
