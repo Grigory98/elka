@@ -8,6 +8,7 @@ import { Create as $Create } from "@wailsio/runtime";
 export class AppSettings {
     "language": string;
     "showHostGroups": boolean;
+    "showSidebarToggle": boolean;
     "hostViewMode": string;
     "groupViewMode": string;
     "appBackgroundColor"?: string;
@@ -32,6 +33,9 @@ export class AppSettings {
         }
         if (!("showHostGroups" in $$source)) {
             this["showHostGroups"] = false;
+        }
+        if (!("showSidebarToggle" in $$source)) {
+            this["showSidebarToggle"] = false;
         }
         if (!("hostViewMode" in $$source)) {
             this["hostViewMode"] = "";

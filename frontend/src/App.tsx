@@ -22,7 +22,7 @@ import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setUpdateVersionReady, setShowHostGroups, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
+    const {setUpdateVersionReady, setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
     const queryClient = useQueryClient();
     const {i18n} = useTranslation();
@@ -34,6 +34,7 @@ export default function App() {
                     void i18n.changeLanguage(settings.language);
                 }
                 setShowHostGroups(settings.showHostGroups ?? true);
+                setShowSidebarToggle(settings.showSidebarToggle ?? true);
                 setHostViewMode(settings.hostViewMode === "list" || settings.hostViewMode === "tree" ? settings.hostViewMode : "cards");
                 setGroupViewMode(settings.groupViewMode === "cards" || settings.groupViewMode === "list" ? settings.groupViewMode : "tree");
                 setAppearance({
@@ -52,7 +53,7 @@ export default function App() {
                 });
             })
             .catch(console.error);
-    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups]);
+    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups, setShowSidebarToggle]);
 
     useEffect(() => {
         applyAppAppearance(appearance);

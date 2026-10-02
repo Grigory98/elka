@@ -57,6 +57,8 @@ export function SettingsPage() {
     const {
         showHostGroups,
         setShowHostGroups,
+        showSidebarToggle,
+        setShowSidebarToggle,
         setSelectedHostGroup,
         hostViewMode,
         groupViewMode,
@@ -143,6 +145,16 @@ export function SettingsPage() {
             await SettingsService.SaveSettings(new AppSettings({...current, showHostGroups: show}));
             setShowHostGroups(show);
             if (!show) setSelectedHostGroup(null);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const changeShowSidebarToggle = async (show: boolean) => {
+        try {
+            const current = await SettingsService.GetSettings();
+            await SettingsService.SaveSettings(new AppSettings({...current, showSidebarToggle: show}));
+            setShowSidebarToggle(show);
         } catch (error) {
             handleAppError(error);
         }
@@ -499,6 +511,19 @@ export function SettingsPage() {
                             type="checkbox"
                             checked={showHostGroups}
                             onChange={(event) => void changeShowHostGroups(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("sidebar_toggle_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("sidebar_toggle_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={showSidebarToggle}
+                            onChange={(event) => void changeShowSidebarToggle(event.target.checked)}
                             className="size-4 shrink-0 accent-primary"
                         />
                     </label>

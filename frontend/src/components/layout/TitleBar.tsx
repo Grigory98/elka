@@ -1,4 +1,4 @@
-import { PanelLeftOpen, Plus } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
     splitWorkspaceTabID,
     terminalSessionTabID,
@@ -66,13 +66,14 @@ export function TitleBar() {
         removeSessionFromGroup,
         ungroupTabs,
     } = useSessionStore();
-    const {activeView, isSidebarVisible, toggleSidebar, setActiveView, setSelectedHostGroup} = useUIStore();
+    const {activeView, isSidebarVisible, showSidebarToggle, toggleSidebar, setActiveView, setSelectedHostGroup} = useUIStore();
 
     const isTerminalView = activeView === ViewType.Terminal;
-    const showSidebarStyling = isTerminalView ? isSidebarVisible : true;
+    const showSidebarStyling = isSidebarVisible;
     const isMacOS = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
     const {isUnlocked} = useAuthStore();
+    const showSidebarButtonVisible = isUnlocked && showSidebarToggle;
     const {t} = useTranslation(["hosts", "common"]);
 
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -238,46 +239,15 @@ export function TitleBar() {
         <header className="wails-no-drag relative flex h-14 shrink-0 items-end justify-between bg-background pr-0">
             <div className="wails-drag absolute top-0 right-0 left-[72px] z-20 h-4" aria-hidden="true"/>
 
-            {isMacOS ? (
-                <>
-                    <div className="h-full w-18 shrink-0 bg-background" aria-hidden="true"/>
-                    {isUnlocked && isTerminalView && !isSidebarVisible && (
-                        <div className="flex h-full w-9 shrink-0 items-center justify-center bg-background">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={toggleSidebar}
-                                className="wails-no-drag text-muted-foreground hover:text-foreground"
-                                aria-label={t("show_sidebar", {ns: "common"})}
-                                title={t("show_sidebar", {ns: "common"})}
-                            >
-                                <PanelLeftOpen className="size-5"/>
-                            </Button>
-                        </div>
-                    )}
-                </>
-            ) : isUnlocked && (
-                <div
-                    className={cn(
-                        "relative flex h-full w-14 shrink-0 items-center justify-center",
-                        showSidebarStyling ? "border-r bg-sidebar" : "bg-transparent"
-                    )}
-                >
-                    {isTerminalView && !isSidebarVisible && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={toggleSidebar}
-                            className="wails-no-drag text-muted-foreground hover:text-foreground"
-                            aria-label={t("show_sidebar", {ns: "common"})}
-                            title={t("show_sidebar", {ns: "common"})}
-                        >
-                            <PanelLeftOpen className="size-5"/>
-                        </Button>
-                    )}
-                    {showSidebarStyling && <div className="absolute bottom-0 h-px w-8 bg-border"/>}
-                </div>
-            )}
+            <div
+                className={cn(
+                    "relative flex h-full w-14 shrink-0 items-center justify-center",
+                    isMacOS ? "w-18" : showSidebarStyling && "border-r bg-sidebar"
+                )}
+                aria-hidden={isMacOS ? "true" : undefined}
+            >
+                {!isMacOS && showSidebarStyling && <div className="absolute bottom-0 h-px w-8 bg-border"/>}
+            </div>
 
             <div ref={scrollRef}
                   onWheel={handleWheel}
@@ -374,7 +344,22 @@ export function TitleBar() {
                 )}
             </div>
 
-            <WindowControls className="ml-12"/>
+            {showSidebarButtonVisible && (
+                <div className="flex h-full shrink-0 items-center pr-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={toggleSidebar}
+                        className="wails-no-drag text-muted-foreground hover:text-foreground"
+                        aria-label={isSidebarVisible ? t("hide_sidebar", {ns: "common"}) : t("show_sidebar", {ns: "common"})}
+                        title={isSidebarVisible ? t("hide_sidebar", {ns: "common"}) : t("show_sidebar", {ns: "common"})}
+                    >
+                        {isSidebarVisible ? <PanelLeftClose className="size-5"/> : <PanelLeftOpen className="size-5"/>}
+                    </Button>
+                </div>
+            )}
+
+            <WindowControls className={showSidebarButtonVisible ? "" : "ml-12"}/>
             <NameDialog
                 open={groupDialogOpen}
                 title={t("new_tab_group_name", {ns: "terminal"})}
