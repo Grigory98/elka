@@ -58,7 +58,7 @@ const devDbFile = "dev.db"
 const logFileName = "elka.log"
 const legacyLogFileName = "terminator.log"
 const crashLogFileName = "crash.log"
-const updateUrl = "" // Set this to Elka's release feed once its repository URL is known.
+const updateUrl = "https://github.com/NBK1328/elka/releases/latest/download/"
 
 func main() {
 	velopack.Run(velopack.App{

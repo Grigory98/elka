@@ -1,43 +1,55 @@
 ﻿# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# ide
-.idea
-.vscode
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
 
-
-# misc
+# OS junk
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+Thumbs.db
+desktop.ini
 
-dist
-out
-.eslintcache
+# Secrets and local env files
+.env
+.env.*
+!.env.example
 
-# local db
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+bin/
+.task/
+dist/
+out/
+frontend/dist/
+build/linux/appimage/build/
+build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
+webview2/
+
+# Objects and binaries produced during builds
+*.o
+*.syso
+*.dll
+*.so
+*.dylib
+__debug_bin.exe
+
+# Local vault, settings and logs
 *.db
 *.db-shm
 *.db-wal
+/settings.json
+*.log
 
-# local preferences
-settings.json
-
-# log
-elka.log
-crash.log
-
-# wails
-.task
-bin
-frontend/dist
-frontend/node_modules
-build/linux/appimage/build
-build/windows/nsis/MicrosoftEdgeWebview2Setup.exe
-webview2
-
-# velopack
+# Release artifacts
 releases/
+*.dmg
+*.pkg
 
-__debug_bin.exe
+# Caches
+.eslintcache
+*.tsbuildinfo
+coverage/
