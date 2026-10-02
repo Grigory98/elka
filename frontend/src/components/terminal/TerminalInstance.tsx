@@ -283,8 +283,8 @@ export function TerminalInstance({
             }}
             onDrop={handleDrop}
             className={cn(
-                "group relative h-full w-full min-h-0 min-w-0 bg-background p-2",
-                isSplitPane && "flex flex-col overflow-hidden rounded-lg border border-white/45",
+                "group relative h-full w-full min-h-0 min-w-0",
+                isSplitPane ? "flex flex-col overflow-hidden rounded-lg border border-white/45 bg-background p-2" : "bg-background pt-2",
                 isVisible ? "block" : "hidden"
             )}
         >
@@ -340,15 +340,21 @@ export function TerminalInstance({
                     dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
                 )}/>
             )}
-            <div className={cn("relative bg-background", isSplitPane ? "min-h-0 flex-1" : "h-full")}>
+            {/* The terminal surface carries the terminal background colour, so a lone terminal can bleed to
+                the window edges while its inner padding keeps the text off them. */}
+            <div
+                className={cn("relative overflow-hidden", isSplitPane ? "min-h-0 flex-1" : "h-full rounded-t-xl")}
+                style={{backgroundColor: appearance.terminalBackgroundColor}}
+            >
                 {/* Hidden until the session is live: an unfitted xterm paints the terminal background,
                     which reads as a black rectangle before the handshake finishes. */}
-                <div ref={containerRef} className={cn("h-full w-full", isConnecting && "invisible")}/>
+                <div ref={containerRef} className={cn("h-full w-full", !isSplitPane && "p-2", isConnecting && "invisible")}/>
                 {isConnecting && (
                     <div role="status"
-                         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
-                        <LoaderCircle className="size-5 animate-spin text-muted-foreground"/>
-                        <div className="max-w-[80%] truncate text-xs text-muted-foreground">
+                         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
+                         style={{color: appearance.terminalForegroundColor}}>
+                        <LoaderCircle className="size-5 animate-spin opacity-70"/>
+                        <div className="max-w-[80%] truncate text-xs opacity-70">
                             {t("connecting_to_host", {host: config.host})}
                         </div>
                     </div>

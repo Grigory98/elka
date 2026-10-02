@@ -158,12 +158,14 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
             )}
             {sessions.map((session) => {
                 const pane = paneBySession.get(session.id);
-                const isRightmostPane = !!pane && Math.abs(pane.rect.left + pane.rect.width - 1) < 0.001;
+                // Only a pane that actually has a divider on its right needs to shrink. A lone terminal
+                // reaches the window edge, otherwise it leaves a gap next to the window border.
+                const hasRightDivider = !!pane && pane.rect.left > 0 && Math.abs(pane.rect.left + pane.rect.width - 1) < 0.001;
                 const layoutStyle: CSSProperties | undefined = pane ? {
                     position: "absolute",
                     left: `${pane.rect.left * 100}%`,
                     top: `${pane.rect.top * 100}%`,
-                    width: isRightmostPane ? `calc(${pane.rect.width * 100}% - 10px)` : `${pane.rect.width * 100}%`,
+                    width: hasRightDivider ? `calc(${pane.rect.width * 100}% - 10px)` : `${pane.rect.width * 100}%`,
                     height: `${pane.rect.height * 100}%`,
                 } : undefined;
 
