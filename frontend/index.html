@@ -5,8 +5,111 @@
     <link rel="icon" type="image/png" href="/appicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Elka</title>
+    <style>
+      /* The bundle and its fonts take a moment to arrive, so the splash is styled inline and
+         rendered by the very first paint instead of showing an empty dark window. Colors come from
+         the app variables, which the script below pre-fills from the cached appearance. */
+      :root {
+        --splash-bg: var(--background, #09090b);
+        --splash-fg: var(--foreground, #fafafa);
+        --splash-accent: var(--primary, #e4e4e7);
+        --splash-muted: var(--muted-foreground,
+          color-mix(in oklab, var(--splash-fg) 62%, var(--splash-bg)));
+        --splash-line: color-mix(in oklab, var(--splash-fg) 14%, transparent);
+      }
+
+      html,
+      body {
+        margin: 0;
+        background: var(--splash-bg, #09090b);
+      }
+
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: var(--splash-bg);
+        color: var(--splash-fg);
+        font-family: var(--app-font-family, system-ui, -apple-system, "Segoe UI", sans-serif);
+        transition: opacity 220ms ease;
+      }
+
+      #app-splash[data-state="leaving"] {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .app-splash-mark {
+        display: flex;
+        width: 56px;
+        height: 56px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--splash-line);
+        border-radius: 16px;
+        background: color-mix(in oklab, var(--splash-fg) 5%, transparent);
+        color: var(--splash-accent);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 20px;
+        font-weight: 600;
+      }
+
+      .app-splash-title {
+        color: var(--splash-muted);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.34em;
+        text-transform: uppercase;
+      }
+
+      .app-splash-spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--splash-line);
+        border-top-color: var(--splash-accent);
+        border-radius: 50%;
+        animation: app-splash-spin 700ms linear infinite;
+      }
+
+      @keyframes app-splash-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-splash-spinner {
+          animation: none;
+        }
+      }
+    </style>
+    <script>
+      // Runs before the first paint, so a light theme never shows the dark default first.
+      // The palette is cached by applyAppAppearance() every time the settings are applied.
+      try {
+        var cachedAppearance = JSON.parse(localStorage.getItem("elka.appearance") || "null");
+        if (cachedAppearance) {
+          var splashRoot = document.documentElement;
+          if (cachedAppearance.background) splashRoot.style.setProperty("--splash-bg", cachedAppearance.background);
+          if (cachedAppearance.foreground) splashRoot.style.setProperty("--splash-fg", cachedAppearance.foreground);
+          if (cachedAppearance.accent) splashRoot.style.setProperty("--splash-accent", cachedAppearance.accent);
+        }
+      } catch (error) {
+        console.warn("splash appearance cache is unavailable", error);
+      }
+    </script>
   </head>
   <body>
+    <div id="app-splash" role="status" aria-label="Loading Elka">
+      <div class="app-splash-mark">&gt;_</div>
+      <div class="app-splash-title">Elka</div>
+      <div class="app-splash-spinner"></div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

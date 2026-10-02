@@ -18,6 +18,7 @@ import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
 import { UpdaterService } from "../bindings/elka-desktop/backend/internal/services/updater";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
+import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
@@ -52,7 +53,8 @@ export default function App() {
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                 });
             })
-            .catch(console.error);
+            .catch(console.error)
+            .finally(dismissSplash);
     }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups, setShowSidebarToggle]);
 
     useEffect(() => {

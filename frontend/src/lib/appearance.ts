@@ -70,6 +70,15 @@ export const FONT_FAMILIES = [
     {family: "Fira Code", label: "Fira Code"},
 ] as const;
 
+// Mirrored in the inline splash script of index.html, which reads it before any bundle loads.
+const APPEARANCE_STORAGE_KEY = "elka.appearance";
+
+interface CachedAppearance {
+    background?: string;
+    foreground?: string;
+    accent?: string;
+}
+
 function readableTextFor(color: string) {
     const hex = color.replace("#", "");
     if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
@@ -119,6 +128,50 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     root.style.setProperty("--font-heading", fontStack);
     root.style.setProperty("--app-font-family", fontStack);
     root.style.fontFamily = fontStack;
+
+    cacheAppearance(appearance);
+}
+
+/**
+ * The splash screen in index.html paints before any bundle is parsed, so it cannot wait for the
+ * settings request. Caching the palette lets it start in the user's theme instead of the dark default.
+ */
+function cacheAppearance(appearance: AppearanceSettings) {
+    const {appBackgroundColor: background, appForegroundColor: foreground, appAccentColor: accent} = appearance;
+
+    try {
+        localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({
+            background,
+            foreground,
+            accent,
+        }));
+    } catch (error) {
+        console.warn("could not cache the appearance for the splash screen", error);
+    }
+}
+
+/**
+ * The first render happens before the settings request resolves. Seeding the store with the cached
+ * palette keeps the dark default from being painted over the theme the user picked.
+ */
+export function getInitialAppearance(): AppearanceSettings {
+    let cached: CachedAppearance | null = null;
+
+    try {
+        const raw = localStorage.getItem(APPEARANCE_STORAGE_KEY);
+        cached = raw ? JSON.parse(raw) as CachedAppearance : null;
+    } catch (error) {
+        console.warn("could not read the cached appearance", error);
+    }
+
+    if (!cached) return {...DEFAULT_APPEARANCE};
+
+    return {
+        ...DEFAULT_APPEARANCE,
+        appBackgroundColor: cached.background || DEFAULT_APPEARANCE.appBackgroundColor,
+        appForegroundColor: cached.foreground || DEFAULT_APPEARANCE.appForegroundColor,
+        appAccentColor: cached.accent || DEFAULT_APPEARANCE.appAccentColor,
+    };
 }
 
 export function terminalFontStack(fontFamily: string) {
