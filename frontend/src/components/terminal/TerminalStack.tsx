@@ -162,8 +162,10 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
             {/*
                 Panes and dividers share this offset container: it keeps the gap under the tab bar and
                 becomes the containing block, so their percentages measure the region below that gap.
+                Split panes also step back from the right window edge, otherwise their frame is drawn on
+                the outermost pixel column and cannot be seen.
             */}
-            <div className="absolute inset-x-0 top-2 bottom-0">
+            <div className={cn("absolute bottom-0 left-0 top-2", splitWorkspaceActive ? "right-1" : "right-0")}>
             {sessions.map((session) => {
                 const pane = paneBySession.get(session.id);
                 // Panes fill their region exactly, so the black surface reaches the window edges and

@@ -95,8 +95,8 @@ function readableTextFor(color: string) {
 }
 
 /**
- * The split panes are framed with a tone that contrasts the app theme, yet stays readable on top of
- * the terminal background: light frame on dark themes, gray frame on light ones.
+ * The split panes are framed with an opaque tone that contrasts the app theme, yet stays readable on
+ * top of the terminal background: light frame on dark themes, gray frame on light ones.
  */
 function splitPaneBorderColors(background: string, customColor: string) {
     const custom = customColor.trim();
@@ -105,8 +105,8 @@ function splitPaneBorderColors(background: string, customColor: string) {
     }
 
     return relativeLuminance(background) < 0.4
-        ? {border: "rgb(255 255 255 / 0.28)", active: "rgb(255 255 255 / 0.7)"}
-        : {border: "rgb(100 116 139 / 0.85)", active: "rgb(226 232 240 / 0.95)"};
+        ? {border: "#3f3f46", active: "#d4d4d8"}
+        : {border: "#94a3b8", active: "#e2e8f0"};
 }
 
 export function applyAppAppearance(appearance: AppearanceSettings) {

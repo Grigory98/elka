@@ -402,7 +402,7 @@ export function TerminalInstance({
                    An inset shadow cannot do this: the pane children would cover it. */
                 <div
                     aria-hidden="true"
-                    className={cn("pointer-events-none absolute inset-0 border-2", rounding)}
+                    className={cn("pointer-events-none absolute inset-0 border", rounding)}
                     style={{borderColor: isActive ? "var(--split-pane-border-active)" : "var(--split-pane-border)"}}
                 />
             )}
