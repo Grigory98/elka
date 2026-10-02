@@ -15,6 +15,7 @@ import (
 type AppSettings struct {
 	Language              string `json:"language"`
 	ShowHostGroups        bool   `json:"showHostGroups"`
+	ShowSidebarToggle     bool   `json:"showSidebarToggle"`
 	HostViewMode          string `json:"hostViewMode"`
 	GroupViewMode         string `json:"groupViewMode"`
 	AppBackgroundColor    string `json:"appBackgroundColor,omitempty"`
@@ -59,6 +60,7 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 	settings := AppSettings{
 		Language:             "en",
 		ShowHostGroups:       true,
+		ShowSidebarToggle:    true,
 		HostViewMode:         "cards",
 		GroupViewMode:        "tree",
 		AppBackgroundColor:   "#09090b",

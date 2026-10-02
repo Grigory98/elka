@@ -1,4 +1,4 @@
-import { Server, Key, KeyRound, FolderTree, PanelLeftClose, PanelLeftOpen, Settings } from "lucide-react";
+import { Server, Key, KeyRound, FolderTree, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
@@ -54,7 +54,7 @@ function SidebarItem({title, active, onClick, children, indicatorClassName}: Sid
 
 export function Sidebar() {
     const {t} = useTranslation(["hosts", "keys", "update", "credentials", "groups", "settings"]);
-    const {activeView, setActiveView, isSidebarVisible, toggleSidebar, setSelectedHostGroup} = useUIStore();
+    const {activeView, setActiveView, isSidebarVisible, setSelectedHostGroup} = useUIStore();
     const {status} = useSyncStore();
 
     let dotColor = "bg-muted-foreground";
@@ -66,7 +66,7 @@ export function Sidebar() {
         <aside
             className={cn(
                 "wails-no-drag relative z-30 flex shrink-0 flex-col items-center justify-between pb-4 pt-2",
-                (activeView !== ViewType.Terminal || isSidebarVisible) ? "w-14" : "w-0 overflow-hidden border-r-0"
+                isSidebarVisible ? "w-14" : "w-0 overflow-hidden border-r-0"
             )}
         >
             <div className="pointer-events-none absolute inset-0 rounded-t-xl bg-sidebar" aria-hidden="true"/>
@@ -111,16 +111,6 @@ export function Sidebar() {
 
             <nav className="relative z-10 flex flex-col gap-2">
                 <UpdatePopover/>
-
-                <SidebarItem
-                    title={t(isSidebarVisible ? "hide_sidebar" : "show_sidebar", {ns: "common"})}
-                    active={false}
-                    onClick={toggleSidebar}
-                >
-                    {isSidebarVisible
-                        ? <PanelLeftClose className="size-5"/>
-                        : <PanelLeftOpen className="size-5"/>}
-                </SidebarItem>
 
                 <SidebarItem
                     title={t("page_title", {ns: "settings"})}

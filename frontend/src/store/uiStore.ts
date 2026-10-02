@@ -18,12 +18,14 @@ interface UIState {
     isSidebarVisible: boolean;
     updateVersionReady: string | null;
     showHostGroups: boolean;
+    showSidebarToggle: boolean;
     selectedHostGroup: string | null;
     hostViewMode: HostViewMode;
     groupViewMode: HostViewMode;
     appearance: AppearanceSettings;
     setActiveView: (view: ViewType) => void;
     setShowHostGroups: (show: boolean) => void;
+    setShowSidebarToggle: (show: boolean) => void;
     setSelectedHostGroup: (group: string | null) => void;
     setHostViewMode: (mode: HostViewMode) => void;
     setGroupViewMode: (mode: HostViewMode) => void;
@@ -37,12 +39,18 @@ export const useUIStore = create<UIState>((set) => ({
     isSidebarVisible: true,
     updateVersionReady: null,
     showHostGroups: true,
+    showSidebarToggle: true,
     selectedHostGroup: null,
     hostViewMode: "cards",
     groupViewMode: "tree",
     appearance: {...DEFAULT_APPEARANCE},
     setActiveView: (view) => set({activeView: view}),
     setShowHostGroups: (show) => set({showHostGroups: show}),
+    // Without the toggle button the sidebar has to stay visible, otherwise there is no way to bring it back.
+    setShowSidebarToggle: (show) => set((state) => ({
+        showSidebarToggle: show,
+        isSidebarVisible: show ? state.isSidebarVisible : true,
+    })),
     setSelectedHostGroup: (group) => set({selectedHostGroup: group}),
     setHostViewMode: (mode) => set({hostViewMode: mode}),
     setGroupViewMode: (mode) => set({groupViewMode: mode}),
