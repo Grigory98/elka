@@ -191,6 +191,11 @@
     --info-foreground: oklch(1 0 0);
     --success: oklch(0.72 0.19 150);
     --success-foreground: oklch(1 0 0);
+
+    /* Split pane frames. applyAppAppearance replaces them once the settings arrive; these values
+       only cover the very first paint of the terminal view. */
+    --split-pane-border: rgb(255 255 255 / 0.28);
+    --split-pane-border-active: rgb(255 255 255 / 0.7);
 }
 
 @layer base {

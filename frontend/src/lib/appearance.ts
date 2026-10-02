@@ -9,6 +9,8 @@ export interface AppearanceSettings {
     terminalCursorStyle: "block" | "underline" | "bar";
     terminalFontFamily: string;
     terminalFontSize: number;
+    /** Empty string keeps the split pane frame tied to the app theme. */
+    splitPaneBorderColor: string;
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
@@ -22,6 +24,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     terminalCursorStyle: "block",
     terminalFontFamily: "Cascadia Code",
     terminalFontSize: 14,
+    splitPaneBorderColor: "",
 };
 
 export const APP_COLOR_PALETTES = {
@@ -79,13 +82,31 @@ interface CachedAppearance {
     accent?: string;
 }
 
-function readableTextFor(color: string) {
+function relativeLuminance(color: string) {
     const hex = color.replace("#", "");
-    if (!/^[0-9a-f]{6}$/i.test(hex)) return "#ffffff";
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return 0;
     const [red, green, blue] = [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255);
     const linear = [red, green, blue].map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
-    const luminance = linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
-    return luminance > 0.45 ? "#09090b" : "#ffffff";
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+}
+
+function readableTextFor(color: string) {
+    return relativeLuminance(color) > 0.45 ? "#09090b" : "#ffffff";
+}
+
+/**
+ * The split panes are framed with a tone that contrasts the app theme, yet stays readable on top of
+ * the terminal background: light frame on dark themes, gray frame on light ones.
+ */
+function splitPaneBorderColors(background: string, customColor: string) {
+    const custom = customColor.trim();
+    if (custom) {
+        return {border: custom, active: `color-mix(in oklab, ${custom} 45%, #ffffff)`};
+    }
+
+    return relativeLuminance(background) < 0.4
+        ? {border: "rgb(255 255 255 / 0.28)", active: "rgb(255 255 255 / 0.7)"}
+        : {border: "rgb(100 116 139 / 0.85)", active: "rgb(226 232 240 / 0.95)"};
 }
 
 export function applyAppAppearance(appearance: AppearanceSettings) {
@@ -122,6 +143,10 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     root.style.setProperty("--sidebar-accent-foreground", foreground);
     root.style.setProperty("--sidebar-border", border);
     root.style.setProperty("--sidebar-ring", accent);
+
+    const splitPaneBorder = splitPaneBorderColors(background, appearance.splitPaneBorderColor);
+    root.style.setProperty("--split-pane-border", splitPaneBorder.border);
+    root.style.setProperty("--split-pane-border-active", splitPaneBorder.active);
 
     const fontStack = `"${appearance.appFontFamily}", sans-serif`;
     root.style.setProperty("--font-sans", fontStack);

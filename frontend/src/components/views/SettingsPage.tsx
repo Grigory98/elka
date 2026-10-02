@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen, Download, Upload, LoaderCircle } from "lucide-react";
+import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen, Download, Upload, LoaderCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SwitchServerModal } from "@/components/views/SwitchServerModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
@@ -44,6 +44,42 @@ function AppearanceColorInput({label, value, onChange}: {label: string; value: s
                 />
             </span>
         </label>
+    );
+}
+
+function SplitPaneBorderInput({value, onChange}: {value: string; onChange: (value: string) => void}) {
+    const {t} = useTranslation("settings");
+    const followsTheme = value === "";
+
+    return (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+            <span className="flex flex-col gap-0.5">
+                <span className="text-sm text-foreground">{t("split_pane_border_color")}</span>
+                {followsTheme && <span className="text-2xs text-muted-foreground">{t("split_pane_border_theme_hint")}</span>}
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+                <span className="font-mono text-xs text-muted-foreground">
+                    {followsTheme ? t("split_pane_border_theme") : value.toUpperCase()}
+                </span>
+                <input
+                    type="color"
+                    value={value || "#ffffff"}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                    aria-label={t("split_pane_border_color")}
+                />
+                <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    disabled={followsTheme}
+                    title={t("split_pane_border_theme")}
+                    aria-label={t("split_pane_border_theme")}
+                    onClick={() => onChange("")}
+                >
+                    <RotateCcw/>
+                </Button>
+            </span>
+        </div>
     );
 }
 
@@ -222,6 +258,7 @@ export function SettingsPage() {
                 terminalCursorStyle: appearanceDraft.terminalCursorStyle,
                 terminalFontFamily: appearanceDraft.terminalFontFamily,
                 terminalFontSize: appearanceDraft.terminalFontSize,
+                splitPaneBorder: appearanceDraft.splitPaneBorderColor,
             }));
             setAppearanceStatus(t("appearance_saved"));
         } catch (error) {
@@ -402,6 +439,7 @@ export function SettingsPage() {
                             <AppearanceColorInput label={t("terminal_background_color")} value={appearanceDraft.terminalBackgroundColor} onChange={(terminalBackgroundColor) => updateAppearance({terminalBackgroundColor})}/>
                             <AppearanceColorInput label={t("terminal_text_color")} value={appearanceDraft.terminalForegroundColor} onChange={(terminalForegroundColor) => updateAppearance({terminalForegroundColor})}/>
                             <AppearanceColorInput label={t("terminal_cursor_color")} value={appearanceDraft.terminalCursorColor} onChange={(terminalCursorColor) => updateAppearance({terminalCursorColor})}/>
+                            <SplitPaneBorderInput value={appearanceDraft.splitPaneBorderColor} onChange={(splitPaneBorderColor) => updateAppearance({splitPaneBorderColor})}/>
                             <label className="grid gap-2">
                                 <span className="text-sm text-foreground">{t("terminal_cursor_style")}</span>
                                 <Select value={appearanceDraft.terminalCursorStyle} onValueChange={(terminalCursorStyle) => updateAppearance({terminalCursorStyle: terminalCursorStyle as AppearanceSettings["terminalCursorStyle"]})}>

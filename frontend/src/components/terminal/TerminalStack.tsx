@@ -10,6 +10,9 @@ interface TerminalStackProps {
     isVisible: boolean;
 }
 
+// Must match the pane header height in TerminalInstance.
+const PANE_HEADER_HEIGHT = 24;
+
 interface Rect {
     left: number;
     top: number;
@@ -156,16 +159,20 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
                     {t("empty_split_workspace")}
                 </div>
             )}
+            {/*
+                Panes and dividers share this offset container: it keeps the gap under the tab bar and
+                becomes the containing block, so their percentages measure the region below that gap.
+            */}
+            <div className="absolute inset-x-0 top-2 bottom-0">
             {sessions.map((session) => {
                 const pane = paneBySession.get(session.id);
-                // Only a pane that actually has a divider on its right needs to shrink. A lone terminal
-                // reaches the window edge, otherwise it leaves a gap next to the window border.
-                const hasRightDivider = !!pane && pane.rect.left > 0 && Math.abs(pane.rect.left + pane.rect.width - 1) < 0.001;
+                // Panes fill their region exactly, so the black surface reaches the window edges and
+                // the dividers ride on top of it instead of eating into the pane width.
                 const layoutStyle: CSSProperties | undefined = pane ? {
                     position: "absolute",
                     left: `${pane.rect.left * 100}%`,
                     top: `${pane.rect.top * 100}%`,
-                    width: hasRightDivider ? `calc(${pane.rect.width * 100}% - 10px)` : `${pane.rect.width * 100}%`,
+                    width: `${pane.rect.width * 100}%`,
                     height: `${pane.rect.height * 100}%`,
                 } : undefined;
 
@@ -199,14 +206,22 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
                     onPointerMove={moveResize}
                     onPointerUp={endResize}
                     onPointerCancel={endResize}
+                    // Invisible handle: the seam between two black panes is the only grab affordance, and it starts
+                    // below the pane header so it never covers the pane buttons. Hover tint stays white
+                    // based because the seam always sits on the terminal background.
                     className={divider.axis === "columns"
-                        ? "absolute z-30 w-2 -translate-x-1/2 cursor-col-resize touch-none bg-background/80 hover:bg-primary/40 active:bg-primary/60"
-                        : "absolute z-30 h-2 -translate-y-1/2 cursor-row-resize touch-none bg-background/80 hover:bg-primary/40 active:bg-primary/60"}
+                        ? "absolute z-30 w-1.5 -translate-x-1/2 cursor-col-resize touch-none hover:bg-white/25 active:bg-white/40"
+                        : "absolute z-30 h-1.5 -translate-y-1/2 cursor-row-resize touch-none hover:bg-white/25 active:bg-white/40"}
                     style={divider.axis === "columns"
-                        ? {left: `${divider.position * 100}%`, top: `${divider.crossStart * 100}%`, height: `${divider.crossSize * 100}%`}
+                        ? {
+                            left: `${divider.position * 100}%`,
+                            top: `calc(${divider.crossStart * 100}% + ${PANE_HEADER_HEIGHT}px)`,
+                            height: `max(10px, calc(${divider.crossSize * 100}% - ${PANE_HEADER_HEIGHT}px))`,
+                        }
                         : {top: `${divider.position * 100}%`, left: `${divider.crossStart * 100}%`, width: `${divider.crossSize * 100}%`}}
                 />
             ))}
+            </div>
         </div>
     );
 }

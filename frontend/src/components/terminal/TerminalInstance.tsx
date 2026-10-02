@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, DragEvent as ReactDragEvent } from "react";
+import type {
+    CSSProperties,
+    DragEvent as ReactDragEvent,
+    MouseEvent as ReactMouseEvent,
+    PointerEvent as ReactPointerEvent,
+} from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Events, Clipboard } from "@wailsio/runtime";
@@ -31,6 +36,9 @@ interface TerminalInstanceProps {
     config: SSHConnectionConfig;
 }
 
+// Split panes are rounded on every corner, wherever they sit in the layout.
+const PANE_RADIUS = "rounded-xl";
+
 export function TerminalInstance({
     sessionId,
     isActive,
@@ -47,6 +55,7 @@ export function TerminalInstance({
 }: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
     const appearance = useUIStore((state) => state.appearance);
+    const rounding = isSplitPane ? PANE_RADIUS : "rounded-t-xl";
 
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<Terminal | null>(null);
@@ -63,6 +72,11 @@ export function TerminalInstance({
     appearanceRef.current = appearance;
     const onFocusRef = useRef(onFocus);
     onFocusRef.current = onFocus;
+    // The fit is deferred to requestAnimationFrame, so it must read the current flag instead of the
+    // one captured when it was scheduled. A stale true would pull the focus back to this pane and undo
+    // the pane the user just switched to.
+    const isActiveRef = useRef(isActive);
+    isActiveRef.current = isActive;
 
     fitAndResizeRef.current = (forceResize = false) => {
         // A failed session still has to be fitted, otherwise the error printed into it stays invisible.
@@ -77,7 +91,7 @@ export function TerminalInstance({
             try {
                 fitAddon.fit();
                 terminal.refresh(0, terminal.rows - 1);
-                if (isActive) terminal.focus();
+                if (isActiveRef.current) terminal.focus();
 
                 const sizeChanged = lastSizeRef.current.rows !== terminal.rows || lastSizeRef.current.cols !== terminal.cols;
                 if (isReadyRef.current && (forceResize || sizeChanged)) {
@@ -120,6 +134,24 @@ export function TerminalInstance({
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
         setDropPlacement(getDropPlacement(event));
+    };
+
+    // xterm only takes focus when the click lands on its own canvas, which leaves the inner padding and
+    // the frame overlay as dead zones. The pane owns the focus instead, so a click anywhere on a pane
+    // makes it the active one and routes the keyboard there.
+    const handlePanePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (event.button !== 0) return;
+        if ((event.target as HTMLElement).closest("button")) return;
+
+        onFocusRef.current();
+    };
+
+    const handlePaneClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+        if (event.button !== 0) return;
+        if ((event.target as HTMLElement).closest("button")) return;
+
+        // Runs after the mousedown default action, so the focus is not reset right afterwards.
+        terminalRef.current?.focus();
     };
 
     const handleDrop = (event: ReactDragEvent<HTMLDivElement>) => {
@@ -278,22 +310,26 @@ export function TerminalInstance({
             data-split-pane-id={isSplitPane ? sessionId : undefined}
             data-workspace-id={isSplitPane ? workspaceID : undefined}
             onDragOver={handleDragOver}
+            onPointerDown={handlePanePointerDown}
+            onClick={handlePaneClick}
             onDragLeave={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropPlacement(null);
             }}
             onDrop={handleDrop}
             className={cn(
-                "group relative h-full w-full min-h-0 min-w-0",
-                isSplitPane ? "flex flex-col overflow-hidden rounded-lg border border-white/45 bg-background p-2" : "bg-background pt-2",
-                isVisible ? "block" : "hidden"
+                "group relative h-full w-full min-h-0 min-w-0 bg-background",
+                // `block` must not be added here: tailwind-merge resolves display clashes by keeping the
+                // last class, which would silently drop `flex` and let the surface size itself by content.
+                isSplitPane ? cn("flex flex-col overflow-hidden", rounding) : "pt-2",
+                isVisible ? undefined : "hidden"
             )}
         >
             {isSplitPane && (
                 <div className={cn(
-                    "mb-1 flex h-8 shrink-0 items-center justify-between gap-1 border-b border-white/20 px-1",
+                    "flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 px-1",
                     isActive && "bg-white/[0.035]"
                 )}>
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
                     <button
                         type="button"
                         draggable
@@ -303,30 +339,30 @@ export function TerminalInstance({
                         }}
                         title={t("drag_pane")}
                         aria-label={t("drag_pane")}
-                        className="flex size-7 shrink-0 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
+                        className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
                     >
-                        <GripVertical className="size-4"/>
+                        <GripVertical className="size-3.5"/>
                     </button>
                     <span className="truncate text-xs font-medium text-foreground">{paneTitle || config.host}</span>
                     </div>
-                    <div className="flex shrink-0 items-center gap-1">
+                    <div className="flex shrink-0 items-center gap-0.5">
                     <button
                         type="button"
                         title={t("detach_pane")}
                         aria-label={t("detach_pane")}
                         onClick={onDetachPane}
-                        className="flex size-7 items-center justify-center rounded hover:bg-muted"
+                        className="flex size-5 items-center justify-center rounded hover:bg-muted"
                     >
-                        <PanelTopClose className="size-4"/>
+                        <PanelTopClose className="size-3.5"/>
                     </button>
                     <button
                         type="button"
                         title={t("close_tab")}
                         aria-label={t("close_named_tab", {name: paneTitle || config.host})}
                         onClick={onCloseSession}
-                        className="flex size-7 items-center justify-center rounded hover:bg-destructive/20 hover:text-destructive"
+                        className="flex size-5 items-center justify-center rounded hover:bg-destructive/20 hover:text-destructive"
                     >
-                        <X className="size-4"/>
+                        <X className="size-3.5"/>
                     </button>
                     </div>
                 </div>
@@ -340,18 +376,19 @@ export function TerminalInstance({
                     dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
                 )}/>
             )}
-            {/* The terminal surface carries the terminal background colour, so a lone terminal can bleed to
+            {/* The terminal surface carries the terminal background colour, so a terminal can bleed to
                 the window edges while its inner padding keeps the text off them. */}
             <div
-                className={cn("relative overflow-hidden", isSplitPane ? "min-h-0 flex-1" : "h-full rounded-t-xl")}
+                className={cn("relative overflow-hidden", isSplitPane ? "min-h-0 flex-1" : cn("h-full", rounding))}
                 style={{backgroundColor: appearance.terminalBackgroundColor}}
             >
-                {/* Hidden until the session is live: an unfitted xterm paints the terminal background,
-                    which reads as a black rectangle before the handshake finishes. */}
-                <div ref={containerRef} className={cn("h-full w-full", !isSplitPane && "p-2", isConnecting && "invisible")}/>
+                {/* The canvas paints the terminal background itself, so it needs no placeholder treatment
+                    and stays interactive: hiding it would block focus switching and the context menu while
+                    the handshake is still running. */}
+                <div ref={containerRef} className="h-full w-full p-2"/>
                 {isConnecting && (
                     <div role="status"
-                         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
+                         className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
                          style={{color: appearance.terminalForegroundColor}}>
                         <LoaderCircle className="size-5 animate-spin opacity-70"/>
                         <div className="max-w-[80%] truncate text-xs opacity-70">
@@ -360,6 +397,15 @@ export function TerminalInstance({
                     </div>
                 )}
             </div>
+            {isSplitPane && (
+                /* Drawn last so the frame sits above the header and the terminal on every side.
+                   An inset shadow cannot do this: the pane children would cover it. */
+                <div
+                    aria-hidden="true"
+                    className={cn("pointer-events-none absolute inset-0 border-2", rounding)}
+                    style={{borderColor: isActive ? "var(--split-pane-border-active)" : "var(--split-pane-border)"}}
+                />
+            )}
         </div>
     );
 }

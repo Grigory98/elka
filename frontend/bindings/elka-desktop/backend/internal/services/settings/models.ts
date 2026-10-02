@@ -21,6 +21,7 @@ export class AppSettings {
     "terminalCursorStyle"?: string;
     "terminalFontFamily"?: string;
     "terminalFontSize"?: number;
+    "splitPaneBorder"?: string;
     "groupViewModeVersion"?: number;
     "vaultDirectory": string;
     "pendingVaultDirectory"?: string;

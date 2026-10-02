@@ -51,6 +51,7 @@ export default function App() {
                         : DEFAULT_APPEARANCE.terminalCursorStyle,
                     terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
+                    splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
                 });
             })
             .catch(console.error)

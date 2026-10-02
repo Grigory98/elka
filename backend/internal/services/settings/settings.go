@@ -28,6 +28,7 @@ type AppSettings struct {
 	TerminalCursorStyle   string `json:"terminalCursorStyle,omitempty"`
 	TerminalFontFamily    string `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
+	SplitPaneBorder       string `json:"splitPaneBorder,omitempty"`
 	GroupViewModeVersion  int    `json:"groupViewModeVersion,omitempty"`
 	VaultDirectory        string `json:"vaultDirectory"`
 	PendingVaultDirectory string `json:"pendingVaultDirectory,omitempty"`
