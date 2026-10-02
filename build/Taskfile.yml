@@ -109,7 +109,7 @@ tasks:
       - "darwin/icons.icns"
       - "windows/icon.ico"
     cmds:
-      - wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico
+      - wails3 generate icons -input appicon.png -macfilename darwin/icons.icns -windowsfilename windows/icon.ico
       - wails3 generate icons -input darwin/mac-icon.png -macfilename darwin/icons.icns
 
   dev:frontend:

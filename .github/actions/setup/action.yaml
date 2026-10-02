@@ -14,11 +14,6 @@ runs:
         package_json_file: 'frontend/package.json'
         cache_dependency_path: 'frontend/pnpm-lock.yaml'
 
-    - name: Run pnpm setup
-      shell: bash
-      run: |
-        pnpm setup
-
     - name: Setup Node
       uses: actions/setup-node@v6
       with:
@@ -27,12 +22,12 @@ runs:
         cache-dependency-path: 'frontend/pnpm-lock.yaml'
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: '10.x'
 
     - name: Install Wails v3 CLI
-      run: go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+      run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha.78
       shell: bash
 
     - name: Get version
