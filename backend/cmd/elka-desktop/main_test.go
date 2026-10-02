@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func writeFile(t *testing.T, path, contents string) {
@@ -95,5 +97,29 @@ func TestMigrateLegacyDataWithoutLegacyData(t *testing.T) {
 	userDir := t.TempDir()
 	if err := migrateLegacyData(userDir, filepath.Join(userDir, appDataDirName)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestWindowBackgroundColour(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  application.RGBA
+	}{
+		{"light palette", "#f8fafc", application.NewRGB(248, 250, 252)},
+		{"dark palette", "#071a12", application.NewRGB(7, 26, 18)},
+		{"without hash", "f8fafc", application.NewRGB(248, 250, 252)},
+		{"padded", " #0b1220 ", application.NewRGB(11, 18, 32)},
+		{"missing", "", application.NewRGB(9, 9, 11)},
+		{"too short", "#fff", application.NewRGB(9, 9, 11)},
+		{"not a colour", "rgb(1,2,3)", application.NewRGB(9, 9, 11)},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := windowBackgroundColour(test.value); got != test.want {
+				t.Fatalf("windowBackgroundColour(%q) = %+v, want %+v", test.value, got, test.want)
+			}
+		})
 	}
 }

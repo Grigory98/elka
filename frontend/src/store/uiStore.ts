@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { DEFAULT_APPEARANCE } from "@/lib/appearance";
+import { getInitialAppearance } from "@/lib/appearance";
 import type { AppearanceSettings } from "@/lib/appearance";
 
 export enum ViewType {
@@ -43,7 +43,7 @@ export const useUIStore = create<UIState>((set) => ({
     selectedHostGroup: null,
     hostViewMode: "cards",
     groupViewMode: "tree",
-    appearance: {...DEFAULT_APPEARANCE},
+    appearance: getInitialAppearance(),
     setActiveView: (view) => set({activeView: view}),
     setShowHostGroups: (show) => set({showHostGroups: show}),
     // Without the toggle button the sidebar has to stay visible, otherwise there is no way to bring it back.

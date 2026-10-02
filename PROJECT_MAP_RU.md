@@ -4,8 +4,9 @@
 
 ## Точки входа
 
-- `backend/cmd/elka-desktop/main.go` — запуск Wails, регистрация Go-сервисов, открытие SQLite и выбор активной папки vault.
+- `backend/cmd/elka-desktop/main.go` — запуск Wails, регистрация Go-сервисов, открытие SQLite и выбор активной папки vault. Цвет нативного окна берётся из `appBackgroundColor`, поэтому светлая тема не начинается с чёрного кадра.
 - `frontend/src/App.tsx` — React-корень: настройки языка, обработка событий SSH/синхронизации и подключение страниц.
+- `frontend/index.html` — статический splash-экран с инлайн-стилями и скриптом: рисуется первым кадром, пока грузится бандл, и берёт палитру из кэша `localStorage` (его пишет `applyAppAppearance`). Закрывается из `frontend/src/lib/splash.ts` после загрузки настроек.
 - `Taskfile.yml` — команды сборки проекта; платформа выбирается через `build/{darwin,windows,linux}/Taskfile.yml`.
 - `build-macos-in-docker.sh` — сборка macOS-приложения в Docker.
 
@@ -28,7 +29,7 @@
 
 - `frontend/src/store/sessionStore.ts` — SSH-сессии, верхний порядок вкладок и дерево split-пространства. Оно хранится в памяти приложения, поэтому остаётся при переключении разделов, но не является постоянной настройкой vault.
 - `frontend/src/components/terminal/TerminalStack.tsx` — размещение split-панелей и изменение их размеров.
-- `frontend/src/components/terminal/TerminalInstance.tsx` — xterm, ввод/вывод SSH, подгонка размеров, drag-and-drop и действия панели.
+- `frontend/src/components/terminal/TerminalInstance.tsx` — xterm, ввод/вывод SSH, подгонка размеров, drag-and-drop и действия панели. Пока идёт SSH-хендшейк, поверх терминала показывается лоадер подключения, а при ошибке терминал всё равно подгоняется под размер, чтобы текст ошибки был виден.
 - `frontend/src/lib/sshConnection.ts` — разрешение учётных данных хоста/группы, ключей, цепочки JumpHost и port forwards для подключения.
 - `backend/internal/services/ssh/ssh.go` — SSH-соединение, цепочка промежуточных серверов и локальная/удалённая переадресация портов.
 

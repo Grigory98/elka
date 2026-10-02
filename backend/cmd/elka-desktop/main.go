@@ -23,6 +23,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -233,7 +235,7 @@ func main() {
 			Backdrop:                application.MacBackdropTranslucent,
 			TitleBar:                application.MacTitleBarHiddenInset,
 		},
-		BackgroundColour: application.NewRGB(9, 9, 11),
+		BackgroundColour: windowBackgroundColour(appSettings.AppBackgroundColor),
 		URL:              "/",
 	})
 
@@ -261,6 +263,20 @@ func main() {
 		}
 		return
 	}
+}
+
+// windowBackgroundColour paints the native window in the theme the user picked. Otherwise the window
+// shows the default dark colour until the webview renders the splash, which reads as a black flash on
+// light themes.
+func windowBackgroundColour(hex string) application.RGBA {
+	trimmed := strings.TrimPrefix(strings.TrimSpace(hex), "#")
+	if len(trimmed) == 6 {
+		if value, err := strconv.ParseUint(trimmed, 16, 32); err == nil {
+			return application.NewRGB(uint8(value>>16), uint8(value>>8), uint8(value))
+		}
+	}
+
+	return application.NewRGB(9, 9, 11)
 }
 
 func getAppDir(isDebug bool) (string, error) {

@@ -10,9 +10,11 @@ import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
-import { GripVertical, PanelTopClose, X } from "lucide-react";
+import { GripVertical, LoaderCircle, PanelTopClose, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
+
+type ConnectionState = "connecting" | "ready" | "failed";
 
 interface TerminalInstanceProps {
     sessionId: string;
@@ -51,9 +53,11 @@ export function TerminalInstance({
     const fitAddonRef = useRef<FitAddon | null>(null);
     const hasConnectedRef = useRef(false);
     const isReadyRef = useRef(false);
+    const hasFailedRef = useRef(false);
     const lastSizeRef = useRef({rows: 0, cols: 0});
-    const [isConnected, setIsConnected] = useState(false);
+    const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
+    const isConnecting = connectionState === "connecting";
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
     const appearanceRef = useRef(appearance);
     appearanceRef.current = appearance;
@@ -61,7 +65,8 @@ export function TerminalInstance({
     onFocusRef.current = onFocus;
 
     fitAndResizeRef.current = (forceResize = false) => {
-        if (!isVisible || !isReadyRef.current) return;
+        // A failed session still has to be fitted, otherwise the error printed into it stays invisible.
+        if (!isVisible || (!isReadyRef.current && !hasFailedRef.current)) return;
 
         window.requestAnimationFrame(() => {
             const container = containerRef.current;
@@ -75,7 +80,7 @@ export function TerminalInstance({
                 if (isActive) terminal.focus();
 
                 const sizeChanged = lastSizeRef.current.rows !== terminal.rows || lastSizeRef.current.cols !== terminal.cols;
-                if (forceResize || sizeChanged) {
+                if (isReadyRef.current && (forceResize || sizeChanged)) {
                     lastSizeRef.current = {rows: terminal.rows, cols: terminal.cols};
                     SshService.Resize(sessionId, terminal.rows, terminal.cols).catch(printErrorToTerminal);
                 }
@@ -188,9 +193,12 @@ export function TerminalInstance({
             SshService.Connect(config)
                 .then(() => {
                     isReadyRef.current = true;
-                    setIsConnected(true);
+                    setConnectionState("ready");
                 })
                 .catch((err) => {
+                    // The error is printed into the terminal, so the overlay has to give way to it.
+                    hasFailedRef.current = true;
+                    setConnectionState("failed");
                     printErrorToTerminal(err);
                 });
         }
@@ -244,7 +252,7 @@ export function TerminalInstance({
     }, [sessionId]);
 
     useEffect(() => {
-        if (!isVisible || !isConnected) return;
+        if (!isVisible || isConnecting) return;
 
         const frameIds: number[] = [];
         const firstFrame = window.requestAnimationFrame(() => {
@@ -253,16 +261,16 @@ export function TerminalInstance({
         });
         frameIds.push(firstFrame);
         return () => frameIds.forEach((frame) => window.cancelAnimationFrame(frame));
-    }, [isActive, isConnected, isVisible, sessionId]);
+    }, [isActive, isConnecting, isVisible, sessionId]);
 
     useEffect(() => {
         const container = containerRef.current;
-        if (!container || !isVisible || !isConnected) return;
+        if (!container || !isVisible || isConnecting) return;
 
         const resizeObserver = new ResizeObserver(() => fitAndResizeRef.current());
         resizeObserver.observe(container);
         return () => resizeObserver.disconnect();
-    }, [isActive, isConnected, isVisible, sessionId]);
+    }, [isActive, isConnecting, isVisible, sessionId]);
 
     return (
         <div
@@ -332,7 +340,20 @@ export function TerminalInstance({
                     dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
                 )}/>
             )}
-            <div ref={containerRef} className={cn("w-full", isSplitPane ? "min-h-0 flex-1" : "h-full")}/>
+            <div className={cn("relative bg-background", isSplitPane ? "min-h-0 flex-1" : "h-full")}>
+                {/* Hidden until the session is live: an unfitted xterm paints the terminal background,
+                    which reads as a black rectangle before the handshake finishes. */}
+                <div ref={containerRef} className={cn("h-full w-full", isConnecting && "invisible")}/>
+                {isConnecting && (
+                    <div role="status"
+                         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3">
+                        <LoaderCircle className="size-5 animate-spin text-muted-foreground"/>
+                        <div className="max-w-[80%] truncate text-xs text-muted-foreground">
+                            {t("connecting_to_host", {host: config.host})}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
