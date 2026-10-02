@@ -2,6 +2,18 @@ package main
 
 import (
 	"database/sql"
+	"elka-desktop/backend/cmd/elka-desktop/emitters"
+	"elka-desktop/backend/cmd/elka-desktop/env"
+	"elka-desktop/backend/internal/api"
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/migration"
+	"elka-desktop/backend/internal/services/auth"
+	"elka-desktop/backend/internal/services/blob"
+	"elka-desktop/backend/internal/services/settings"
+	"elka-desktop/backend/internal/services/ssh"
+	"elka-desktop/backend/internal/services/sync"
+	"elka-desktop/backend/internal/services/updater"
+	"elka-desktop/backend/internal/vault"
 	"fmt"
 	"io"
 	"log"
@@ -12,24 +24,12 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sync/atomic"
-	"terminator-desktop/backend/cmd/terminator-desktop/emitters"
-	"terminator-desktop/backend/cmd/terminator-desktop/env"
-	"terminator-desktop/backend/internal/api"
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/migration"
-	"terminator-desktop/backend/internal/services/auth"
-	"terminator-desktop/backend/internal/services/blob"
-	"terminator-desktop/backend/internal/services/settings"
-	"terminator-desktop/backend/internal/services/ssh"
-	"terminator-desktop/backend/internal/services/sync"
-	"terminator-desktop/backend/internal/services/updater"
-	"terminator-desktop/backend/internal/vault"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/quaadgras/velopack-go/velopack"
 
-	root "terminator-desktop"
+	root "elka-desktop"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -50,10 +50,13 @@ func init() {
 }
 
 const AppName = "Elka"
-const appDataDirName = "Terminator" // Keep the existing user-data folder so current vaults remain available.
-const dbFile = "terminator.db"
+const appDataDirName = "Elka"
+const legacyAppDataDirName = "Terminator" // Previous application name; its folder is migrated to appDataDirName on first start.
+const dbFile = "elka.db"
+const legacyDbFile = "terminator.db"
 const devDbFile = "dev.db"
-const logFileName = "terminator.log"
+const logFileName = "elka.log"
+const legacyLogFileName = "terminator.log"
 const crashLogFileName = "crash.log"
 const updateUrl = "" // Set this to Elka's release feed once its repository URL is known.
 
@@ -277,11 +280,71 @@ func getAppDir(isDebug bool) (string, error) {
 
 	appDir := filepath.Join(userDir, appDataDirName)
 
+	if err = migrateLegacyData(userDir, appDir); err != nil {
+		slog.Warn("failed to migrate legacy application directory", "error", err)
+	}
+
 	if err = os.MkdirAll(appDir, 0755); err != nil {
 		return "", err
 	}
 
 	return appDir, nil
+}
+
+// migrateLegacyData renames the folder and files left by the previous application name so existing
+// settings, vaults and logs stay available. Anything already created for the current names wins.
+func migrateLegacyData(userDir, appDir string) error {
+	if err := migrateLegacyAppDir(userDir, appDir); err != nil {
+		return err
+	}
+	return migrateLegacyDataFiles(appDir)
+}
+
+func migrateLegacyAppDir(userDir, appDir string) error {
+	legacyDir := filepath.Join(userDir, legacyAppDataDirName)
+	legacyInfo, err := os.Stat(legacyDir)
+	if err != nil {
+		return nil
+	}
+	if !legacyInfo.IsDir() {
+		return nil
+	}
+	if _, err = os.Stat(appDir); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return os.Rename(legacyDir, appDir)
+}
+
+func migrateLegacyDataFiles(appDir string) error {
+	renames := [][2]string{
+		{legacyDbFile, dbFile},
+		{legacyDbFile + "-wal", dbFile + "-wal"},
+		{legacyDbFile + "-shm", dbFile + "-shm"},
+		{legacyLogFileName, logFileName},
+	}
+	for _, rename := range renames {
+		if err := renameIfAbsent(filepath.Join(appDir, rename[0]), filepath.Join(appDir, rename[1])); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func renameIfAbsent(source, target string) error {
+	if _, err := os.Stat(source); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if _, err := os.Stat(target); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return os.Rename(source, target)
 }
 
 func getDbDir(appDir string, isDebug bool, vaultDirectory string) string {

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HostGroup, ItemType } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { HostGroup, ItemType } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { useCredentials } from "@/hooks/useCredentials";
 import {
     Select,

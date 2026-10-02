@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } from "../../bindings/terminator-desktop/backend/internal/services/ssh";
+import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } from "../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useUIStore, ViewType } from "@/store/uiStore";
 
-export const TERMINAL_SESSION_DRAG_TYPE = "application/x-terminator-session";
+export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
 
 export function terminalSessionTabID(sessionID: string) {
     return `session:${sessionID}`;

@@ -38,12 +38,13 @@ type tabbyTransferGroup struct {
 }
 
 type tabbyTransferProfile struct {
-	ID         string                  `yaml:"id"`
-	Type       string                  `yaml:"type"`
-	Name       string                  `yaml:"name"`
-	Group      string                  `yaml:"group,omitempty"`
-	Options    tabbyTransferSSHOptions `yaml:"options"`
-	Terminator *tabbyTransferMetadata  `yaml:"terminator,omitempty"`
+	ID      string                  `yaml:"id"`
+	Type    string                  `yaml:"type"`
+	Name    string                  `yaml:"name"`
+	Group   string                  `yaml:"group,omitempty"`
+	Options tabbyTransferSSHOptions `yaml:"options"`
+	// The "terminator" key is part of Tabby's export format and stays for compatibility.
+	Metadata *tabbyTransferMetadata `yaml:"terminator,omitempty"`
 }
 
 type tabbyTransferSSHOptions struct {
@@ -183,11 +184,11 @@ func parseTabbyTransfer(data []byte) ([]parsedHostTransfer, []string, int, error
 			Username: profile.Options.User,
 			Group:    group,
 		}
-		if profile.Terminator != nil {
-			host.ID = profile.Terminator.HostID
-			host.JumpHostID = profile.Terminator.JumpHostID
-			host.JumpHops = append([]JumpHostHop(nil), profile.Terminator.JumpHops...)
-			host.UsePasswordAsPassphrase = profile.Terminator.UsePasswordAsPassphrase
+		if profile.Metadata != nil {
+			host.ID = profile.Metadata.HostID
+			host.JumpHostID = profile.Metadata.JumpHostID
+			host.JumpHops = append([]JumpHostHop(nil), profile.Metadata.JumpHops...)
+			host.UsePasswordAsPassphrase = profile.Metadata.UsePasswordAsPassphrase
 		}
 		for _, forwarded := range profile.Options.ForwardedPorts {
 			mode := PortForwardMode(strings.ToLower(forwarded.Type))
@@ -294,7 +295,7 @@ func encodeTabbyTransfer(groups []HostGroup, groupNames []string, hosts []Host) 
 			Type:    "ssh",
 			Name:    name,
 			Options: options,
-			Terminator: &tabbyTransferMetadata{
+			Metadata: &tabbyTransferMetadata{
 				HostID: host.ID, JumpHostID: host.JumpHostID,
 				JumpHops: append([]JumpHostHop(nil), host.JumpHops...),
 			},

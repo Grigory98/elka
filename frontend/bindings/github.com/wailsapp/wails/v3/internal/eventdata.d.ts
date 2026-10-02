@@ -7,10 +7,10 @@ import type { Events } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as emitters$0 from "../../../../../terminator-desktop/backend/cmd/terminator-desktop/emitters/models.js";
+import type * as emitters$0 from "../../../../../elka-desktop/backend/cmd/elka-desktop/emitters/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as sync$0 from "../../../../../terminator-desktop/backend/internal/services/sync/models.js";
+import type * as sync$0 from "../../../../../elka-desktop/backend/internal/services/sync/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {

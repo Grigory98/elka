@@ -5,11 +5,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthService } from "../../../bindings/terminator-desktop/backend/internal/services/auth";
-import { SyncService } from "../../../bindings/terminator-desktop/backend/internal/services/sync";
+import { AuthService } from "../../../bindings/elka-desktop/backend/internal/services/auth";
+import { SyncService } from "../../../bindings/elka-desktop/backend/internal/services/sync";
 import { handleAppError } from "@/lib/error";
 import { formatServerUrl } from "@/lib/utils.ts";
-import { defaultServerUrl } from "@/lib/defaultServer.ts";
+import { defaultServerUrl, serverUrlPlaceholder } from "@/lib/defaultServer.ts";
 
 interface SwitchServerModalProps {
     isOpen: boolean;
@@ -85,7 +85,7 @@ export function SwitchServerModal({isOpen, onClose, currentUrl, onSuccess}: Swit
                         <Label htmlFor="serverUrl">{t("new_server_url")}</Label>
                         <Input
                             id="serverUrl"
-                            placeholder={defaultServerUrl}
+                            placeholder={serverUrlPlaceholder}
                             required
                             value={url}
                             onChange={(e) => setUrl(e.target.value)}

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"sync"
 
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/vault"
 	"github.com/google/uuid"
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/vault"
 )
 
 type HostTransferFormat string
@@ -118,7 +118,7 @@ func (s *HostTransferService) Export(format string) (HostTransferResult, error) 
 		return HostTransferResult{}, err
 	}
 
-	filename := fmt.Sprintf("terminator-hosts.%s", hostTransferExtension(transferFormat))
+	filename := fmt.Sprintf("elka-hosts.%s", hostTransferExtension(transferFormat))
 	destination, err := s.app.Dialog.SaveFileWithOptions(&application.SaveFileDialogOptions{
 		Title:                "Export hosts and groups",
 		Filename:             filename,
@@ -228,7 +228,7 @@ func (s *HostTransferService) saveImportedHosts(parsed []parsedHostTransfer, gro
 	for index := range parsed {
 		item := &parsed[index]
 		host := &item.Host
-		// Export formats do not share Terminator's encrypted credentials or key IDs.
+		// Export formats do not share the vault's encrypted credentials or key IDs.
 		host.Password = ""
 		host.Passphrase = ""
 		host.KeyID = ""

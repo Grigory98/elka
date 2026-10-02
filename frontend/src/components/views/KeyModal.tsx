@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, SyntheticEvent } from "react";
 import {useTranslation} from "react-i18next";
 import {FileText} from "lucide-react";
-import {SavedKey, ItemType} from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import {SavedKey, ItemType} from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";

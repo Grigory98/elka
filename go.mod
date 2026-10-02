@@ -1,4 +1,4 @@
-module terminator-desktop
+module elka-desktop
 
 go 1.25.0
 

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { KeyService } from "../../bindings/terminator-desktop/backend/internal/services/blob";
-import { SavedKey } from "../../bindings/terminator-desktop/backend/internal/services/blob";
+import { KeyService } from "../../bindings/elka-desktop/backend/internal/services/blob";
+import { SavedKey } from "../../bindings/elka-desktop/backend/internal/services/blob";
 import { handleAppError } from "@/lib/error";
 
 export const KEYS_QUERY_KEY = ["keys"];

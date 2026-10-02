@@ -8,10 +8,10 @@ import { Create as $Create } from "@wailsio/runtime";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as emitters$0 from "../../../../../terminator-desktop/backend/cmd/terminator-desktop/emitters/models.js";
+import * as emitters$0 from "../../../../../elka-desktop/backend/cmd/elka-desktop/emitters/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as sync$0 from "../../../../../terminator-desktop/backend/internal/services/sync/models.js";
+import * as sync$0 from "../../../../../elka-desktop/backend/internal/services/sync/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {

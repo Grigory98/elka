@@ -1,11 +1,11 @@
 package crypto
 
 import (
+	"elka-desktop/backend/internal/apperror"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"strings"
-	"terminator-desktop/backend/internal/apperror"
 	"testing"
 
 	"github.com/stretchr/testify/require"

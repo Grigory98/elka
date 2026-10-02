@@ -4,7 +4,7 @@
 
 ## Точки входа
 
-- `backend/cmd/terminator-desktop/main.go` — запуск Wails, регистрация Go-сервисов, открытие SQLite и выбор активной папки vault.
+- `backend/cmd/elka-desktop/main.go` — запуск Wails, регистрация Go-сервисов, открытие SQLite и выбор активной папки vault.
 - `frontend/src/App.tsx` — React-корень: настройки языка, обработка событий SSH/синхронизации и подключение страниц.
 - `Taskfile.yml` — команды сборки проекта; платформа выбирается через `build/{darwin,windows,linux}/Taskfile.yml`.
 - `build-macos-in-docker.sh` — сборка macOS-приложения в Docker.
@@ -51,4 +51,4 @@
 
 Bindings генерируются, их не следует редактировать вручную. Команда проекта находится в `build/Taskfile.yml`, задача `generate:bindings`.
 
-Основные проверки: `go test ./backend/internal/services/... ./backend/cmd/terminator-desktop/...`, `go vet ./backend/internal/services/...` и frontend production build (`pnpm run build` из `frontend/`).
+Основные проверки: `go test ./backend/internal/services/... ./backend/cmd/elka-desktop/...`, `go vet ./backend/internal/services/...` и frontend production build (`pnpm run build` из `frontend/`).

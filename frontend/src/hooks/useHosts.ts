@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { HostService } from "../../bindings/terminator-desktop/backend/internal/services/blob";
-import { Host } from "../../bindings/terminator-desktop/backend/internal/services/blob/";
+import { HostService } from "../../bindings/elka-desktop/backend/internal/services/blob";
+import { Host } from "../../bindings/elka-desktop/backend/internal/services/blob/";
 import { handleAppError } from "@/lib/error";
 
 export const HOSTS_QUERY_KEY = ["hosts"];

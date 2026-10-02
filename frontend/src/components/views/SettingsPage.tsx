@@ -9,8 +9,8 @@ import { SettingsCard } from "@/components/ui/settings-card";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
 import { useSessionStore } from "@/store/sessionStore";
-import { AuthService } from "../../../bindings/terminator-desktop/backend/internal/services/auth";
-import { AppSettings, SettingsService } from "../../../bindings/terminator-desktop/backend/internal/services/settings";
+import { AuthService } from "../../../bindings/elka-desktop/backend/internal/services/auth";
+import { AppSettings, SettingsService } from "../../../bindings/elka-desktop/backend/internal/services/settings";
 import { handleAppError } from "@/lib/error";
 import {
     Select,
@@ -23,7 +23,7 @@ import { useSyncStore } from "@/store/syncStore.ts";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
-import { HostTransferService } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
 

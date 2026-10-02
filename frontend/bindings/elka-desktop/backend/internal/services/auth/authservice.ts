@@ -10,43 +10,43 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 export function GetCurrentUser(): $CancellablePromise<$models.UserInfo | null> {
-    return $Call.ByID(3254285799).then(($result: any) => {
+    return $Call.ByID(1916381211).then(($result: any) => {
         return $$createType1($result);
     });
 }
 
 export function HasUser(): $CancellablePromise<boolean> {
-    return $Call.ByID(412997436);
+    return $Call.ByID(3611316560);
 }
 
 export function LockVault(): $CancellablePromise<void> {
-    return $Call.ByID(2757158698);
+    return $Call.ByID(556686206);
 }
 
 /**
  * Login - "unlock vault"
  */
 export function Login(password: string): $CancellablePromise<void> {
-    return $Call.ByID(1321617150, password);
+    return $Call.ByID(3201915010, password);
 }
 
 /**
  * LoginFromSync - "connect and restore"
  */
 export function LoginFromSync(serverUrl: string, username: string, password: string): $CancellablePromise<void> {
-    return $Call.ByID(259731729, serverUrl, username, password);
+    return $Call.ByID(160253189, serverUrl, username, password);
 }
 
 export function RegisterLocal(username: string, password: string): $CancellablePromise<void> {
-    return $Call.ByID(1530550495, username, password);
+    return $Call.ByID(3138330411, username, password);
 }
 
 export function RegisterOnServer(serverURL: string): $CancellablePromise<void> {
-    return $Call.ByID(2102841450, serverURL);
+    return $Call.ByID(2751812862, serverURL);
 }
 
 export function WipeData(): $CancellablePromise<void> {
-    return $Call.ByID(132727258);
+    return $Call.ByID(2979742198);
 }
 
 // Private type creation functions

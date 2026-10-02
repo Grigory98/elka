@@ -11,12 +11,12 @@ import { HOSTS_QUERY_KEY } from "@/hooks/useHosts.ts";
 import { KEYS_QUERY_KEY } from "@/hooks/useKeys.ts";
 import { CREDENTIALS_QUERY_KEY } from "@/hooks/useCredentials.ts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups.ts";
-import { SettingsService } from "../bindings/terminator-desktop/backend/internal/services/settings";
+import { SettingsService } from "../bindings/elka-desktop/backend/internal/services/settings";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
-import { UpdaterService } from "../bindings/terminator-desktop/backend/internal/services/updater";
+import { UpdaterService } from "../bindings/elka-desktop/backend/internal/services/updater";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 
 export default function App() {

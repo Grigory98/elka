@@ -2,7 +2,7 @@ import { ArrowDownToLine } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { UpdaterService } from "../../../bindings/terminator-desktop/backend/internal/services/updater";
+import { UpdaterService } from "../../../bindings/elka-desktop/backend/internal/services/updater";
 import { useUIStore } from "@/store/uiStore";
 import { handleAppError } from "@/lib/error";
 

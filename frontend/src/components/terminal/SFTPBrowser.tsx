@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { SshService } from "../../../bindings/terminator-desktop/backend/internal/services/ssh";
+import { SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import type { TerminalSession } from "@/store/sessionStore";
 
 interface SFTPBrowserProps {

@@ -1,5 +1,5 @@
-import { CredentialKind, Host, HostGroup, JumpHopMode, JumpHostHop, SavedCredential, SavedKey } from "../../bindings/terminator-desktop/backend/internal/services/blob";
-import { SSHJumpHostConfig, SSHPortForward } from "../../bindings/terminator-desktop/backend/internal/services/ssh";
+import { CredentialKind, Host, HostGroup, JumpHopMode, JumpHostHop, SavedCredential, SavedKey } from "../../bindings/elka-desktop/backend/internal/services/blob";
+import { SSHJumpHostConfig, SSHPortForward } from "../../bindings/elka-desktop/backend/internal/services/ssh";
 
 export function resolveHostAuthentication(
     host: Host,

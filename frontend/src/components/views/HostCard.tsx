@@ -7,7 +7,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Host } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { Host } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { useTranslation } from "react-i18next";
 import { HostViewMode } from "@/store/uiStore";
 import { cn } from "@/lib/utils";

@@ -2,11 +2,11 @@ package blob
 
 import (
 	"context"
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/vault"
 	"fmt"
 	"sort"
 	"strings"
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/vault"
 
 	"github.com/google/uuid"
 )

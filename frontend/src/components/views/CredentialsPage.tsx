@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { CredentialModal } from "@/components/views/CredentialModal";
 import { useCredentials, useDeleteCredential, useSaveCredential } from "@/hooks/useCredentials";
-import { CredentialKind, SavedCredential } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { CredentialKind, SavedCredential } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 
 function credentialParts(credential: SavedCredential) {
     return {

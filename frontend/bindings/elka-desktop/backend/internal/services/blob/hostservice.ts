@@ -10,19 +10,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 export function Delete(id: string): $CancellablePromise<void> {
-    return $Call.ByID(3861424206, id);
+    return $Call.ByID(2982284569, id);
 }
 
-export function GetAll(): $CancellablePromise<$models.SavedCredential[]> {
-    return $Call.ByID(3228979502).then(($result: any) => {
+export function GetAll(): $CancellablePromise<$models.Host[]> {
+    return $Call.ByID(3339835521).then(($result: any) => {
         return $$createType1($result);
     });
 }
 
-export function Save(credential: $models.SavedCredential): $CancellablePromise<string> {
-    return $Call.ByID(2680884668, credential);
+export function Save(host: $models.Host): $CancellablePromise<string> {
+    return $Call.ByID(717922859, host);
 }
 
 // Private type creation functions
-const $$createType0 = $models.SavedCredential.createFrom;
+const $$createType0 = $models.Host.createFrom;
 const $$createType1 = $Create.Array($$createType0);

@@ -2,93 +2,69 @@
 
 Elka
 
-   <img src="build/appicon.png" width=250 alt="Elka logo"/>
+<img src="build/appicon.png" width="220" alt="Elka"/>
+
+SSH-клиент с шифрованным хранилищем и синхронизацией
 
 </h1>
 
-<div align="center">
+Elka — SSH-клиент: всё хранится в зашифрованном хранилище на вашей машине, а при желании синхронизируется с вашим же сервером. Написано на Go и React, интерфейс нативный, без Electron.
 
-   [![Discord](https://dcbadge.limes.pink/api/server/x7K9BRrQJE)](https://discord.gg/x7K9BRrQJE)
-   
-</div>
+## Откуда
 
-<h3 align="center">
-   Self-hostable SSH client with sync
-</h3>
+Проект вырос из [Terminator](https://github.com/terminator-ssh/terminator-desktop) — открытого SSH-клиента, который сам вдохновлён Termius. За основу взята его архитектура: Wails v3, Go в бэкенде, SQLite с шифрованием, Velopack для обновлений.
 
-Elka is a cross-platform SSH client built with [Wails v3](https://v3.wails.io/) and Go. Supports self-hosted servers for sync.
+Важные для меня функции терминала которые добавил:
 
-## Features
-- **Encryption.** All sensitive data is encrypted locally using Argon2id and AES-256GCM.
-- **Sync** encrypted data across multiple devices. Data is encrypted *before* it leaves the client!
-- **Lightweight.** ~15MB binaries, ~10MB RAM.
-- Cross-platform:
-   - Windows, Linux, and macOS builds will be published in this repository's releases.
-- Local first. You *don't have to* use a server!
+- разделение терминала на панели и группы вкладок с перетаскиванием;
+- импорт и экспорт хостов в формате Tabby;
+- настройки внешнего вида: палитры, акцентный цвет, двадцать шрифтов, шрифт и курсор терминала;
+- собственный SFTP-браузер и переадресация портов;
+- своё имя, своя иконка и своя система обновлений.
 
-## Server
-Elka is designed as a local-first app, but it supports E2E encrypted sync with a self-hosted server.
+## Что умеет
 
-## Roadmap
-- [x] Encryption
-- [x] Sync
-- [x] SSH keys
-- [ ] Host groups
-- [ ] Interactive passwords
-- [ ] Multiple profiles (teams?)
-- [ ] Custom themes
-- [ ] Shortcuts
-- [ ] Android client
-- [ ] CLI client
-- [ ] SFTP
+- **Шифрованное хранилище.** Хосты, ключи, учётные данные и группы лежат в SQLite, всё защищено AES-256-GCM, ключ выводится из пароля через Argon2id.
+- **Подключения.** Обычный SSH, цепочки jump-хостов, локальная и удалённая переадресация портов.
+- **Терминал.** xterm.js, до шести панелей на экране с регулируемыми размерами, группы вкладок, восстановление раскладки при переключении разделов.
+- **Файлы.** Встроенный SFTP-браузер прямо из вкладки терминала.
+- **Синхронизация.** Зашифрованный на клиенте обмен с собственным сервером: данные шифруются до отправки, сервер видит только ciphertext.
+- **Импорт и экспорт.** Формат Tabby, включая перенос метаданных профилей.
+- **Внешний вид.** Тёмная и светлая палитры, синяя и зелёная, свой акцент, выбор шрифта для интерфейса и отдельные шрифт, размер и курсор терминала.
+- **Два языка.** Русский и английский.
+- **Обновления.** Сборка и публикация релизов по тегу, автообновление через Velopack.
+- **Своё хранилище.** Папку с базой можно перенести в любое место диска.
 
-Something missing? Suggest more in the community Discord: [Join here](https://discord.gg/x7K9BRrQJE).
+## Где лежат данные
 
-## Screenshots
-<img src="assets/term-en-white.png" width="1600" alt="Elka main screen"/>
-<img src="assets/term-t-white.png" width="1600" alt="Elka terminal"/>
+Настройки и база хранятся в `~/Library/Application Support/Elka` на macOS, в `%AppData%\Elka` на Windows и в `~/.config/Elka` на Linux.
+## Сборка
 
-## Development
+Нужны Go 1.25+, Node.js 24+, pnpm и [Wails v3 CLI](https://v3.wails.io/getting-started/installation/).
 
-Карта модулей и подсказки, где искать код для изменений: [PROJECT_MAP_RU.md](PROJECT_MAP_RU.md).
-
-### Prerequisites
-
-1. [**Go**](https://go.dev/dl/) (1.25+)
-2. [**Node.js**](https://nodejs.org/en/download/current) (v24+)
-3. *Preferrably* [**pnpm**](https://pnpm.io/installation#using-corepack)
-4. [**Wails3 CLI**](https://v3.wails.io/getting-started/installation/)
-
-### Build
-
-For development: just
-```
-wails3 dev
+```sh
+wails3 dev              # разработка
+wails3 task package     # сборка приложения под текущую платформу
 ```
 
-Build a macOS app and compressed DMG in one step:
+macOS можно собрать в Docker, не ставя зависимости локально:
 
 ```sh
 ./build-macos-in-docker.sh --arch arm64 --format dmg
 ```
 
-Use `--arch amd64` for Intel Macs. `--format app` builds only the `.app`, while `--format both` creates both outputs. Set a custom DMG path or mounted volume name with `--output PATH` and `--volume-name NAME`.
+Для Intel вместо `arm64` укажите `amd64`. Без флага соберётся только `.app`.
 
-Debug: use remote debug and [delve](https://github.com/go-delve/delve/tree/master/Documentation/installation):
+Отладка с delve:
+
 ```sh
-dlv debug --headless --listen=:2345 ./backend/cmd/terminator-desktop -- dev
+dlv debug --headless --listen=:2345 ./backend/cmd/elka-desktop -- dev
 ```
 
+## Где что лежит
 
-Package:
-```
-wails3 task package
-```
+Карта модулей с подсказками, что править при изменении интерфейса, подключений или хранилища: [PROJECT_MAP_RU.md](PROJECT_MAP_RU.md).
 
-### Acknowledgements
+## Благодарности
 
-Inspired by: [Termius](https://termius.com)
-
-Built on: [Wails](https://v3.wails.io)
-
-Beautiful UI: [shadcn](https://ui.shadcn.com)
+Авторам - https://github.com/terminator-ssh/terminator-desktop

@@ -10,36 +10,36 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 export function Connect(config: $models.SSHConnectionConfig | null): $CancellablePromise<void> {
-    return $Call.ByID(662660765, config);
+    return $Call.ByID(3818937017, config);
 }
 
 export function Disconnect(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(2124563103, sessionID);
+    return $Call.ByID(1867844523, sessionID);
 }
 
 export function DownloadSFTPFile(sessionID: string, remotePath: string, suggestedFilename: string, dialogTitle: string): $CancellablePromise<boolean> {
-    return $Call.ByID(3804303342, sessionID, remotePath, suggestedFilename, dialogTitle);
+    return $Call.ByID(903247322, sessionID, remotePath, suggestedFilename, dialogTitle);
 }
 
 /**
  * Input writes data to SSH stdin
  */
 export function Input(sessionID: string, data: string): $CancellablePromise<void> {
-    return $Call.ByID(187872847, sessionID, data);
+    return $Call.ByID(144194619, sessionID, data);
 }
 
 export function ListSFTPDirectory(sessionID: string, directory: string): $CancellablePromise<$models.SFTPDirectory> {
-    return $Call.ByID(2185363387, sessionID, directory).then(($result: any) => {
+    return $Call.ByID(2172106143, sessionID, directory).then(($result: any) => {
         return $$createType0($result);
     });
 }
 
 export function Resize(sessionID: string, rows: number, cols: number): $CancellablePromise<void> {
-    return $Call.ByID(639676773, sessionID, rows, cols);
+    return $Call.ByID(3504142689, sessionID, rows, cols);
 }
 
 export function UploadSFTPFile(sessionID: string, remotePath: string, data: string): $CancellablePromise<void> {
-    return $Call.ByID(2800851959, sessionID, remotePath, data);
+    return $Call.ByID(2141887179, sessionID, remotePath, data);
 }
 
 // Private type creation functions

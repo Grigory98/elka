@@ -4,13 +4,13 @@ import { FolderOpen, Lock, Server, Shield, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthService } from "../../../bindings/terminator-desktop/backend/internal/services/auth";
-import { SyncService } from "../../../bindings/terminator-desktop/backend/internal/services/sync";
+import { AuthService } from "../../../bindings/elka-desktop/backend/internal/services/auth";
+import { SyncService } from "../../../bindings/elka-desktop/backend/internal/services/sync";
 import { useAuthStore } from "@/store/authStore";
 import { handleAppError } from "@/lib/error";
 import { formatServerUrl } from "@/lib/utils.ts";
-import { defaultServerUrl } from "@/lib/defaultServer.ts";
-import { SettingsService } from "../../../bindings/terminator-desktop/backend/internal/services/settings";
+import { defaultServerUrl, serverUrlPlaceholder } from "@/lib/defaultServer.ts";
+import { SettingsService } from "../../../bindings/elka-desktop/backend/internal/services/settings";
 
 type Mode = "select" | "create" | "connect" | "login";
 
@@ -251,7 +251,7 @@ export function LockScreen() {
                         <div className="space-y-2">
                             <Label>{t("server_url")}</Label>
                             <Input
-                                placeholder={defaultServerUrl}
+                                placeholder={serverUrlPlaceholder}
                                 value={url}
                                 onChange={(e) => setUrl(e.target.value)}
                                 required

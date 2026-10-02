@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"elka-desktop/backend/internal/apperror"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"terminator-desktop/backend/internal/apperror"
 	"time"
 
 	"github.com/pkg/sftp"

@@ -14,7 +14,7 @@ func TestApplyPendingVaultDirectoryMovesDatabase(t *testing.T) {
 	if err := os.MkdirAll(oldDirectory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	const databaseName = "terminator.db"
+	const databaseName = "elka.db"
 	const databaseContents = "encrypted-vault-test-data"
 	oldDatabase := filepath.Join(oldDirectory, databaseName)
 	if err := os.WriteFile(oldDatabase, []byte(databaseContents), 0600); err != nil {
@@ -64,7 +64,7 @@ func TestGetSettingsMigratesExistingGroupLayoutToTreeOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := NewSettingsService(appDir, "terminator.db", nil, nil)
+	service := NewSettingsService(appDir, "elka.db", nil, nil)
 	settings, err := service.GetSettings()
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func TestApplyPendingVaultDirectorySwitchesWithoutMovingData(t *testing.T) {
 	if err := os.MkdirAll(secondDirectory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	const databaseName = "terminator.db"
+	const databaseName = "elka.db"
 	firstDatabase := filepath.Join(firstDirectory, databaseName)
 	secondDatabase := filepath.Join(secondDirectory, databaseName)
 	if err := os.WriteFile(firstDatabase, []byte("first vault"), 0600); err != nil {

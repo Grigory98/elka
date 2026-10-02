@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { Events } from "@wailsio/runtime";
-import { SyncStatus } from "../../bindings/terminator-desktop/backend/internal/services/sync";
+import { SyncStatus } from "../../bindings/elka-desktop/backend/internal/services/sync";
 import { AppEvent } from "@/lib/events.ts";
 import { AppClientError, parseAppError } from "@/lib/error.ts";
 

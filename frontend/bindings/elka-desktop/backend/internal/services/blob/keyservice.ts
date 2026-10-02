@@ -9,17 +9,20 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function Export(format: string): $CancellablePromise<$models.HostTransferResult> {
-    return $Call.ByID(174524267, format).then(($result: any) => {
-        return $$createType0($result);
+export function Delete(id: string): $CancellablePromise<void> {
+    return $Call.ByID(375671994, id);
+}
+
+export function GetAll(): $CancellablePromise<$models.SavedKey[]> {
+    return $Call.ByID(2292129282).then(($result: any) => {
+        return $$createType1($result);
     });
 }
 
-export function Import(format: string): $CancellablePromise<$models.HostTransferResult> {
-    return $Call.ByID(2638118972, format).then(($result: any) => {
-        return $$createType0($result);
-    });
+export function Save(key: $models.SavedKey): $CancellablePromise<string> {
+    return $Call.ByID(3490943256, key);
 }
 
 // Private type creation functions
-const $$createType0 = $models.HostTransferResult.createFrom;
+const $$createType0 = $models.SavedKey.createFrom;
+const $$createType1 = $Create.Array($$createType0);

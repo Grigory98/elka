@@ -7,7 +7,7 @@ import { KeyCard } from "@/components/views/KeyCard";
 import { KeyModal } from "@/components/views/KeyModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { useKeys, useSaveKey, useDeleteKey } from "@/hooks/useKeys";
-import { SavedKey } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { SavedKey } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 
 export function KeysPage() {
     const {t} = useTranslation(["keys", "common"]);

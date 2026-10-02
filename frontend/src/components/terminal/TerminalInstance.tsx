@@ -7,7 +7,7 @@ import { createTerminalOptions } from "@/lib/terminalTheme";
 import { parseAppError } from "@/lib/error";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
-import { SSHConnectionConfig, SshService } from "../../../bindings/terminator-desktop/backend/internal/services/ssh";
+import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { GripVertical, PanelTopClose, X } from "lucide-react";

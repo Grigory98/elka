@@ -1,8 +1,8 @@
 package vault
 
 import (
+	"elka-desktop/backend/internal/apperror"
 	"sync"
-	"terminator-desktop/backend/internal/apperror"
 )
 
 // Vault holds sensitive keys in memory.

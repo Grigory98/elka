@@ -4,9 +4,9 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"elka-desktop/backend/internal/apperror"
 	"encoding/base64"
 	"io"
-	"terminator-desktop/backend/internal/apperror"
 
 	"golang.org/x/crypto/argon2"
 )

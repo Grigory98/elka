@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { GroupService, HostGroup } from "../../bindings/terminator-desktop/backend/internal/services/blob";
+import { GroupService, HostGroup } from "../../bindings/elka-desktop/backend/internal/services/blob";
 import { handleAppError } from "@/lib/error";
 
 export const GROUPS_QUERY_KEY = ["hostGroups"];

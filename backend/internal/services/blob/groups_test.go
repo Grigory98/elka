@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"testing"
 
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/migration"
-	"terminator-desktop/backend/internal/vault"
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/migration"
+	"elka-desktop/backend/internal/vault"
 
 	_ "github.com/mattn/go-sqlite3"
 )

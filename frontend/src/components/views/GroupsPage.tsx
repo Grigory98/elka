@@ -17,7 +17,7 @@ import { useKeys } from "@/hooks/useKeys";
 import { useCredentials } from "@/hooks/useCredentials";
 import { useHosts } from "@/hooks/useHosts";
 import { useSessionStore } from "@/store/sessionStore";
-import { Host, HostGroup } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { Host, HostGroup } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
 import { HostViewPicker } from "@/components/layout/HostViewPicker";
 import { HostViewMode, useUIStore } from "@/store/uiStore";

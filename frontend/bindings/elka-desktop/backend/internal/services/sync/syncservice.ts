@@ -6,17 +6,17 @@
 import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Create } from "@wailsio/runtime";
 
 export function Authenticate(): $CancellablePromise<void> {
-    return $Call.ByID(380219982);
+    return $Call.ByID(1674331858);
 }
 
 export function StartAutoSync(): $CancellablePromise<void> {
-    return $Call.ByID(825227997);
+    return $Call.ByID(1648096369);
 }
 
 export function StopAutoSync(): $CancellablePromise<void> {
-    return $Call.ByID(2642942879);
+    return $Call.ByID(2958838027);
 }
 
 export function Sync(): $CancellablePromise<void> {
-    return $Call.ByID(956839344);
+    return $Call.ByID(3951821300);
 }

@@ -3,12 +3,12 @@ package sync
 import (
 	"context"
 	"database/sql"
+	"elka-desktop/backend/internal/api"
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/vault"
 	"encoding/base64"
 	"errors"
 	"sync"
-	"terminator-desktop/backend/internal/api"
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/vault"
 	"time"
 )
 

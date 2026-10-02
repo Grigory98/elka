@@ -1,1 +1,3 @@
-export const defaultServerUrl = "terminator.sh"
+export const defaultServerUrl = ""
+
+export const serverUrlPlaceholder = "vault.example.com"

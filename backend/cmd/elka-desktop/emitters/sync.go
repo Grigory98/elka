@@ -1,7 +1,7 @@
 package emitters
 
 import (
-	"terminator-desktop/backend/internal/services/sync"
+	"elka-desktop/backend/internal/services/sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { AuthService } from "../../bindings/terminator-desktop/backend/internal/services/auth";
+import { AuthService } from "../../bindings/elka-desktop/backend/internal/services/auth";
 
 export const USER_QUERY_KEY = ["currentUser"];
 

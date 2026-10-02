@@ -3,11 +3,11 @@ package api
 import (
 	"bytes"
 	"context"
+	"elka-desktop/backend/internal/apperror"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
-	"terminator-desktop/backend/internal/apperror"
 	"time"
 )
 

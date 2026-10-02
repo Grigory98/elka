@@ -1,4 +1,4 @@
-import { AppSettings, SettingsService } from "../../bindings/terminator-desktop/backend/internal/services/settings";
+import { AppSettings, SettingsService } from "../../bindings/elka-desktop/backend/internal/services/settings";
 import { HostViewMode } from "@/store/uiStore";
 
 export async function saveHostViewPreference(field: "hostViewMode" | "groupViewMode", mode: HostViewMode) {

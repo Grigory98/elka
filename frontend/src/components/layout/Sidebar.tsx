@@ -2,7 +2,7 @@ import { Server, Key, KeyRound, FolderTree, PanelLeftClose, PanelLeftOpen, Setti
 import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
-import { SyncStatus } from "../../../bindings/terminator-desktop/backend/internal/services/sync";
+import { SyncStatus } from "../../../bindings/elka-desktop/backend/internal/services/sync";
 import { useSyncStore } from "@/store/syncStore.ts";
 import { useTranslation } from "react-i18next";
 import { UpdatePopover } from "@/components/layout/UpdatePopover.tsx";

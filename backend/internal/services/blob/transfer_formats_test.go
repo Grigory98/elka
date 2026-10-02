@@ -30,7 +30,7 @@ func TestTabbyTransferPreservesHostsAndGroups(t *testing.T) {
 		t.Fatalf("host fields did not round-trip: %+v", parsed[0].Host)
 	}
 	if len(parsed[0].Host.PortForwards) != 1 || len(parsed[0].Host.JumpHops) != 1 || parsed[0].Host.JumpHops[0].HostID != "host-2" {
-		t.Fatalf("Tabby Terminator metadata did not round-trip: %+v", parsed[0].Host)
+		t.Fatalf("Tabby metadata block did not round-trip: %+v", parsed[0].Host)
 	}
 }
 

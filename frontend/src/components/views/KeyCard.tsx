@@ -7,7 +7,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { SavedKey } from "../../../bindings/terminator-desktop/backend/internal/services/blob";
+import { SavedKey } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { useTranslation } from "react-i18next";
 
 interface KeyCardProps {

@@ -138,7 +138,7 @@ tasks:
           BUILD_FLAGS:
             ref: .BUILD_FLAGS
     cmds:
-      - go build -tags server {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}-server{{exeExt}} ./backend/cmd/terminator-desktop
+      - go build -tags server {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.APP_NAME}}-server{{exeExt}} ./backend/cmd/elka-desktop
     vars:
       BUILD_FLAGS: "{{.BUILD_FLAGS}}"
 

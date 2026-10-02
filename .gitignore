@@ -25,7 +25,7 @@ out
 settings.json
 
 # log
-terminator.log
+elka.log
 crash.log
 
 # wails

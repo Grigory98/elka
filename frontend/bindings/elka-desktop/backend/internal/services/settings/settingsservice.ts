@@ -10,7 +10,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise, Create as $Cr
 import * as $models from "./models.js";
 
 export function GetSettings(): $CancellablePromise<$models.AppSettings> {
-    return $Call.ByID(1855091376).then(($result: any) => {
+    return $Call.ByID(4218943428).then(($result: any) => {
         return $$createType0($result);
     });
 }
@@ -19,22 +19,22 @@ export function GetSettings(): $CancellablePromise<$models.AppSettings> {
  * MoveVaultToDirectory schedules an offline database move and restarts the app.
  */
 export function MoveVaultToDirectory(directory: string): $CancellablePromise<void> {
-    return $Call.ByID(3831032522, directory);
+    return $Call.ByID(2296513222, directory);
 }
 
 export function SaveSettings(settings: $models.AppSettings): $CancellablePromise<void> {
-    return $Call.ByID(532647211, settings);
+    return $Call.ByID(1201925327, settings);
 }
 
 export function SelectVaultDirectory(): $CancellablePromise<string> {
-    return $Call.ByID(516025752);
+    return $Call.ByID(666012212);
 }
 
 /**
  * SwitchVaultDirectory activates another vault directory without moving the current database.
  */
 export function SwitchVaultDirectory(directory: string): $CancellablePromise<void> {
-    return $Call.ByID(3069812536, directory);
+    return $Call.ByID(1023366692, directory);
 }
 
 // Private type creation functions

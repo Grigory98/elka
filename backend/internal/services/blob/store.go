@@ -2,10 +2,10 @@ package blob
 
 import (
 	"context"
+	"elka-desktop/backend/internal/crypto"
+	"elka-desktop/backend/internal/dbgen"
+	"elka-desktop/backend/internal/vault"
 	"encoding/json"
-	"terminator-desktop/backend/internal/crypto"
-	"terminator-desktop/backend/internal/dbgen"
-	"terminator-desktop/backend/internal/vault"
 	"time"
 
 	"github.com/google/uuid"
