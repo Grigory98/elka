@@ -145,10 +145,11 @@ fi
 
 printf 'Building Docker image %s...\n' "$IMAGE_NAME"
 if command -v wails3 >/dev/null 2>&1; then
-  (cd "$ROOT_DIR/build" && wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico)
+  (cd "$ROOT_DIR/build" && wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico -macfilename=)
   (cd "$ROOT_DIR/build" && wails3 generate icons \
     -input darwin/mac-icon.png \
-    -macfilename darwin/icons.icns)
+    -macfilename darwin/icons.icns \
+    -windowsfilename=)
 else
   printf 'wails3 CLI not found; using the checked-in platform icons.\n'
 fi
