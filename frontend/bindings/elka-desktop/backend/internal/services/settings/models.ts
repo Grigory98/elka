@@ -22,6 +22,10 @@ export class AppSettings {
     "terminalFontFamily"?: string;
     "terminalFontSize"?: number;
     "splitPaneBorder"?: string;
+    "splitPaneHeaderColor"?: string;
+    "sidebarColor"?: string;
+    "inputColor"?: string;
+    "ringColor"?: string;
     "groupViewModeVersion"?: number;
     "vaultDirectory": string;
     "pendingVaultDirectory"?: string;

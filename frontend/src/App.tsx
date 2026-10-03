@@ -52,6 +52,10 @@ export default function App() {
                     terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                     splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
+                    splitPaneHeaderColor: settings.splitPaneHeaderColor || DEFAULT_APPEARANCE.splitPaneHeaderColor,
+                    sidebarColor: settings.sidebarColor || DEFAULT_APPEARANCE.sidebarColor,
+                    inputColor: settings.inputColor || DEFAULT_APPEARANCE.inputColor,
+                    ringColor: settings.ringColor || DEFAULT_APPEARANCE.ringColor,
                 });
             })
             .catch(console.error)

@@ -11,6 +11,14 @@ export interface AppearanceSettings {
     terminalFontSize: number;
     /** Empty string keeps the split pane frame tied to the app theme. */
     splitPaneBorderColor: string;
+    /** Left menu background. Empty string keeps the colour derived from the app palette. */
+    sidebarColor: string;
+    /** Background tint of the search and input fields. Empty string keeps the derived colour. */
+    inputColor: string;
+    /** Focus accent of the input fields. Empty string keeps the app accent colour. */
+    ringColor: string;
+    /** Header of a split pane. Empty string keeps a soft tint of the app background. */
+    splitPaneHeaderColor: string;
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
@@ -25,6 +33,10 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     terminalFontFamily: "Cascadia Code",
     terminalFontSize: 14,
     splitPaneBorderColor: "",
+    sidebarColor: "",
+    inputColor: "",
+    ringColor: "",
+    splitPaneHeaderColor: "",
 };
 
 export const APP_COLOR_PALETTES = {
@@ -95,18 +107,25 @@ function readableTextFor(color: string) {
 }
 
 /**
- * The split panes are framed with an opaque tone that contrasts the app theme, yet stays readable on
- * top of the terminal background: light frame on dark themes, gray frame on light ones.
+ * A split pane frame is drawn around the terminal, but it has to read against the application
+ * background it sits in: light tones on dark themes, dark tones on light ones. A light frame would
+ * disappear on a light theme, which is exactly what the previous palette did.
  */
-function splitPaneBorderColors(background: string, customColor: string) {
+function splitPaneBorderColors(appBackground: string, customColor: string) {
+    const appIsDark = relativeLuminance(appBackground) < 0.4;
+    const towards = appIsDark ? "#ffffff" : "#000000";
+
     const custom = customColor.trim();
     if (custom) {
-        return {border: custom, active: `color-mix(in oklab, ${custom} 45%, #ffffff)`};
+        return {
+            border: custom,
+            active: `color-mix(in oklab, ${custom} 45%, ${towards})`,
+        };
     }
 
-    return relativeLuminance(background) < 0.4
-        ? {border: "#3f3f46", active: "#d4d4d8"}
-        : {border: "#94a3b8", active: "#e2e8f0"};
+    return appIsDark
+        ? {border: "#52525b", active: "#e4e4e7"}
+        : {border: "#6b7280", active: "#111827"};
 }
 
 export function applyAppAppearance(appearance: AppearanceSettings) {
@@ -133,9 +152,9 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     root.style.setProperty("--accent", `color-mix(in oklab, ${background} 78%, ${accent} 22%)`);
     root.style.setProperty("--accent-foreground", foreground);
     root.style.setProperty("--border", border);
-    root.style.setProperty("--input", `color-mix(in oklab, ${foreground} 20%, transparent)`);
-    root.style.setProperty("--ring", accent);
-    root.style.setProperty("--sidebar", card);
+    root.style.setProperty("--input", appearance.inputColor.trim() || `color-mix(in oklab, ${foreground} 20%, transparent)`);
+    root.style.setProperty("--ring", appearance.ringColor.trim() || accent);
+    root.style.setProperty("--sidebar", appearance.sidebarColor.trim() || card);
     root.style.setProperty("--sidebar-foreground", foreground);
     root.style.setProperty("--sidebar-primary", accent);
     root.style.setProperty("--sidebar-primary-foreground", accentForeground);
@@ -143,6 +162,9 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     root.style.setProperty("--sidebar-accent-foreground", foreground);
     root.style.setProperty("--sidebar-border", border);
     root.style.setProperty("--sidebar-ring", accent);
+
+    root.style.setProperty("--split-pane-header",
+        appearance.splitPaneHeaderColor.trim() || `color-mix(in oklab, ${background} 90%, ${foreground})`);
 
     const splitPaneBorder = splitPaneBorderColors(background, appearance.splitPaneBorderColor);
     root.style.setProperty("--split-pane-border", splitPaneBorder.border);
