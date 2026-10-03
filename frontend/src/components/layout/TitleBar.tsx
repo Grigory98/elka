@@ -237,9 +237,7 @@ export function TitleBar() {
     const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID);
 
     return (
-        <header className="wails-no-drag relative flex h-14 shrink-0 items-end justify-between bg-background pr-0">
-            <div className="wails-drag absolute top-0 right-0 left-[72px] z-20 h-4" aria-hidden="true"/>
-
+        <header className="wails-no-drag relative flex h-11 shrink-0 items-end justify-between bg-background pr-0">
             {/* Пустое место над боковым меню. Раньше здесь на Windows и Linux рисовалось пятно цвета
                 боковой панели с границей, которое выглядело квадратом на фоне заголовка; теперь полоса
                 везде остаётся фоном приложения, как на macOS. На macOS она шире, чтобы не заехать под
@@ -253,7 +251,7 @@ export function TitleBar() {
                   onWheel={handleWheel}
                   onPointerDownCapture={handleTabPointerDown}
                   onClickCapture={handleTabClickCapture}
-                  className="wails-no-drag relative z-10 flex h-full flex-1 translate-y-1 items-center gap-1 pl-2
+                  className="wails-no-drag relative z-10 flex h-full min-w-0 flex-initial items-center gap-1 pl-2
                              overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
             >
                 {orderedTabIDs.map((tabID) => {
@@ -334,12 +332,17 @@ export function TitleBar() {
                         />
                     );
                 })}
-                {isUnlocked && sessions.length > 0 && (
+            </div>
+
+            {/* Знак «+» стоит вне прокручиваемой полосы: он остаётся видимым при любом числе вкладок,
+                и его правая граница становится точной левой границей зоны перетаскивания. */}
+            {isUnlocked && sessions.length > 0 && (
+                <div className="flex h-full shrink-0 items-center">
                     <Button
                         type="button"
                         variant="ghost"
                         size="icon-sm"
-                        className="wails-no-drag my-1 mt-2 shrink-0"
+                        className="wails-no-drag my-1 shrink-0"
                         title={t("new_tab")}
                         aria-label={t("new_tab")}
                         onClick={() => {
@@ -349,8 +352,14 @@ export function TitleBar() {
                     >
                         <Plus className="size-4"/>
                     </Button>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Зона перетаскивания окна начинается строго за знаком «+» и тянется до системных кнопок.
+                Полоса вкладок не растёт, поэтому зона занимает всю свободную ширину: с одной вкладкой
+                она широкая, с десятком схлопывается до минимума. Над самими вкладками перетаскивания
+                нет — их полоса помечена как wails-no-drag. */}
+            <div className="wails-drag h-full min-w-8 flex-1" aria-hidden="true"/>
 
             {showSidebarButtonVisible && (
                 <div className="flex h-full shrink-0 items-center pr-1">
