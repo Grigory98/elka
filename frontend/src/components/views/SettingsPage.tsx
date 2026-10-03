@@ -176,6 +176,8 @@ export function SettingsPage() {
         setShowHostGroups,
         showSidebarToggle,
         setShowSidebarToggle,
+        serverMetrics,
+        setServerMetrics,
         setSelectedHostGroup,
         hostViewMode,
         groupViewMode,
@@ -261,6 +263,16 @@ export function SettingsPage() {
             await SettingsService.SaveSettings(new AppSettings({...current, showHostGroups: show}));
             setShowHostGroups(show);
             if (!show) setSelectedHostGroup(null);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const changeServerMetrics = async (enabled: boolean) => {
+        try {
+            const current = await SettingsService.GetSettings();
+            await SettingsService.SaveSettings(new AppSettings({...current, serverMetrics: enabled}));
+            setServerMetrics(enabled);
         } catch (error) {
             handleAppError(error);
         }
@@ -596,6 +608,21 @@ export function SettingsPage() {
                             className="size-4 shrink-0 accent-primary"
                         />
                     </label>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("server_metrics_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("server_metrics_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={serverMetrics}
+                            onChange={(event) => void changeServerMetrics(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
+
+                    <div className="my-2 h-px w-full bg-border"/>
 
                     <label className="flex cursor-pointer items-center justify-between gap-4">
                         <div className="flex flex-col">

@@ -76,5 +76,7 @@
   "wipe_confirm_desc": "This will permanently delete your local database, encryption keys, and log you out. This action cannot be undone.",
   "nuke_it": "Nuke it",
   "sidebar_toggle_title": "Sidebar button",
-  "sidebar_toggle_desc": "Show the sidebar toggle in the top right corner. When off, the sidebar stays open."
+  "sidebar_toggle_desc": "Show the sidebar toggle in the top right corner. When off, the sidebar stays open.",
+  "server_metrics_title": "Server metrics",
+  "server_metrics_desc": "Load, load average, I/O wait and memory of the active tab"
 }

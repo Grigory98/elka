@@ -13,6 +13,14 @@ export function Connect(config: $models.SSHConnectionConfig | null): $Cancellabl
     return $Call.ByID(3818937017, config);
 }
 
+export function StartMetrics(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(1524912400, sessionID);
+}
+
+export function StopMetrics(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(2960653110, sessionID);
+}
+
 export function Disconnect(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(1867844523, sessionID);
 }

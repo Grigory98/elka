@@ -6,6 +6,8 @@ import type { TerminalSplitLayout } from "@/store/sessionStore";
 import { TerminalInstance } from "@/components/terminal/TerminalInstance";
 import { SFTPBrowser } from "@/components/terminal/SFTPBrowser";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/store/uiStore";
+import { useServerMetrics } from "@/hooks/useServerMetrics";
 
 interface TerminalStackProps {
     isVisible: boolean;
@@ -116,6 +118,17 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
     const [sftpsessionID, setSFTPSessionID] = useState<string | null>(null);
     const dragRef = useRef<ResizeDrag | null>(null);
     const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID);
+    const serverMetricsEnabled = useUIStore((state) => state.serverMetrics);
+    // Метрики показываются только для одиночной вкладки: у панелей разделённого экрана своя рамка и
+    // своя точка фокуса, и «сервер» там не один.
+    const metricsSessionID = activeWorkspaceID ? null : activeSessionId;
+    const metricsReconnectCount = sessions.find((session) => session.id === metricsSessionID)?.reconnectCount ?? 0;
+    useServerMetrics({
+        sessionID: metricsSessionID,
+        enabled: serverMetricsEnabled,
+        active: isVisible,
+        reconnectCount: metricsReconnectCount,
+    });
     const layout = activeWorkspaceID
         ? activeWorkspace?.layout || null
         : activeSessionId ? {type: "pane" as const, sessionId: activeSessionId} : null;

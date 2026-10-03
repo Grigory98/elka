@@ -19,9 +19,18 @@ type SSHClosedPayload struct {
 	ID string `json:"id"`
 }
 
+type SSHMetricsPayload struct {
+	ID     string  `json:"id"`
+	CPU    float64 `json:"cpu"`
+	IOWait float64 `json:"ioWait"`
+	Load   float64 `json:"load"`
+	Memory float64 `json:"memory"`
+}
+
 const (
-	SSHDataEvent   = "ssh:data"
-	SSHClosedEvent = "ssh:closed"
+	SSHDataEvent    = "ssh:data"
+	SSHClosedEvent  = "ssh:closed"
+	SSHMetricsEvent = "ssh:metrics"
 )
 
 func NewWailsSSHEmitter(app *application.App) *WailsSSHEmitter {
@@ -38,5 +47,15 @@ func (e *WailsSSHEmitter) EmitData(sessionID string, data []byte) {
 func (e *WailsSSHEmitter) EmitClosed(sessionID string) {
 	e.app.Event.Emit(SSHClosedEvent, SSHClosedPayload{
 		ID: sessionID,
+	})
+}
+
+func (e *WailsSSHEmitter) EmitMetrics(sessionID string, cpu float64, ioWait float64, load float64, memory float64) {
+	e.app.Event.Emit(SSHMetricsEvent, SSHMetricsPayload{
+		ID:     sessionID,
+		CPU:    cpu,
+		IOWait: ioWait,
+		Load:   load,
+		Memory: memory,
 	})
 }

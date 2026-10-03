@@ -17,7 +17,7 @@ import { dismissSplash } from "@/lib/splash";
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
+    const {setShowHostGroups, setShowSidebarToggle, setServerMetrics, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
     const {i18n} = useTranslation();
 
@@ -29,6 +29,7 @@ export default function App() {
                 }
                 setShowHostGroups(settings.showHostGroups ?? true);
                 setShowSidebarToggle(settings.showSidebarToggle ?? true);
+                setServerMetrics(settings.serverMetrics ?? true);
                 setHostViewMode(settings.hostViewMode === "list" || settings.hostViewMode === "tree" ? settings.hostViewMode : "cards");
                 setGroupViewMode(settings.groupViewMode === "cards" || settings.groupViewMode === "list" ? settings.groupViewMode : "tree");
                 setAppearance({
@@ -53,7 +54,7 @@ export default function App() {
             })
             .catch(console.error)
             .finally(dismissSplash);
-    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups, setShowSidebarToggle]);
+    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setServerMetrics, setShowHostGroups, setShowSidebarToggle]);
 
     useEffect(() => {
         applyAppAppearance(appearance);

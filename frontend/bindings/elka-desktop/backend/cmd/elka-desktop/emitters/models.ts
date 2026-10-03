@@ -51,6 +51,43 @@ export class SSHDataPayload {
     }
 }
 
+export class SSHMetricsPayload {
+    "id": string;
+    "cpu": number;
+    "ioWait": number;
+    "load": number;
+    "memory": number;
+
+    /** Creates a new SSHMetricsPayload instance. */
+    constructor($$source: Partial<SSHMetricsPayload> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("cpu" in $$source)) {
+            this["cpu"] = 0;
+        }
+        if (!("ioWait" in $$source)) {
+            this["ioWait"] = 0;
+        }
+        if (!("load" in $$source)) {
+            this["load"] = 0;
+        }
+        if (!("memory" in $$source)) {
+            this["memory"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SSHMetricsPayload instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SSHMetricsPayload {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SSHMetricsPayload($$parsedSource as Partial<SSHMetricsPayload>);
+    }
+}
+
 export class UpdaterProgressPayload {
     "downloaded": number;
     "total": number;

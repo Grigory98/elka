@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { ServerMetricsPanel } from "@/components/layout/ServerMetricsPanel";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -99,6 +100,8 @@ export function Sidebar() {
                 </SidebarItem>
 
             </nav>
+
+            <ServerMetricsPanel/>
 
             <nav className="relative z-10 flex flex-col gap-2">
 

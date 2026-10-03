@@ -41,6 +41,7 @@ func init() {
 
 	application.RegisterEvent[emitters.SSHDataPayload](emitters.SSHDataEvent)
 	application.RegisterEvent[emitters.SSHClosedPayload](emitters.SSHClosedEvent)
+	application.RegisterEvent[emitters.SSHMetricsPayload](emitters.SSHMetricsEvent)
 
 	application.RegisterEvent[emitters.UpdaterProgressPayload](emitters.UpdaterProgressEvent)
 }

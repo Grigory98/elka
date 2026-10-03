@@ -14,13 +14,15 @@ function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "ssh:closed": $$createType0,
         "ssh:data": $$createType1,
-        "updater:progress": $$createType2,
+        "ssh:metrics": $$createType2,
+        "updater:progress": $$createType3,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = emitters$0.SSHClosedPayload.createFrom;
 const $$createType1 = emitters$0.SSHDataPayload.createFrom;
-const $$createType2 = emitters$0.UpdaterProgressPayload.createFrom;
+const $$createType2 = emitters$0.SSHMetricsPayload.createFrom;
+const $$createType3 = emitters$0.UpdaterProgressPayload.createFrom;
 
 configure();

@@ -9,6 +9,7 @@ export class AppSettings {
     "language": string;
     "showHostGroups": boolean;
     "showSidebarToggle": boolean;
+    "serverMetrics": boolean;
     "hostViewMode": string;
     "groupViewMode": string;
     "appBackgroundColor"?: string;
@@ -41,6 +42,9 @@ export class AppSettings {
         }
         if (!("showSidebarToggle" in $$source)) {
             this["showSidebarToggle"] = false;
+        }
+        if (!("serverMetrics" in $$source)) {
+            this["serverMetrics"] = false;
         }
         if (!("hostViewMode" in $$source)) {
             this["hostViewMode"] = "";
