@@ -52,6 +52,7 @@ export function TitleBar() {
         setActiveSession,
         removeSession,
         duplicateSession,
+        reconnectSession,
         closeOtherSessions,
         addSessionToSplit,
         placeSessionBeside,
@@ -307,6 +308,7 @@ export function TitleBar() {
                             onClick={() => setActiveSession(session.id)}
                             onClose={() => removeSession(session.id)}
                             onDuplicate={() => duplicateSession(session.id)}
+                            onReconnect={() => reconnectSession(session.id)}
                             onCloseOthers={() => closeOtherSessions(session.id)}
                             canCloseOthers={sessions.length > 1}
                             isInSplit={false}
