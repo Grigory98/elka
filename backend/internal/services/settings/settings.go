@@ -16,6 +16,7 @@ type AppSettings struct {
 	Language              string `json:"language"`
 	ShowHostGroups        bool   `json:"showHostGroups"`
 	ShowSidebarToggle     bool   `json:"showSidebarToggle"`
+	ServerMetrics         bool   `json:"serverMetrics"`
 	HostViewMode          string `json:"hostViewMode"`
 	GroupViewMode         string `json:"groupViewMode"`
 	AppBackgroundColor    string `json:"appBackgroundColor,omitempty"`
@@ -30,6 +31,7 @@ type AppSettings struct {
 	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
 	SplitPaneBorder       string `json:"splitPaneBorder,omitempty"`
 	SplitPaneHeaderColor  string `json:"splitPaneHeaderColor,omitempty"`
+	ServerMetricsColor    string `json:"serverMetricsColor,omitempty"`
 	SidebarColor          string `json:"sidebarColor,omitempty"`
 	InputColor            string `json:"inputColor,omitempty"`
 	RingColor             string `json:"ringColor,omitempty"`
@@ -66,6 +68,7 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		Language:             "en",
 		ShowHostGroups:       true,
 		ShowSidebarToggle:    true,
+		ServerMetrics:        true,
 		HostViewMode:         "cards",
 		GroupViewMode:        "tree",
 		AppBackgroundColor:   "#09090b",

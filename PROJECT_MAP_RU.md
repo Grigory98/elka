@@ -32,6 +32,7 @@
 - `frontend/src/components/terminal/TerminalInstance.tsx` — xterm, ввод/вывод SSH, подгонка размеров, drag-and-drop и действия панели. Пока идёт SSH-хендшейк, поверх терминала показывается лоадер подключения, а при ошибке терминал всё равно подгоняется под размер, чтобы текст ошибки был виден.
 - `frontend/src/lib/sshConnection.ts` — разрешение учётных данных хоста/группы, ключей, цепочки JumpHost и port forwards для подключения.
 - `backend/internal/services/ssh/ssh.go` — SSH-соединение, цепочка промежуточных серверов и локальная/удалённая переадресация портов.
+- `backend/internal/services/ssh/metrics.go` — сбор нагрузки, load average, iowait и памяти сервера раз в секунду по второму SSH-каналу активной вкладки.
 
 ## Данные и безопасность
 
@@ -40,6 +41,8 @@
 - `backend/internal/services/blob/store.go` — общая сериализация и шифрование записей перед сохранением.
 - Хосты, группы, ключи и учётные данные лежат в таблице `encrypted_blobs`.
 - `backend/internal/services/settings/settings.go` — `settings.json`, режимы отображения и переключение/перемещение vault.
+- `backend/internal/services/updater/updater.go` — проверка последнего релиза GitHub, выбор установщика под платформу, скачивание с прогрессом и его запуск.
+- `backend/internal/services/updater/version.go` — версия сборки: из `-ldflags` на релизных сборках, иначе из `Info.plist` бандла.
 - `backend/internal/migration/` — схема локальной SQLite-базы.
 
 ## Типовые изменения

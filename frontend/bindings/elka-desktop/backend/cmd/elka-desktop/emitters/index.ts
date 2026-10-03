@@ -4,5 +4,6 @@
 export {
     SSHClosedPayload,
     SSHDataPayload,
-    SyncErrorPayload
+    SSHMetricsPayload,
+    UpdaterProgressPayload
 } from "./models.js";

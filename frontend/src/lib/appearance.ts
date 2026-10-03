@@ -19,6 +19,8 @@ export interface AppearanceSettings {
     ringColor: string;
     /** Header of a split pane. Empty string keeps a soft tint of the app background. */
     splitPaneHeaderColor: string;
+    /** Text of the server metrics in the sidebar. Empty string keeps the theme derived contrast. */
+    serverMetricsColor: string;
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
@@ -37,6 +39,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     inputColor: "",
     ringColor: "",
     splitPaneHeaderColor: "",
+    serverMetricsColor: "",
 };
 
 export const APP_COLOR_PALETTES = {
@@ -107,6 +110,25 @@ function readableTextFor(color: string) {
 }
 
 /**
+ * The metrics in the sidebar sit straight on the application background, so their colour has to be
+ * derived from it: a muted grey that reads fine on a dark theme disappears on a light one. The label
+ * gets the same hue at lower contrast to keep the value readable first.
+ */
+function serverMetricsColors(appBackground: string, customColor: string) {
+    const appIsDark = relativeLuminance(appBackground) < 0.4;
+    const towards = appIsDark ? "#ffffff" : "#000000";
+
+    const custom = customColor.trim();
+    const value = custom || (appIsDark ? "#fafafa" : "#09090b");
+    return {
+        value,
+        label: custom
+            ? `color-mix(in oklab, ${custom} 55%, ${towards})`
+            : `color-mix(in oklab, ${value} 62%, ${appBackground})`,
+    };
+}
+
+/**
  * A split pane frame is drawn around the terminal, but it has to read against the application
  * background it sits in: light tones on dark themes, dark tones on light ones. A light frame would
  * disappear on a light theme, which is exactly what the previous palette did.
@@ -165,6 +187,10 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
 
     root.style.setProperty("--split-pane-header",
         appearance.splitPaneHeaderColor.trim() || `color-mix(in oklab, ${background} 90%, ${foreground})`);
+
+    const serverMetrics = serverMetricsColors(background, appearance.serverMetricsColor);
+    root.style.setProperty("--server-metrics", serverMetrics.value);
+    root.style.setProperty("--server-metrics-label", serverMetrics.label);
 
     const splitPaneBorder = splitPaneBorderColors(background, appearance.splitPaneBorderColor);
     root.style.setProperty("--split-pane-border", splitPaneBorder.border);

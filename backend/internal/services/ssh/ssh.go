@@ -22,6 +22,7 @@ import (
 type SSHEmitter interface {
 	EmitData(sessionID string, data []byte)
 	EmitClosed(sessionID string)
+	EmitMetrics(sessionID string, metrics ServerMetrics)
 }
 
 type SSHConnectionConfig struct {
@@ -81,6 +82,8 @@ type activeSession struct {
 	session     *ssh.Session
 	stdin       io.WriteCloser
 	forwarders  []io.Closer
+	// metricsChannel непустой только пока вкладка с этой сессией на экране.
+	metricsChannel *ssh.Session
 }
 
 type SshService struct {
@@ -625,6 +628,9 @@ func (s *SshService) cleanupSession(sessionID string, current *activeSession) {
 
 		if current.session != nil {
 			_ = current.session.Close()
+		}
+		if current.metricsChannel != nil {
+			_ = current.metricsChannel.Close()
 		}
 		closeForwarders(current.forwarders)
 		if current.client != nil {

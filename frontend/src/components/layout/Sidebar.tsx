@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { UpdatePopover } from "@/components/layout/UpdatePopover.tsx";
+import { ServerMetricsPanel } from "@/components/layout/ServerMetricsPanel";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
@@ -51,7 +51,7 @@ function SidebarItem({title, active, onClick, children, indicatorClassName}: Sid
 }
 
 export function Sidebar() {
-    const {t} = useTranslation(["hosts", "keys", "update", "credentials", "groups", "settings"]);
+    const {t} = useTranslation(["hosts", "keys", "credentials", "groups", "settings"]);
     const {activeView, setActiveView, isSidebarVisible, setSelectedHostGroup} = useUIStore();
 
     return (
@@ -63,47 +63,52 @@ export function Sidebar() {
         >
             <div className="pointer-events-none absolute inset-0 rounded-t-xl bg-sidebar" aria-hidden="true"/>
 
-            <nav className="relative z-10 flex flex-col gap-2">
-                <SidebarItem
-                    title={t("page_title", {ns: "hosts"})}
-                    active={activeView === ViewType.Hosts}
-                    onClick={() => {
-                        setSelectedHostGroup(null);
-                        setActiveView(ViewType.Hosts);
-                    }}
-                >
-                    <Server className="size-5"/>
-                </SidebarItem>
+            {/* Иконки и показатели лежат в одной группе, но ширины у них разные: ширина панели
+                не должна растягивать список иконок, иначе те съезжают с центра. */}
+            <div className="relative z-10 flex flex-col items-center gap-3">
+                <nav className="flex flex-col items-center gap-2">
+                    <SidebarItem
+                        title={t("page_title", {ns: "hosts"})}
+                        active={activeView === ViewType.Hosts}
+                        onClick={() => {
+                            setSelectedHostGroup(null);
+                            setActiveView(ViewType.Hosts);
+                        }}
+                    >
+                        <Server className="size-5"/>
+                    </SidebarItem>
+    
+                    <SidebarItem
+                        title={t("page_title", {ns: "groups"})}
+                        active={activeView === ViewType.Groups}
+                        onClick={() => setActiveView(ViewType.Groups)}
+                    >
+                        <FolderTree className="size-5"/>
+                    </SidebarItem>
+    
+                    <SidebarItem
+                        title={t("page_title", {ns: "keys"})}
+                        active={activeView === ViewType.Keys}
+                        onClick={() => setActiveView(ViewType.Keys)}
+                    >
+                        <Key className="size-5"/>
+                    </SidebarItem>
+    
+                    <SidebarItem
+                        title={t("page_title", {ns: "credentials"})}
+                        active={activeView === ViewType.Credentials}
+                        onClick={() => setActiveView(ViewType.Credentials)}
+                    >
+                        <KeyRound className="size-5"/>
+                    </SidebarItem>
+                </nav>
 
-                <SidebarItem
-                    title={t("page_title", {ns: "groups"})}
-                    active={activeView === ViewType.Groups}
-                    onClick={() => setActiveView(ViewType.Groups)}
-                >
-                    <FolderTree className="size-5"/>
-                </SidebarItem>
+                {/* Показатели стоят под последней иконкой, а не у нижнего края: так они рядом
+                    с той вкладкой, к которой относятся. */}
+                <ServerMetricsPanel/>
+            </div>
 
-                <SidebarItem
-                    title={t("page_title", {ns: "keys"})}
-                    active={activeView === ViewType.Keys}
-                    onClick={() => setActiveView(ViewType.Keys)}
-                >
-                    <Key className="size-5"/>
-                </SidebarItem>
-
-                <SidebarItem
-                    title={t("page_title", {ns: "credentials"})}
-                    active={activeView === ViewType.Credentials}
-                    onClick={() => setActiveView(ViewType.Credentials)}
-                >
-                    <KeyRound className="size-5"/>
-                </SidebarItem>
-
-            </nav>
-
-            <nav className="relative z-10 flex flex-col gap-2">
-                <UpdatePopover/>
-
+            <nav className="relative z-10 flex flex-col items-center gap-2">
                 <SidebarItem
                     title={t("page_title", {ns: "settings"})}
                     active={activeView === ViewType.Settings}

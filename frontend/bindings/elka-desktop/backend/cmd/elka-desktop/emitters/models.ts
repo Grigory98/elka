@@ -51,23 +51,107 @@ export class SSHDataPayload {
     }
 }
 
-export class SyncErrorPayload {
-    "error": any;
+export class SSHMetricsPayload {
+    "id": string;
+    "cpu": number;
+    "ioWait": number;
+    /** Load average over 1, 5 and 15 minutes, as reported by /proc/loadavg. */
+    "load1": number;
+    "load5": number;
+    "load15": number;
+    "memory": number;
+    "swap": number;
+    "disk": number;
+    /** Bytes per second, summed over every interface but the loopback. */
+    "networkIn": number;
+    "networkOut": number;
+    /** Uptime in seconds. */
+    "uptime": number;
+    "processesRunning": number;
+    "processesTotal": number;
 
-    /** Creates a new SyncErrorPayload instance. */
-    constructor($$source: Partial<SyncErrorPayload> = {}) {
-        if (!("error" in $$source)) {
-            this["error"] = null;
+    /** Creates a new SSHMetricsPayload instance. */
+    constructor($$source: Partial<SSHMetricsPayload> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("cpu" in $$source)) {
+            this["cpu"] = 0;
+        }
+        if (!("ioWait" in $$source)) {
+            this["ioWait"] = 0;
+        }
+        if (!("load1" in $$source)) {
+            this["load1"] = 0;
+        }
+        if (!("load5" in $$source)) {
+            this["load5"] = 0;
+        }
+        if (!("load15" in $$source)) {
+            this["load15"] = 0;
+        }
+        if (!("memory" in $$source)) {
+            this["memory"] = 0;
+        }
+        if (!("swap" in $$source)) {
+            this["swap"] = 0;
+        }
+        if (!("disk" in $$source)) {
+            this["disk"] = 0;
+        }
+        if (!("networkIn" in $$source)) {
+            this["networkIn"] = 0;
+        }
+        if (!("networkOut" in $$source)) {
+            this["networkOut"] = 0;
+        }
+        if (!("uptime" in $$source)) {
+            this["uptime"] = 0;
+        }
+        if (!("processesRunning" in $$source)) {
+            this["processesRunning"] = 0;
+        }
+        if (!("processesTotal" in $$source)) {
+            this["processesTotal"] = 0;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new SyncErrorPayload instance from a string or object.
+     * Creates a new SSHMetricsPayload instance from a string or object.
      */
-    static createFrom($$source: any = {}): SyncErrorPayload {
+    static createFrom($$source: any = {}): SSHMetricsPayload {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SyncErrorPayload($$parsedSource as Partial<SyncErrorPayload>);
+        return new SSHMetricsPayload($$parsedSource as Partial<SSHMetricsPayload>);
+    }
+}
+
+export class UpdaterProgressPayload {
+    "downloaded": number;
+    "total": number;
+    "percent": number;
+
+    /** Creates a new UpdaterProgressPayload instance. */
+    constructor($$source: Partial<UpdaterProgressPayload> = {}) {
+        if (!("downloaded" in $$source)) {
+            this["downloaded"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("percent" in $$source)) {
+            this["percent"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new UpdaterProgressPayload instance from a string or object.
+     */
+    static createFrom($$source: any = {}): UpdaterProgressPayload {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new UpdaterProgressPayload($$parsedSource as Partial<UpdaterProgressPayload>);
     }
 }

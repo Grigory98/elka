@@ -9,21 +9,20 @@ import { Create as $Create } from "@wailsio/runtime";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
 import * as emitters$0 from "../../../../../elka-desktop/backend/cmd/elka-desktop/emitters/models.js";
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
-import * as sync$0 from "../../../../../elka-desktop/backend/internal/services/sync/models.js";
 
 function configure() {
     Object.freeze(Object.assign($Create.Events, {
         "ssh:closed": $$createType0,
         "ssh:data": $$createType1,
-        "sync:error": $$createType2,
+        "ssh:metrics": $$createType2,
+        "updater:progress": $$createType3,
     }));
 }
 
 // Private type creation functions
 const $$createType0 = emitters$0.SSHClosedPayload.createFrom;
 const $$createType1 = emitters$0.SSHDataPayload.createFrom;
-const $$createType2 = emitters$0.SyncErrorPayload.createFrom;
+const $$createType2 = emitters$0.SSHMetricsPayload.createFrom;
+const $$createType3 = emitters$0.UpdaterProgressPayload.createFrom;
 
 configure();

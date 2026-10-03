@@ -11,14 +11,13 @@ import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
-import { UpdaterService } from "../bindings/elka-desktop/backend/internal/services/updater";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setUpdateVersionReady, setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
+    const {setShowHostGroups, setShowSidebarToggle, setServerMetrics, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
     const {i18n} = useTranslation();
 
@@ -30,6 +29,7 @@ export default function App() {
                 }
                 setShowHostGroups(settings.showHostGroups ?? true);
                 setShowSidebarToggle(settings.showSidebarToggle ?? true);
+                setServerMetrics(settings.serverMetrics ?? true);
                 setHostViewMode(settings.hostViewMode === "list" || settings.hostViewMode === "tree" ? settings.hostViewMode : "cards");
                 setGroupViewMode(settings.groupViewMode === "cards" || settings.groupViewMode === "list" ? settings.groupViewMode : "tree");
                 setAppearance({
@@ -47,6 +47,7 @@ export default function App() {
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                     splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
                     splitPaneHeaderColor: settings.splitPaneHeaderColor || DEFAULT_APPEARANCE.splitPaneHeaderColor,
+                    serverMetricsColor: settings.serverMetricsColor || DEFAULT_APPEARANCE.serverMetricsColor,
                     sidebarColor: settings.sidebarColor || DEFAULT_APPEARANCE.sidebarColor,
                     inputColor: settings.inputColor || DEFAULT_APPEARANCE.inputColor,
                     ringColor: settings.ringColor || DEFAULT_APPEARANCE.ringColor,
@@ -54,7 +55,7 @@ export default function App() {
             })
             .catch(console.error)
             .finally(dismissSplash);
-    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setShowHostGroups, setShowSidebarToggle]);
+    }, [i18n, setAppearance, setGroupViewMode, setHostViewMode, setServerMetrics, setShowHostGroups, setShowSidebarToggle]);
 
     useEffect(() => {
         applyAppAppearance(appearance);
@@ -71,28 +72,6 @@ export default function App() {
         return () => unsubscribe();
     }, [removeSession]);
 
-    useEffect(() => {
-        if (!isUnlocked) return;
-
-        const checkUpdates = () => {
-            UpdaterService.CheckForUpdates()
-                .then((info) => {
-                    if (info?.isAvailable) {
-                        UpdaterService.DownloadUpdate()
-                            .then(() => setUpdateVersionReady(info.version))
-                            .catch(console.error);
-                    }
-                })
-                .catch(console.error);
-        };
-
-        checkUpdates();
-
-        const interval = 5 * 60 * 1000; // 5 mins
-        const intervalId = setInterval(checkUpdates, interval);
-
-        return () => clearInterval(intervalId);
-    }, [isUnlocked, setUpdateVersionReady]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">

@@ -1,5 +1,17 @@
 {
-  "update_ready": "Update Ready",
-  "update_to": "Update to {{version}}",
-  "restart_update": "Restart & Update"
+  "available_version": "Version {{version}} is available",
+  "check": "Check for updates",
+  "checking": "Checking…",
+  "current_version": "Current version",
+  "download": "Download",
+  "downloaded": "The update is ready to install",
+  "downloading": "Downloading…",
+  "downloading_progress": "Downloaded {{percent}}%",
+  "install": "Install and restart",
+  "installing": "Installing…",
+  "no_asset": "There is no build for your platform in this release",
+  "release_notes_link": "Open the release notes on GitHub",
+  "up_to_date": "You are on the latest version",
+  "updates_desc": "Checks GitHub releases for new versions",
+  "updates_title": "Updates"
 }

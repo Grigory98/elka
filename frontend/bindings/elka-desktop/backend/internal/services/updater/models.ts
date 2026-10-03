@@ -7,15 +7,43 @@ import { Create as $Create } from "@wailsio/runtime";
 
 export class UpdateInfo {
     "isAvailable": boolean;
-    "version": string;
+    "currentVersion": string;
+    "latestVersion": string;
+    "notes": string;
+    "publishedAt": string;
+    "releaseUrl": string;
+    "assetName": string;
+    "assetUrl": string;
+    "assetSize": number;
 
     /** Creates a new UpdateInfo instance. */
     constructor($$source: Partial<UpdateInfo> = {}) {
         if (!("isAvailable" in $$source)) {
             this["isAvailable"] = false;
         }
-        if (!("version" in $$source)) {
-            this["version"] = "";
+        if (!("currentVersion" in $$source)) {
+            this["currentVersion"] = "";
+        }
+        if (!("latestVersion" in $$source)) {
+            this["latestVersion"] = "";
+        }
+        if (!("notes" in $$source)) {
+            this["notes"] = "";
+        }
+        if (!("publishedAt" in $$source)) {
+            this["publishedAt"] = "";
+        }
+        if (!("releaseUrl" in $$source)) {
+            this["releaseUrl"] = "";
+        }
+        if (!("assetName" in $$source)) {
+            this["assetName"] = "";
+        }
+        if (!("assetUrl" in $$source)) {
+            this["assetUrl"] = "";
+        }
+        if (!("assetSize" in $$source)) {
+            this["assetSize"] = 0;
         }
 
         Object.assign(this, $$source);
