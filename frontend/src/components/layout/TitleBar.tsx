@@ -71,7 +71,6 @@ export function TitleBar() {
     const {activeView, isSidebarVisible, showSidebarToggle, toggleSidebar, setActiveView, setSelectedHostGroup} = useUIStore();
 
     const isTerminalView = activeView === ViewType.Terminal;
-    const showSidebarStyling = isSidebarVisible;
     const isMacOS = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
 
     const {isUnlocked} = useAuthStore();
@@ -241,15 +240,14 @@ export function TitleBar() {
         <header className="wails-no-drag relative flex h-14 shrink-0 items-end justify-between bg-background pr-0">
             <div className="wails-drag absolute top-0 right-0 left-[72px] z-20 h-4" aria-hidden="true"/>
 
+            {/* Пустое место над боковым меню. Раньше здесь на Windows и Linux рисовалось пятно цвета
+                боковой панели с границей, которое выглядело квадратом на фоне заголовка; теперь полоса
+                везде остаётся фоном приложения, как на macOS. На macOS она шире, чтобы не заехать под
+                системные кнопки окна. */}
             <div
-                className={cn(
-                    "relative flex h-full w-14 shrink-0 items-center justify-center",
-                    isMacOS ? "w-18" : showSidebarStyling && "border-r bg-sidebar"
-                )}
+                className={cn("relative flex h-full shrink-0 items-center justify-center", isMacOS ? "w-18" : "w-14")}
                 aria-hidden={isMacOS ? "true" : undefined}
-            >
-                {!isMacOS && showSidebarStyling && <div className="absolute bottom-0 h-px w-8 bg-border"/>}
-            </div>
+            />
 
             <div ref={scrollRef}
                   onWheel={handleWheel}
