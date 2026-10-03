@@ -10,17 +10,13 @@ import type { Events } from "@wailsio/runtime";
 import type * as emitters$0 from "../../../../../elka-desktop/backend/cmd/elka-desktop/emitters/models.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import type * as sync$0 from "../../../../../elka-desktop/backend/internal/services/sync/models.js";
 
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "ssh:closed": emitters$0.SSHClosedPayload;
             "ssh:data": emitters$0.SSHDataPayload;
-            "sync:error": emitters$0.SyncErrorPayload;
-            "sync:status": sync$0.SyncStatus;
-            "sync:updates-available": boolean;
-            "updater:progress": number;
+            "updater:progress": emitters$0.UpdaterProgressPayload;
         }
     }
 }

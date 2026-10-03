@@ -51,23 +51,31 @@ export class SSHDataPayload {
     }
 }
 
-export class SyncErrorPayload {
-    "error": any;
+export class UpdaterProgressPayload {
+    "downloaded": number;
+    "total": number;
+    "percent": number;
 
-    /** Creates a new SyncErrorPayload instance. */
-    constructor($$source: Partial<SyncErrorPayload> = {}) {
-        if (!("error" in $$source)) {
-            this["error"] = null;
+    /** Creates a new UpdaterProgressPayload instance. */
+    constructor($$source: Partial<UpdaterProgressPayload> = {}) {
+        if (!("downloaded" in $$source)) {
+            this["downloaded"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+        if (!("percent" in $$source)) {
+            this["percent"] = 0;
         }
 
         Object.assign(this, $$source);
     }
 
     /**
-     * Creates a new SyncErrorPayload instance from a string or object.
+     * Creates a new UpdaterProgressPayload instance from a string or object.
      */
-    static createFrom($$source: any = {}): SyncErrorPayload {
+    static createFrom($$source: any = {}): UpdaterProgressPayload {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        return new SyncErrorPayload($$parsedSource as Partial<SyncErrorPayload>);
+        return new UpdaterProgressPayload($$parsedSource as Partial<UpdaterProgressPayload>);
     }
 }

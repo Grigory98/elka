@@ -40,6 +40,8 @@
 - `backend/internal/services/blob/store.go` — общая сериализация и шифрование записей перед сохранением.
 - Хосты, группы, ключи и учётные данные лежат в таблице `encrypted_blobs`.
 - `backend/internal/services/settings/settings.go` — `settings.json`, режимы отображения и переключение/перемещение vault.
+- `backend/internal/services/updater/updater.go` — проверка последнего релиза GitHub, выбор установщика под платформу, скачивание с прогрессом и его запуск.
+- `backend/internal/services/updater/version.go` — версия сборки: из `-ldflags` на релизных сборках, иначе из `Info.plist` бандла.
 - `backend/internal/migration/` — схема локальной SQLite-базы.
 
 ## Типовые изменения

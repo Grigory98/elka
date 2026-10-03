@@ -27,6 +27,7 @@ import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILI
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
+import { UpdateSettingsCard } from "@/components/views/UpdateSettingsCard";
 
 type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
 
@@ -529,6 +530,8 @@ export function SettingsPage() {
                         </div>
                     </div>
                 </SettingsCard>
+
+                <UpdateSettingsCard/>
 
                 <SettingsCard title={t("preferences_title")}>
                     <div className="flex items-center justify-between">

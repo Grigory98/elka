@@ -48,7 +48,10 @@ tasks:
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="-linkmode external"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -linkmode external"{{end}}'
+      # Set by the release workflow from the tag; empty for local builds.
+      APP_VERSION: '{{.VERSION | default ""}}'
+      VERSION_LDFLAG: '{{if .APP_VERSION}}-X elka-desktop/backend/internal/services/updater.appVersion={{.APP_VERSION}} {{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if .EXTRA_TAGS}}-tags {{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="-linkmode external"{{else}}-tags production{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="{{.VERSION_LDFLAG}}-w -s -H windowsgui -linkmode external"{{end}}'
     env:
       GOOS: windows
       CGO_ENABLED: '{{.CGO_ENABLED | default "1"}}'

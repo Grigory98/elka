@@ -1,5 +1,17 @@
 {
-  "update_ready": "Обновление готово",
-  "update_to": "Обновить до {{version}}",
-  "restart_update": "Перезапустить и обновить"
+  "available_version": "Доступна версия {{version}}",
+  "check": "Проверить обновления",
+  "checking": "Проверяем…",
+  "current_version": "Текущая версия",
+  "download": "Скачать",
+  "downloaded": "Обновление скачано",
+  "downloading": "Скачиваем…",
+  "downloading_progress": "Скачано {{percent}}%",
+  "install": "Установить и перезапустить",
+  "installing": "Устанавливаем…",
+  "no_asset": "Для вашей платформы нет собранного релиза",
+  "release_notes_link": "Открыть список изменений на GitHub",
+  "up_to_date": "У вас установлена последняя версия",
+  "updates_desc": "Проверка новых версий по релизам на GitHub",
+  "updates_title": "Обновления"
 }

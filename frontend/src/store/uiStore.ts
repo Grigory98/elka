@@ -16,7 +16,6 @@ export type HostViewMode = "cards" | "list" | "tree";
 interface UIState {
     activeView: ViewType;
     isSidebarVisible: boolean;
-    updateVersionReady: string | null;
     showHostGroups: boolean;
     showSidebarToggle: boolean;
     selectedHostGroup: string | null;
@@ -31,13 +30,11 @@ interface UIState {
     setGroupViewMode: (mode: HostViewMode) => void;
     setAppearance: (appearance: AppearanceSettings) => void;
     toggleSidebar: () => void;
-    setUpdateVersionReady: (version: string | null) => void;
 }
 
 export const useUIStore = create<UIState>((set) => ({
     activeView: ViewType.Hosts,
     isSidebarVisible: true,
-    updateVersionReady: null,
     showHostGroups: true,
     showSidebarToggle: true,
     selectedHostGroup: null,
@@ -56,5 +53,4 @@ export const useUIStore = create<UIState>((set) => ({
     setGroupViewMode: (mode) => set({groupViewMode: mode}),
     setAppearance: (appearance) => set({appearance}),
     toggleSidebar: () => set((state) => ({isSidebarVisible: !state.isSidebarVisible})),
-    setUpdateVersionReady: (version) => set({ updateVersionReady: version }),
 }));

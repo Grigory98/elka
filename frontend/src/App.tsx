@@ -11,14 +11,13 @@ import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
-import { UpdaterService } from "../bindings/elka-desktop/backend/internal/services/updater";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
     const {removeSession} = useSessionStore();
-    const {setUpdateVersionReady, setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
+    const {setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
     const {i18n} = useTranslation();
 
@@ -71,28 +70,6 @@ export default function App() {
         return () => unsubscribe();
     }, [removeSession]);
 
-    useEffect(() => {
-        if (!isUnlocked) return;
-
-        const checkUpdates = () => {
-            UpdaterService.CheckForUpdates()
-                .then((info) => {
-                    if (info?.isAvailable) {
-                        UpdaterService.DownloadUpdate()
-                            .then(() => setUpdateVersionReady(info.version))
-                            .catch(console.error);
-                    }
-                })
-                .catch(console.error);
-        };
-
-        checkUpdates();
-
-        const interval = 5 * 60 * 1000; // 5 mins
-        const intervalId = setInterval(checkUpdates, interval);
-
-        return () => clearInterval(intervalId);
-    }, [isUnlocked, setUpdateVersionReady]);
 
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">

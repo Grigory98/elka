@@ -39,11 +39,10 @@ func init() {
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.
 
-
 	application.RegisterEvent[emitters.SSHDataPayload](emitters.SSHDataEvent)
 	application.RegisterEvent[emitters.SSHClosedPayload](emitters.SSHClosedEvent)
 
-	application.RegisterEvent[uint](emitters.UpdaterProgressEvent)
+	application.RegisterEvent[emitters.UpdaterProgressPayload](emitters.UpdaterProgressEvent)
 }
 
 const AppName = "Elka"
@@ -55,7 +54,6 @@ const devDbFile = "dev.db"
 const logFileName = "elka.log"
 const legacyLogFileName = "terminator.log"
 const crashLogFileName = "crash.log"
-const updateUrl = "https://github.com/NBK1328/elka/releases/latest/download/"
 
 func main() {
 	velopack.Run(velopack.App{
@@ -195,7 +193,7 @@ func main() {
 	keyService := blob.NewKeyService(queries, v)
 	credentialService := blob.NewCredentialService(queries, v)
 	groupService := blob.NewGroupService(queries, v)
-	updaterService := updater.NewUpdaterService(updateUrl, updaterEmitter)
+	updaterService := updater.NewUpdaterService(updaterEmitter, appDir)
 
 	app.RegisterService(application.NewService(authService))
 	app.RegisterService(application.NewService(sshService))
