@@ -311,6 +311,10 @@ export function TitleBar() {
                             canCloseOthers={sessions.length > 1}
                             isInSplit={false}
                             canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < 6}
+                            onCreateSplit={() => {
+                                createSplitWorkspace(t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}));
+                                addSessionToSplit(session.id);
+                            }}
                             onToggleSplit={() => addSessionToSplit(
                                 session.id,
                                 activeWorkspaceID || undefined,
