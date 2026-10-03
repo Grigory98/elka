@@ -12,10 +12,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { GroupModal } from "@/components/views/GroupModal";
+import { HostModal } from "@/components/views/HostModal";
 import { useGroups, useDeleteGroup, useSaveGroup } from "@/hooks/useGroups";
 import { useKeys } from "@/hooks/useKeys";
 import { useCredentials } from "@/hooks/useCredentials";
-import { useHosts } from "@/hooks/useHosts";
+import { useDeleteHost, useHosts, useSaveHost } from "@/hooks/useHosts";
 import { useSessionStore } from "@/store/sessionStore";
 import { Host, HostGroup } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
@@ -26,11 +27,13 @@ import { handleAppError } from "@/lib/error";
 import { cn } from "@/lib/utils";
 
 export function GroupsPage() {
-    const {t} = useTranslation(["groups", "common"]);
+    const {t} = useTranslation(["groups", "common", "hosts"]);
     const {data: groups, isLoading} = useGroups();
     const {data: hosts, isLoading: hostsLoading} = useHosts();
     const saveMutation = useSaveGroup();
     const deleteMutation = useDeleteGroup();
+    const saveHostMutation = useSaveHost();
+    const deleteHostMutation = useDeleteHost();
     const [searchQuery, setSearchQuery] = useState("");
     const [viewingGroup, setViewingGroup] = useState<HostGroup | null>(null);
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -38,6 +41,9 @@ export function GroupsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGroup, setEditingGroup] = useState<HostGroup | null>(null);
     const [groupToDelete, setGroupToDelete] = useState<HostGroup | null>(null);
+    const [isHostModalOpen, setIsHostModalOpen] = useState(false);
+    const [editingHost, setEditingHost] = useState<Host | null>(null);
+    const [hostToDelete, setHostToDelete] = useState<Host | null>(null);
     const [hoveredGroupID, setHoveredGroupID] = useState<string | null>(null);
     const [hoveredHostID, setHoveredHostID] = useState<string | null>(null);
     const [openGroupMenuID, setOpenGroupMenuID] = useState<string | null>(null);
@@ -134,17 +140,37 @@ export function GroupsPage() {
         }
     };
 
+    const handleEditHost = (host: Host) => {
+        setEditingHost(host);
+        setIsHostModalOpen(true);
+    };
+
+    const handleDeleteHostPrompt = (host: Host) => {
+        setHostToDelete(host);
+    };
+
+    const handleConfirmDeleteHost = () => {
+        if (hostToDelete) deleteHostMutation.mutate(hostToDelete.id);
+        setHostToDelete(null);
+    };
+
+    const handleSaveHost = (host: Host) => {
+        saveHostMutation.mutate(host, {onSuccess: () => setIsHostModalOpen(false)});
+    };
+
     const changeViewMode = (mode: HostViewMode) => {
         setGroupViewMode(mode);
         saveHostViewPreference("groupViewMode", mode).catch(handleAppError);
     };
 
     const renderHost = (host: Host, compact: boolean, treeNode = false) => (
-        <button
+        <div
             key={host.id}
-            type="button"
+            role="button"
+            tabIndex={0}
             onDoubleClick={() => connectHost(host)}
             onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
                 if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     connectHost(host);
@@ -168,7 +194,37 @@ export function GroupsPage() {
                 <span className="block truncate font-semibold text-card-foreground">{host.name || host.host}</span>
                 <span className="block truncate text-xs text-muted-foreground">{host.username} · {host.host}:{host.port}</span>
             </span>
-        </button>
+            <div className="shrink-0" onDoubleClick={(event) => event.stopPropagation()}>
+                <DropdownMenu modal={false}>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title={t("actions", {ns: "common"})}
+                            aria-label={t("actions", {ns: "common"})}
+                            className={cn("transition-opacity hover:opacity-100 focus-visible:opacity-100", hoveredHostID === host.id ? "opacity-100" : "opacity-60")}
+                        >
+                            <MoreHorizontal className="size-4 text-muted-foreground"/>
+                        </Button>
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end" className="w-40 z-50">
+                        <DropdownMenuItem onClick={() => handleEditHost(host)}>
+                            <Edit className="mr-2 size-4"/>
+                            {t("edit", {ns: "common"})}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator/>
+                        <DropdownMenuItem
+                            onClick={() => handleDeleteHostPrompt(host)}
+                            className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                            <Trash2 className="mr-2 size-4"/>
+                            {t("delete", {ns: "common"})}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </div>
     );
 
     return (
@@ -335,6 +391,22 @@ export function GroupsPage() {
                 onSave={handleSave}
                 initialData={editingGroup}
                 isSaving={saveMutation.isPending}
+            />
+            <HostModal
+                isOpen={isHostModalOpen}
+                onClose={() => setIsHostModalOpen(false)}
+                onSave={handleSaveHost}
+                initialData={editingHost}
+                isSaving={saveHostMutation.isPending}
+            />
+            <ConfirmModal
+                isOpen={!!hostToDelete}
+                onClose={() => setHostToDelete(null)}
+                onConfirm={handleConfirmDeleteHost}
+                title={t("delete_title", {ns: "hosts"})}
+                description={t("delete_desc", {ns: "hosts", name: hostToDelete?.name || hostToDelete?.host})}
+                confirmText={t("delete", {ns: "common"})}
+                isDestructive
             />
             <ConfirmModal
                 isOpen={!!groupToDelete}
