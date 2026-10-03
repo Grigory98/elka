@@ -2,6 +2,7 @@ import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
     splitWorkspaceTabID,
     terminalSessionTabID,
+    MAX_SPLIT_PANES,
     terminalTabGroupID,
     useSessionStore,
 } from "@/store/sessionStore";
@@ -312,7 +313,7 @@ export function TitleBar() {
                             onCloseOthers={() => closeOtherSessions(session.id)}
                             canCloseOthers={sessions.length > 1}
                             isInSplit={false}
-                            canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < 6}
+                            canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < MAX_SPLIT_PANES}
                             onCreateSplit={() => {
                                 createSplitWorkspace(
                                     t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}),

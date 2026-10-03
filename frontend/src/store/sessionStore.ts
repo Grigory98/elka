@@ -4,6 +4,10 @@ import { useUIStore, ViewType } from "@/store/uiStore";
 
 export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
 
+// How many terminals one split workspace can hold. Single source of truth for both the store guard
+// and the disabled state of the tab menu items.
+export const MAX_SPLIT_PANES = 8;
+
 export function terminalSessionTabID(sessionID: string) {
     return `session:${sessionID}`;
 }
@@ -323,7 +327,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             useUIStore.getState().setActiveView(ViewType.Terminal);
             return;
         }
-        if (currentIDs.length >= 6) return;
+        if (currentIDs.length >= MAX_SPLIT_PANES) return;
 
         let candidateID = targetWorkspace.activeSessionId && targetWorkspace.activeSessionId !== id
             ? targetWorkspace.activeSessionId
@@ -367,7 +371,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const targetWorkspace = state.workspaces.find((workspace) => workspace.id === workspaceID);
         if (!targetWorkspace) return;
         const currentIDs = paneIDs(targetWorkspace.layout);
-        if (!currentIDs.includes(sessionID) && currentIDs.length >= 6) return;
+        if (!currentIDs.includes(sessionID) && currentIDs.length >= MAX_SPLIT_PANES) return;
 
         const baseLayout = removePane(targetWorkspace.layout, sessionID).layout;
         const baseIDs = paneIDs(baseLayout);
