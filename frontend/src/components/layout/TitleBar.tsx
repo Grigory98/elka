@@ -2,6 +2,7 @@ import { PanelLeftClose, PanelLeftOpen, Plus } from "lucide-react";
 import {
     splitWorkspaceTabID,
     terminalSessionTabID,
+    MAX_SPLIT_PANES,
     terminalTabGroupID,
     useSessionStore,
 } from "@/store/sessionStore";
@@ -269,7 +270,7 @@ export function TitleBar() {
                                 isDropTarget={pointerDropPreview?.tabID === tabID && pointerDropPreview.kind === "move"}
                                 onClick={() => setActiveWorkspace(workspace.id)}
                                 onClose={() => closeSplitWorkspace(workspace.id)}
-                                onCreate={createSplitWorkspace}
+                                onCreate={(title) => createSplitWorkspace(title, splitWorkspaceTabID(workspace.id))}
                                 onRename={(title) => renameSplitWorkspace(workspace.id, title)}
                                 onDropSession={addSessionToSplit}
                                 nextWorkspaceNumber={workspaces.length + 1}
@@ -312,9 +313,12 @@ export function TitleBar() {
                             onCloseOthers={() => closeOtherSessions(session.id)}
                             canCloseOthers={sessions.length > 1}
                             isInSplit={false}
-                            canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < 6}
+                            canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < MAX_SPLIT_PANES}
                             onCreateSplit={() => {
-                                createSplitWorkspace(t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}));
+                                createSplitWorkspace(
+                                    t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}),
+                                    terminalSessionTabID(session.id),
+                                );
                                 addSessionToSplit(session.id);
                             }}
                             onToggleSplit={() => addSessionToSplit(

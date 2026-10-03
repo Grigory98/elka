@@ -4,14 +4,12 @@ import (
 	"database/sql"
 	"elka-desktop/backend/cmd/elka-desktop/emitters"
 	"elka-desktop/backend/cmd/elka-desktop/env"
-	"elka-desktop/backend/internal/api"
 	"elka-desktop/backend/internal/dbgen"
 	"elka-desktop/backend/internal/migration"
 	"elka-desktop/backend/internal/services/auth"
 	"elka-desktop/backend/internal/services/blob"
 	"elka-desktop/backend/internal/services/settings"
 	"elka-desktop/backend/internal/services/ssh"
-	"elka-desktop/backend/internal/services/sync"
 	"elka-desktop/backend/internal/services/updater"
 	"elka-desktop/backend/internal/vault"
 	"fmt"
@@ -41,9 +39,6 @@ func init() {
 	// This is not required, but the binding generator will pick up registered events
 	// and provide a strongly typed JS/TS API for them.
 
-	application.RegisterEvent[sync.SyncStatus](emitters.SyncStatusEvent)
-	application.RegisterEvent[emitters.SyncErrorPayload](emitters.SyncErrorEvent)
-	application.RegisterEvent[bool](emitters.SyncUpdatesAvailableEvent)
 
 	application.RegisterEvent[emitters.SSHDataPayload](emitters.SSHDataEvent)
 	application.RegisterEvent[emitters.SSHClosedPayload](emitters.SSHClosedEvent)
@@ -190,14 +185,10 @@ func main() {
 	}
 
 	v := vault.New()
-	client := api.NewClient()
-
-	syncEmitter := emitters.NewWailsSyncEmitter(app)
 	sshEmitter := emitters.NewWailsSSHEmitter(app)
 	updaterEmitter := emitters.NewWailsUpdaterEmitter(app)
 
-	authService := auth.NewAuthService(queries, v, client)
-	syncService := sync.NewSyncService(queries, client, v, syncEmitter, nil)
+	authService := auth.NewAuthService(queries, v)
 	sshService := ssh.NewSshService(sshEmitter, app)
 	hostService := blob.NewHostService(queries, v)
 	hostTransferService := blob.NewHostTransferService(queries, v, app)
@@ -207,7 +198,6 @@ func main() {
 	updaterService := updater.NewUpdaterService(updateUrl, updaterEmitter)
 
 	app.RegisterService(application.NewService(authService))
-	app.RegisterService(application.NewService(syncService))
 	app.RegisterService(application.NewService(sshService))
 	app.RegisterService(application.NewService(hostService))
 	app.RegisterService(application.NewService(hostTransferService))
@@ -240,7 +230,6 @@ func main() {
 	})
 
 	defer v.Lock() // eh why not
-	defer syncService.StopAutoSync()
 
 	// Run the application. This blocks until the application has been exited.
 	err = app.Run()
@@ -250,7 +239,6 @@ func main() {
 		log.Fatal(err)
 	}
 	if restartVault.Load() {
-		syncService.StopAutoSync()
 		if err = db.Close(); err != nil {
 			slog.Error("failed to close the current vault", "error", err)
 		}

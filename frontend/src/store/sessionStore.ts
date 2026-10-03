@@ -4,6 +4,10 @@ import { useUIStore, ViewType } from "@/store/uiStore";
 
 export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
 
+// How many terminals one split workspace can hold. Single source of truth for both the store guard
+// and the disabled state of the tab menu items.
+export const MAX_SPLIT_PANES = 8;
+
 export function terminalSessionTabID(sessionID: string) {
     return `session:${sessionID}`;
 }
@@ -65,7 +69,7 @@ interface SessionState {
     tabGroups: TerminalTabGroup[];
     topTabOrder: string[];
     addSession: (params: CreateSessionParams) => void;
-    createSplitWorkspace: (title: string) => void;
+    createSplitWorkspace: (title: string, afterTabID?: string) => void;
     renameSplitWorkspace: (workspaceID: string, title: string) => void;
     setActiveWorkspace: (workspaceID: string) => void;
     addSessionToSplit: (id: string, workspaceID?: string, defaultWorkspaceTitle?: string) => void;
@@ -262,16 +266,22 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         });
     },
 
-    createSplitWorkspace: (title) => {
+    createSplitWorkspace: (title, afterTabID) => {
         const state = get();
         const id = crypto.randomUUID();
         const workspace: SplitWorkspace = {id, title, layout: null, activeSessionId: null};
+        // Новое пространство встаёт сразу за вкладкой, из которой его создали, а не в конец трея.
+        const tabID = splitWorkspaceTabID(id);
+        const anchorIndex = afterTabID ? state.topTabOrder.indexOf(afterTabID) : -1;
+        const topTabOrder = [...state.topTabOrder];
+        topTabOrder.splice(anchorIndex >= 0 ? anchorIndex + 1 : topTabOrder.length, 0, tabID);
+
         useUIStore.getState().setActiveView(ViewType.Terminal);
         set({
             workspaces: [...state.workspaces, workspace],
             activeWorkspaceID: id,
             activeSessionId: null,
-            topTabOrder: [...state.topTabOrder, splitWorkspaceTabID(id)],
+            topTabOrder,
         });
     },
 
@@ -303,7 +313,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             const defaultTitle = defaultWorkspaceTitle || `Split workspace ${state.workspaces.length + 1}`;
             targetWorkspace = {id: workspaceID, title: defaultTitle, layout: null, activeSessionId: null};
             workspaces = [...workspaces, targetWorkspace];
-            topTabOrder = [...topTabOrder, splitWorkspaceTabID(workspaceID)];
+            // Тот же порядок, что и у createSplitWorkspace: новое пространство — сразу за вкладкой.
+            const createdTabID = splitWorkspaceTabID(workspaceID);
+            const sourceIndex = topTabOrder.indexOf(terminalSessionTabID(id));
+            topTabOrder = [...topTabOrder];
+            topTabOrder.splice(sourceIndex >= 0 ? sourceIndex + 1 : topTabOrder.length, 0, createdTabID);
             createdWorkspace = true;
         }
 
@@ -313,7 +327,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             useUIStore.getState().setActiveView(ViewType.Terminal);
             return;
         }
-        if (currentIDs.length >= 6) return;
+        if (currentIDs.length >= MAX_SPLIT_PANES) return;
 
         let candidateID = targetWorkspace.activeSessionId && targetWorkspace.activeSessionId !== id
             ? targetWorkspace.activeSessionId
@@ -357,7 +371,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const targetWorkspace = state.workspaces.find((workspace) => workspace.id === workspaceID);
         if (!targetWorkspace) return;
         const currentIDs = paneIDs(targetWorkspace.layout);
-        if (!currentIDs.includes(sessionID) && currentIDs.length >= 6) return;
+        if (!currentIDs.includes(sessionID) && currentIDs.length >= MAX_SPLIT_PANES) return;
 
         const baseLayout = removePane(targetWorkspace.layout, sessionID).layout;
         const baseIDs = paneIDs(baseLayout);

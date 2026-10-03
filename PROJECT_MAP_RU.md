@@ -5,7 +5,7 @@
 ## Точки входа
 
 - `backend/cmd/elka-desktop/main.go` — запуск Wails, регистрация Go-сервисов, открытие SQLite и выбор активной папки vault. Цвет нативного окна берётся из `appBackgroundColor`, поэтому светлая тема не начинается с чёрного кадра.
-- `frontend/src/App.tsx` — React-корень: настройки языка, обработка событий SSH/синхронизации и подключение страниц.
+- `frontend/src/App.tsx` — React-корень: настройки языка, обработка событий SSH и подключение страниц.
 - `frontend/index.html` — статический splash-экран с инлайн-стилями и скриптом: рисуется первым кадром, пока грузится бандл, и берёт палитру из кэша `localStorage` (его пишет `applyAppAppearance`). Закрывается из `frontend/src/lib/splash.ts` после загрузки настроек.
 - `Taskfile.yml` — команды сборки проекта; платформа выбирается через `build/{darwin,windows,linux}/Taskfile.yml`.
 - `build-macos-in-docker.sh` — сборка macOS-приложения в Docker.
@@ -38,10 +38,9 @@
 - `backend/internal/services/blob/models.go` — модели хостов, групп, ключей, учётных данных и port forwards.
 - `backend/internal/services/blob/wrappers.go` — Go-сервисы CRUD для этих моделей.
 - `backend/internal/services/blob/store.go` — общая сериализация и шифрование записей перед сохранением.
-- Хосты, группы, ключи и учётные данные лежат в таблице `encrypted_blobs`; записи синхронизируются в зашифрованном виде.
+- Хосты, группы, ключи и учётные данные лежат в таблице `encrypted_blobs`.
 - `backend/internal/services/settings/settings.go` — `settings.json`, режимы отображения и переключение/перемещение vault.
 - `backend/internal/migration/` — схема локальной SQLite-базы.
-- `backend/internal/services/sync/` и `backend/internal/api/` — синхронизация и HTTP API-клиент.
 
 ## Типовые изменения
 

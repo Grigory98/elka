@@ -72,39 +72,6 @@ func (q *Queries) HasUser(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const updateUserLastSyncTime = `-- name: UpdateUserLastSyncTime :exec
-UPDATE users
-SET last_sync_time = ?
-WHERE id = ?
-`
-
-type UpdateUserLastSyncTimeParams struct {
-	LastSyncTime sql.NullString
-	ID           string
-}
-
-func (q *Queries) UpdateUserLastSyncTime(ctx context.Context, arg UpdateUserLastSyncTimeParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserLastSyncTime, arg.LastSyncTime, arg.ID)
-	return err
-}
-
-const updateUserServerUrl = `-- name: UpdateUserServerUrl :exec
-UPDATE users
-SET server_url = ?, last_sync_time = ?
-WHERE id = ?
-`
-
-type UpdateUserServerUrlParams struct {
-	ServerUrl    sql.NullString
-	LastSyncTime sql.NullString
-	ID           string
-}
-
-func (q *Queries) UpdateUserServerUrl(ctx context.Context, arg UpdateUserServerUrlParams) error {
-	_, err := q.db.ExecContext(ctx, updateUserServerUrl, arg.ServerUrl, arg.LastSyncTime, arg.ID)
-	return err
-}
-
 const wipeUsers = `-- name: WipeUsers :exec
 DELETE FROM users
 `

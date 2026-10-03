@@ -6,11 +6,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAuthStore } from "@/store/authStore";
 import { Events } from "@wailsio/runtime";
 import { useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { HOSTS_QUERY_KEY } from "@/hooks/useHosts.ts";
-import { KEYS_QUERY_KEY } from "@/hooks/useKeys.ts";
-import { CREDENTIALS_QUERY_KEY } from "@/hooks/useCredentials.ts";
-import { GROUPS_QUERY_KEY } from "@/hooks/useGroups.ts";
 import { SettingsService } from "../bindings/elka-desktop/backend/internal/services/settings";
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
@@ -25,7 +20,6 @@ export default function App() {
     const {removeSession} = useSessionStore();
     const {setUpdateVersionReady, setShowHostGroups, setShowSidebarToggle, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
-    const queryClient = useQueryClient();
     const {i18n} = useTranslation();
 
     useEffect(() => {
@@ -76,21 +70,6 @@ export default function App() {
 
         return () => unsubscribe();
     }, [removeSession]);
-
-    useEffect(() => {
-        if (!isUnlocked) return;
-
-        const unsubscribe = Events.On(AppEvent.SyncUpdatesAvailable, () => {
-            console.debug(`${AppEvent.SyncUpdatesAvailable}: invalidating queries`);
-
-            void queryClient.invalidateQueries({queryKey: HOSTS_QUERY_KEY});
-            void queryClient.invalidateQueries({queryKey: KEYS_QUERY_KEY});
-            void queryClient.invalidateQueries({queryKey: CREDENTIALS_QUERY_KEY});
-            void queryClient.invalidateQueries({queryKey: GROUPS_QUERY_KEY});
-        });
-
-        return () => unsubscribe();
-    }, [isUnlocked, queryClient]);
 
     useEffect(() => {
         if (!isUnlocked) return;

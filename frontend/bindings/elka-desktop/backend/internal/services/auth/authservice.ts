@@ -30,19 +30,8 @@ export function Login(password: string): $CancellablePromise<void> {
     return $Call.ByID(3201915010, password);
 }
 
-/**
- * LoginFromSync - "connect and restore"
- */
-export function LoginFromSync(serverUrl: string, username: string, password: string): $CancellablePromise<void> {
-    return $Call.ByID(160253189, serverUrl, username, password);
-}
-
 export function RegisterLocal(username: string, password: string): $CancellablePromise<void> {
     return $Call.ByID(3138330411, username, password);
-}
-
-export function RegisterOnServer(serverURL: string): $CancellablePromise<void> {
-    return $Call.ByID(2751812862, serverURL);
 }
 
 export function WipeData(): $CancellablePromise<void> {

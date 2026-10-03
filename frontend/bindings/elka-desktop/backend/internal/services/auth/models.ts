@@ -7,15 +7,11 @@ import { Create as $Create } from "@wailsio/runtime";
 
 export class UserInfo {
     "username": string;
-    "serverUrl": string;
 
     /** Creates a new UserInfo instance. */
     constructor($$source: Partial<UserInfo> = {}) {
         if (!("username" in $$source)) {
             this["username"] = "";
-        }
-        if (!("serverUrl" in $$source)) {
-            this["serverUrl"] = "";
         }
 
         Object.assign(this, $$source);
