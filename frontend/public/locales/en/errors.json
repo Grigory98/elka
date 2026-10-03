@@ -10,14 +10,10 @@
   "INTERNAL_ERROR": "An internal application error occurred.",
   "RUNTIME_ERROR": "An unexpected client error occurred.",
   "UNKNOWN_ERROR": "An unknown error occurred.",
-
   "User.AlreadyExists": "Username is already taken.",
   "User.NotFound": "User not found on this server.",
   "User.InvalidCredentials": "Login key is invalid or corrupted.",
   "User.BlobLimitReached": "Storage limit reached.",
-
-  "Sync.EncryptedBlob.InvalidTimestamp": "The sync timestamp provided is invalid.",
-
   "Auth.Username.Required": "Username is required.",
   "Auth.Username.TooLong": "Username exceeds maximum allowed length.",
   "Auth.AuthSalt.Required": "Authentication salt is missing.",
@@ -28,15 +24,7 @@
   "Auth.LoginKey.InvalidFormat": "Login key must be a valid Base64 string.",
   "Auth.MasterKey.Required": "Encrypted master key is missing.",
   "Auth.MasterKey.InvalidFormat": "Encrypted master key must be a valid Base64 string.",
-
-  "Sync.EncryptedBlob.Id.Required": "Item ID is required for sync.",
-  "Sync.EncryptedBlob.Blob.Required": "Encrypted data is required for sync.",
-  "Sync.EncryptedBlob.Blob.InvalidFormat": "Encrypted data must be a valid Base64 string.",
-  "Sync.EncryptedBlob.Iv.Required": "Initialization vector is required.",
-  "Sync.EncryptedBlob.Iv.InvalidFormat": "Initialization vector must be a valid Base64 string.",
-
   "User.Id.Required": "User ID is required.",
-
   "Admin.AlreadyExists": "Admin username is already taken.",
   "Admin.NotFound": "Admin not found.",
   "Admin.InvalidCredentials": "Admin credentials are invalid.",

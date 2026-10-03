@@ -12,16 +12,6 @@ INSERT INTO users (
     ?, ?, ?, ?, ?, ?, ?
 );
 
--- name: UpdateUserServerUrl :exec
-UPDATE users
-SET server_url = ?, last_sync_time = ?
-WHERE id = ?;
-
--- name: UpdateUserLastSyncTime :exec
-UPDATE users
-SET last_sync_time = ?
-WHERE id = ?;
-
 -- name: WipeUsers :exec
 DELETE FROM users;
 

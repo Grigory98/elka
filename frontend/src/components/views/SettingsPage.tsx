@@ -2,9 +2,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen, Download, Upload, LoaderCircle, RotateCcw } from "lucide-react";
+import { User, Lock, Trash2, Globe, FolderOpen, Download, Upload, LoaderCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SwitchServerModal } from "@/components/views/SwitchServerModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SettingsCard } from "@/components/ui/settings-card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -22,7 +21,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useSyncStore } from "@/store/syncStore.ts";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
@@ -168,11 +166,10 @@ function OptionalColorInput({label, variable, value, onChange}: {
 
 export function SettingsPage() {
     const {t, i18n} = useTranslation(["settings", "common", "errors"]);
-    const {data: user, refetch} = useCurrentUser();
+    const {data: user} = useCurrentUser();
     const queryClient = useQueryClient();
     const {setUnlocked, setHasUser} = useAuthStore();
     const {clearSessions} = useSessionStore();
-    const {lastError} = useSyncStore();
     const {
         showHostGroups,
         setShowHostGroups,
@@ -187,7 +184,6 @@ export function SettingsPage() {
         setAppearance,
     } = useUIStore();
 
-    const [isServerModalOpen, setIsServerModalOpen] = useState(false);
     const [isWipeModalOpen, setIsWipeModalOpen] = useState(false);
     const [vaultDirectory, setVaultDirectory] = useState("");
     const [importFormat, setImportFormat] = useState<HostTransferFormat>("tabby");
@@ -366,7 +362,7 @@ export function SettingsPage() {
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("page_title")}</h1>
 
-                <SettingsCard title={t("profile_sync_title")} description={t("profile_sync_desc")}>
+                <SettingsCard title={t("profile_title")} description={t("profile_desc")}>
                     <div className="flex items-center gap-4">
                         <div
                             className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -380,47 +376,6 @@ export function SettingsPage() {
                             </span>
                         </div>
                     </div>
-
-                    <div
-                        className="flex items-center justify-between
-                                   rounded-lg border border-border bg-background p-4">
-                        <div className="flex items-center gap-4">
-                            <div
-                                className="flex size-10 shrink-0 items-center justify-center
-                                           rounded-lg bg-info/10 text-info">
-                                <Server className="size-5"/>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium text-foreground">
-                                    {t("cloud_server_label")}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                    {user?.serverUrl ? user.serverUrl : t("local_vault_only")}
-                                </span>
-                            </div>
-                        </div>
-                        <Button variant="secondary" onClick={() => setIsServerModalOpen(true)}>
-                            {user?.serverUrl ? t("switch_server_btn") : t("connect_btn")}
-                        </Button>
-                    </div>
-
-                    {lastError && (
-                        <div className="p-4 flex items-start gap-3 text-destructive
-                                        border border-destructive/20 bg-destructive/10 rounded-lg">
-                            <AlertTriangle className="mt-0.5 size-5 shrink-0" />
-                            <div className="flex flex-col">
-                                <span className="text-sm font-medium">{t("sync_offline")}</span>
-                                <span className="text-xs opacity-90">
-                                    {t(`errors:${lastError.code}`, { defaultValue: lastError.message })}
-                                </span>
-                                {lastError.detailsString && (
-                                    <span className="mt-1 text-2xs font-mono opacity-75">
-                                        {lastError.detailsString}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    )}
                 </SettingsCard>
 
                 <SettingsCard title={t("vault_location_title")} description={t("vault_location_desc")}>
@@ -681,12 +636,7 @@ export function SettingsPage() {
 
             </div>
 
-            <SwitchServerModal
-                isOpen={isServerModalOpen}
-                onClose={() => setIsServerModalOpen(false)}
-                currentUrl={user?.serverUrl || ""}
-                onSuccess={() => refetch()}
-            />
+
 
             <ConfirmModal
                 isOpen={isWipeModalOpen}

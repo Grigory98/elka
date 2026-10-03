@@ -2,8 +2,6 @@ import { Server, Key, KeyRound, FolderTree, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { cn } from "@/lib/utils";
-import { SyncStatus } from "../../../bindings/elka-desktop/backend/internal/services/sync";
-import { useSyncStore } from "@/store/syncStore.ts";
 import { useTranslation } from "react-i18next";
 import { UpdatePopover } from "@/components/layout/UpdatePopover.tsx";
 import type { ReactNode } from "react";
@@ -55,12 +53,6 @@ function SidebarItem({title, active, onClick, children, indicatorClassName}: Sid
 export function Sidebar() {
     const {t} = useTranslation(["hosts", "keys", "update", "credentials", "groups", "settings"]);
     const {activeView, setActiveView, isSidebarVisible, setSelectedHostGroup} = useUIStore();
-    const {status} = useSyncStore();
-
-    let dotColor = "bg-muted-foreground";
-    if (status === SyncStatus.SyncStatusSyncing) dotColor = "bg-info animate-pulse";
-    if (status === SyncStatus.SyncStatusSuccess) dotColor = "bg-success";
-    if (status === SyncStatus.SyncStatusError || status === SyncStatus.SyncStatusUnauthenticated) dotColor = "bg-destructive";
 
     return (
         <aside
@@ -116,7 +108,6 @@ export function Sidebar() {
                     title={t("page_title", {ns: "settings"})}
                     active={activeView === ViewType.Settings}
                     onClick={() => setActiveView(ViewType.Settings)}
-                    indicatorClassName={dotColor}
                 >
                     <Settings className="size-5"/>
                 </SidebarItem>

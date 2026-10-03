@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"elka-desktop/backend/internal/api"
 	"elka-desktop/backend/internal/apperror"
 	"elka-desktop/backend/internal/crypto"
 	"elka-desktop/backend/internal/dbgen"
@@ -12,20 +11,17 @@ import (
 	"encoding/base64"
 	"errors"
 	"runtime/debug"
-	"time"
 
 	"github.com/google/uuid"
 )
 
 type AuthService struct {
-	q      *dbgen.Queries
-	vault  *vault.Vault
-	client *api.Client
+	q     *dbgen.Queries
+	vault *vault.Vault
 }
 
 type UserInfo struct {
-	Username  string `json:"username"`
-	ServerURL string `json:"serverUrl"`
+	Username string `json:"username"`
 }
 
 const (
@@ -35,12 +31,10 @@ const (
 
 func NewAuthService(
 	q *dbgen.Queries,
-	vault *vault.Vault,
-	client *api.Client) *AuthService {
+	vault *vault.Vault) *AuthService {
 	return &AuthService{
-		q:      q,
-		vault:  vault,
-		client: client,
+		q:     q,
+		vault: vault,
 	}
 }
 
@@ -146,103 +140,6 @@ func (s *AuthService) Login(ctx context.Context, password string) error {
 	return nil
 }
 
-// LoginFromSync - "connect and restore"
-func (s *AuthService) LoginFromSync(ctx context.Context, serverUrl, username, password string) error {
-	preflightRes, err := s.client.Preflight(ctx, serverUrl, &api.PreflightRequest{
-		Username: username,
-	})
-	if err != nil {
-		return err
-	}
-
-	kek, err := crypto.DeriveKEK(password, preflightRes.KeySalt)
-	if err != nil {
-		return err
-	}
-	loginKey, err := crypto.DeriveLoginKey(password, preflightRes.AuthSalt)
-	if err != nil {
-		return err
-	}
-
-	loginKeyBase64 := base64.StdEncoding.EncodeToString(loginKey)
-	authRes, err := s.client.Login(ctx, serverUrl, &api.LoginRequest{
-		Username: username,
-		LoginKey: loginKeyBase64,
-	})
-	if err != nil {
-		return err
-	}
-
-	masterKey, err := crypto.UnpackAndDecrypt(preflightRes.EncryptedMasterKey, kek)
-	if err != nil {
-		return err
-	}
-
-	epochZero := time.Unix(0, 0).UTC().Format(time.RFC3339)
-	err = s.q.CreateUser(ctx, dbgen.CreateUserParams{
-		ID:                 uuid.New().String(),
-		Username:           username,
-		KeySalt:            preflightRes.KeySalt,
-		AuthSalt:           sql.NullString{String: preflightRes.AuthSalt, Valid: true},
-		EncryptedMasterKey: preflightRes.EncryptedMasterKey,
-		ServerUrl:          sql.NullString{String: serverUrl, Valid: true},
-		LastSyncTime:       sql.NullString{String: epochZero, Valid: true},
-	})
-	if err != nil {
-		return err
-	}
-
-	s.client.SetToken(authRes.AccessToken)
-	s.vault.Unlock(masterKey, loginKey)
-
-	go func() {
-		debug.FreeOSMemory()
-	}()
-
-	return nil
-}
-
-func (s *AuthService) RegisterOnServer(ctx context.Context, serverURL string) error {
-	user, err := s.q.GetUser(ctx)
-	if err != nil {
-		return err
-	}
-
-	loginKey, err := s.vault.GetLoginKey()
-	if err != nil {
-		return err
-	}
-
-	authRes, err := s.client.Register(ctx, serverURL, &api.RegisterRequest{
-		Username:           user.Username,
-		AuthSalt:           user.AuthSalt.String,
-		KeySalt:            user.KeySalt,
-		EncryptedMasterKey: user.EncryptedMasterKey,
-		LoginKey:           base64.StdEncoding.EncodeToString(loginKey),
-	})
-	if err != nil {
-		return err
-	}
-
-	s.client.SetToken(authRes.AccessToken)
-
-	epochZero := time.Unix(0, 0).UTC().Format(time.RFC3339Nano)
-	err = s.q.UpdateUserServerUrl(ctx, dbgen.UpdateUserServerUrlParams{
-		ServerUrl:    sql.NullString{String: serverURL, Valid: true},
-		LastSyncTime: sql.NullString{String: epochZero, Valid: true},
-		ID:           user.ID,
-	})
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		debug.FreeOSMemory()
-	}()
-
-	return nil
-}
-
 func (s *AuthService) WipeData(ctx context.Context) error {
 	if err := s.q.WipeBlobs(ctx); err != nil {
 		return err
@@ -252,14 +149,12 @@ func (s *AuthService) WipeData(ctx context.Context) error {
 	}
 
 	s.vault.Lock()
-	s.client.ClearToken()
 
 	return nil
 }
 
 func (s *AuthService) LockVault() {
 	s.vault.Lock()
-	s.client.ClearToken()
 }
 
 func (s *AuthService) GetCurrentUser(ctx context.Context) (*UserInfo, error) {
@@ -268,13 +163,7 @@ func (s *AuthService) GetCurrentUser(ctx context.Context) (*UserInfo, error) {
 		return nil, err
 	}
 
-	url := ""
-	if user.ServerUrl.Valid {
-		url = user.ServerUrl.String
-	}
-
 	return &UserInfo{
-		Username:  user.Username,
-		ServerURL: url,
+		Username: user.Username,
 	}, nil
 }
