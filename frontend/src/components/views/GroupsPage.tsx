@@ -279,7 +279,7 @@ export function GroupsPage() {
                         onPointerLeave={() => setHoveredGroupID((current) => current === group.id ? null : current)}
                         className={cn(
                             groupViewMode === "tree"
-                                ? "group flex flex-wrap items-center border-b border-border last:border-b-0"
+                                ? "group flex flex-wrap items-center border-b border-border bg-transparent last:border-b-0 hover:bg-muted/40"
                                 : groupViewMode === "list"
                                     ? "group flex items-center justify-between border-b border-border bg-transparent last:border-b-0 hover:bg-muted/40"
                                     : "group flex items-center justify-between rounded-xl border border-border bg-card shadow-sm transition-all hover:border-primary/40 hover:shadow-md",
@@ -291,7 +291,7 @@ export function GroupsPage() {
                             onClick={() => openGroup(group)}
                             aria-expanded={groupViewMode === "tree" ? expandedGroups.has(group.id) : undefined}
                             className={cn(
-                                "flex min-w-0 items-center gap-3 text-left hover:bg-muted/40",
+                                "flex min-w-0 items-center gap-3 text-left",
                                 groupViewMode === "tree" || groupViewMode === "list" ? "flex-1 px-3 py-3" : "flex-1 gap-4 p-5"
                             )}
                         >
