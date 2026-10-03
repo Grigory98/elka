@@ -31,6 +31,7 @@ type AppSettings struct {
 	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
 	SplitPaneBorder       string `json:"splitPaneBorder,omitempty"`
 	SplitPaneHeaderColor  string `json:"splitPaneHeaderColor,omitempty"`
+	ServerMetricsColor    string `json:"serverMetricsColor,omitempty"`
 	SidebarColor          string `json:"sidebarColor,omitempty"`
 	InputColor            string `json:"inputColor,omitempty"`
 	RingColor             string `json:"ringColor,omitempty"`

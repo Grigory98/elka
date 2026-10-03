@@ -47,6 +47,7 @@ export default function App() {
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                     splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
                     splitPaneHeaderColor: settings.splitPaneHeaderColor || DEFAULT_APPEARANCE.splitPaneHeaderColor,
+                    serverMetricsColor: settings.serverMetricsColor || DEFAULT_APPEARANCE.serverMetricsColor,
                     sidebarColor: settings.sidebarColor || DEFAULT_APPEARANCE.sidebarColor,
                     inputColor: settings.inputColor || DEFAULT_APPEARANCE.inputColor,
                     ringColor: settings.ringColor || DEFAULT_APPEARANCE.ringColor,

@@ -479,6 +479,7 @@ export function SettingsPage() {
                             <AppearanceColorInput label={t("app_text_color")} value={appearanceDraft.appForegroundColor} onChange={(appForegroundColor) => updateAppearance({appForegroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_accent_color")} value={appearanceDraft.appAccentColor} onChange={(appAccentColor) => updateAppearance({appAccentColor}, true)}/>
                             <OptionalColorInput label={t("sidebar_color")} variable="--sidebar" value={appearanceDraft.sidebarColor} onChange={(sidebarColor) => updateAppearance({sidebarColor})}/>
+                            <OptionalColorInput label={t("server_metrics_color")} variable="--server-metrics" value={appearanceDraft.serverMetricsColor} onChange={(serverMetricsColor) => updateAppearance({serverMetricsColor})}/>
                             <OptionalColorInput label={t("search_highlight_color")} variable="--input" value={appearanceDraft.inputColor} onChange={(inputColor) => updateAppearance({inputColor})}/>
                             <OptionalColorInput label={t("input_accent_color")} variable="--ring" value={appearanceDraft.ringColor} onChange={(ringColor) => updateAppearance({ringColor})}/>
                             <SettingsRow label={t("app_font_label")}>

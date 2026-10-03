@@ -24,6 +24,7 @@ export class AppSettings {
     "terminalFontSize"?: number;
     "splitPaneBorder"?: string;
     "splitPaneHeaderColor"?: string;
+    "serverMetricsColor"?: string;
     "sidebarColor"?: string;
     "inputColor"?: string;
     "ringColor"?: string;
