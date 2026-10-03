@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"elka-desktop/backend/internal/services/ssh"
 )
 
 type WailsSSHEmitter struct {
@@ -23,8 +25,20 @@ type SSHMetricsPayload struct {
 	ID     string  `json:"id"`
 	CPU    float64 `json:"cpu"`
 	IOWait float64 `json:"ioWait"`
-	Load   float64 `json:"load"`
+	// Load average за минуту, пять и пятнадцать минут, как в top.
+	Load1  float64 `json:"load1"`
+	Load5  float64 `json:"load5"`
+	Load15 float64 `json:"load15"`
 	Memory float64 `json:"memory"`
+	Swap   float64 `json:"swap"`
+	Disk   float64 `json:"disk"`
+	// Сеть в байтах на секунду.
+	NetworkIn  float64 `json:"networkIn"`
+	NetworkOut float64 `json:"networkOut"`
+	// Время работы в секундах и счётчики процессов.
+	Uptime           float64 `json:"uptime"`
+	ProcessesRunning float64 `json:"processesRunning"`
+	ProcessesTotal   float64 `json:"processesTotal"`
 }
 
 const (
@@ -50,12 +64,21 @@ func (e *WailsSSHEmitter) EmitClosed(sessionID string) {
 	})
 }
 
-func (e *WailsSSHEmitter) EmitMetrics(sessionID string, cpu float64, ioWait float64, load float64, memory float64) {
+func (e *WailsSSHEmitter) EmitMetrics(sessionID string, metrics ssh.ServerMetrics) {
 	e.app.Event.Emit(SSHMetricsEvent, SSHMetricsPayload{
-		ID:     sessionID,
-		CPU:    cpu,
-		IOWait: ioWait,
-		Load:   load,
-		Memory: memory,
+		ID:               sessionID,
+		CPU:              metrics.CPU,
+		IOWait:           metrics.IOWait,
+		Load1:            metrics.Load1,
+		Load5:            metrics.Load5,
+		Load15:           metrics.Load15,
+		Memory:           metrics.Memory,
+		Swap:             metrics.Swap,
+		Disk:             metrics.Disk,
+		NetworkIn:        metrics.NetworkIn,
+		NetworkOut:       metrics.NetworkOut,
+		Uptime:           metrics.Uptime,
+		ProcessesRunning: metrics.ProcessesRunning,
+		ProcessesTotal:   metrics.ProcessesTotal,
 	})
 }

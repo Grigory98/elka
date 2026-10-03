@@ -55,8 +55,20 @@ export class SSHMetricsPayload {
     "id": string;
     "cpu": number;
     "ioWait": number;
-    "load": number;
+    /** Load average over 1, 5 and 15 minutes, as reported by /proc/loadavg. */
+    "load1": number;
+    "load5": number;
+    "load15": number;
     "memory": number;
+    "swap": number;
+    "disk": number;
+    /** Bytes per second, summed over every interface but the loopback. */
+    "networkIn": number;
+    "networkOut": number;
+    /** Uptime in seconds. */
+    "uptime": number;
+    "processesRunning": number;
+    "processesTotal": number;
 
     /** Creates a new SSHMetricsPayload instance. */
     constructor($$source: Partial<SSHMetricsPayload> = {}) {
@@ -69,11 +81,38 @@ export class SSHMetricsPayload {
         if (!("ioWait" in $$source)) {
             this["ioWait"] = 0;
         }
-        if (!("load" in $$source)) {
-            this["load"] = 0;
+        if (!("load1" in $$source)) {
+            this["load1"] = 0;
+        }
+        if (!("load5" in $$source)) {
+            this["load5"] = 0;
+        }
+        if (!("load15" in $$source)) {
+            this["load15"] = 0;
         }
         if (!("memory" in $$source)) {
             this["memory"] = 0;
+        }
+        if (!("swap" in $$source)) {
+            this["swap"] = 0;
+        }
+        if (!("disk" in $$source)) {
+            this["disk"] = 0;
+        }
+        if (!("networkIn" in $$source)) {
+            this["networkIn"] = 0;
+        }
+        if (!("networkOut" in $$source)) {
+            this["networkOut"] = 0;
+        }
+        if (!("uptime" in $$source)) {
+            this["uptime"] = 0;
+        }
+        if (!("processesRunning" in $$source)) {
+            this["processesRunning"] = 0;
+        }
+        if (!("processesTotal" in $$source)) {
+            this["processesTotal"] = 0;
         }
 
         Object.assign(this, $$source);

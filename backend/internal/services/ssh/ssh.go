@@ -22,7 +22,7 @@ import (
 type SSHEmitter interface {
 	EmitData(sessionID string, data []byte)
 	EmitClosed(sessionID string)
-	EmitMetrics(sessionID string, cpu float64, ioWait float64, load float64, memory float64)
+	EmitMetrics(sessionID string, metrics ServerMetrics)
 }
 
 type SSHConnectionConfig struct {
