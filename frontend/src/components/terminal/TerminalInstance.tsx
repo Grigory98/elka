@@ -337,10 +337,10 @@ export function TerminalInstance({
             {isSplitPane && (
                 <ContextMenuPrimitive.Root>
                 <ContextMenuPrimitive.Trigger asChild>
-                <div className={cn(
-                    "flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 px-1",
-                    isActive && "bg-white/[0.035]"
-                )}>
+                <div
+                    className="flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 px-1"
+                    style={{backgroundColor: "var(--split-pane-header)"}}
+                >
                     <div className="flex min-w-0 items-center gap-1.5">
                     <button
                         type="button"

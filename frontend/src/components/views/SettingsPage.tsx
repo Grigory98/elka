@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { User, Server, Lock, Trash2, Globe, AlertTriangle, FolderOpen, Download, Upload, LoaderCircle, RotateCcw } from "lucide-react";
@@ -6,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { SwitchServerModal } from "@/components/views/SwitchServerModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SettingsCard } from "@/components/ui/settings-card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { AuthService } from "../../../bindings/elka-desktop/backend/internal/services/auth";
 import { AppSettings, SettingsService } from "../../../bindings/elka-desktop/backend/internal/services/settings";
 import { handleAppError } from "@/lib/error";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -29,57 +32,137 @@ import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
 
 type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
 
-function AppearanceColorInput({label, value, onChange}: {label: string; value: string; onChange: (value: string) => void}) {
-    return (
-        <label className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-            <span className="text-sm text-foreground">{label}</span>
-            <span className="flex items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">{value.toUpperCase()}</span>
-                <input
-                    type="color"
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                    className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                    aria-label={label}
-                />
-            </span>
-        </label>
+// The derived colour is read from the CSS variable that applyAppAppearance already set, so the swatch
+// always matches what is actually painted. Anything translucent is composited over the app background.
+function resolveCSSColor(variable: string): string {
+    const parse = (value: string) => {
+        const match = value.match(/rgba?\(([^)]+)\)/);
+        if (!match) return null;
+        const parts = match[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+        const [red, green, blue] = parts;
+        if ([red, green, blue].some((channel) => Number.isNaN(channel))) return null;
+
+        const alpha = parts.length > 3 && !Number.isNaN(parts[3]) ? parts[3] : 1;
+        return {red, green, blue, alpha};
+    };
+
+    const probe = document.createElement("span");
+    probe.style.backgroundColor = `var(${variable})`;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+
+    const top = parse(resolved);
+    const bottom = parse(getComputedStyle(document.body).backgroundColor);
+    if (!top) return "#000000";
+    if (!bottom || top.alpha >= 1) return toHex(top.red, top.green, top.blue);
+
+    return toHex(
+        Math.round(top.red * top.alpha + bottom.red * (1 - top.alpha)),
+        Math.round(top.green * top.alpha + bottom.green * (1 - top.alpha)),
+        Math.round(top.blue * top.alpha + bottom.blue * (1 - top.alpha)),
     );
 }
 
-function SplitPaneBorderInput({value, onChange}: {value: string; onChange: (value: string) => void}) {
-    const {t} = useTranslation("settings");
-    const followsTheme = value === "";
+function toHex(red: number, green: number, blue: number) {
+    const channel = (value: number) => Math.max(0, Math.min(255, value)).toString(16).padStart(2, "0");
+
+    return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+// One row layout for every appearance setting, so both columns keep the same height and the labels
+// line up with the section headings. A truncated label reveals the full text on hover.
+function SettingsRow({label, controlId, children}: {
+    label: string;
+    controlId?: string;
+    children: ReactNode;
+}) {
+    const [isTruncated, setIsTruncated] = useState(false);
+    const observerRef = useRef<ResizeObserver | null>(null);
+
+    // A callback ref keeps measuring the live node: switching to the tooltip branch makes React
+    // remount the label, and an observer bound to the detached node would report 0x0 forever.
+    const measureLabel = (element: HTMLSpanElement | null) => {
+        observerRef.current?.disconnect();
+        if (!element) return;
+
+        const update = () => setIsTruncated(element.scrollWidth > element.clientWidth);
+        update();
+
+        const observer = new ResizeObserver(update);
+        observer.observe(element);
+        observerRef.current = observer;
+    };
+
+    useEffect(() => () => observerRef.current?.disconnect(), []);
+
+    const text = <span ref={measureLabel} className={cn("block truncate text-sm text-foreground", controlId && "cursor-pointer")}>{label}</span>;
+    const labelNode = isTruncated ? (
+        <Tooltip>
+            <TooltipTrigger asChild>{controlId ? <label htmlFor={controlId}>{text}</label> : text}</TooltipTrigger>
+            <TooltipContent side="top">{label}</TooltipContent>
+        </Tooltip>
+    ) : controlId ? <label htmlFor={controlId}>{text}</label> : text;
 
     return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
-            <span className="flex flex-col gap-0.5">
-                <span className="text-sm text-foreground">{t("split_pane_border_color")}</span>
-                {followsTheme && <span className="text-2xs text-muted-foreground">{t("split_pane_border_theme_hint")}</span>}
-            </span>
-            <span className="flex shrink-0 items-center gap-2">
-                <span className="font-mono text-xs text-muted-foreground">
-                    {followsTheme ? t("split_pane_border_theme") : value.toUpperCase()}
-                </span>
-                <input
-                    type="color"
-                    value={value || "#ffffff"}
-                    onChange={(event) => onChange(event.target.value)}
-                    className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
-                    aria-label={t("split_pane_border_color")}
-                />
+        <div className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
+            <span className="min-w-0">{labelNode}</span>
+            <span className="flex shrink-0 items-center gap-2">{children}</span>
+        </div>
+    );
+}
+
+function AppearanceColorInput({label, value, onChange}: {label: string; value: string; onChange: (value: string) => void}) {
+    const controlID = useId();
+
+    return (
+        <SettingsRow label={label} controlId={controlID}>
+            <span className="font-mono text-xs text-muted-foreground">{value.toUpperCase()}</span>
+            <input
+                id={controlID}
+                type="color"
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+                className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                aria-label={label}
+            />
+        </SettingsRow>
+    );
+}
+
+// Shows the colour derived from the palette until the user picks their own, then offers a way back.
+function OptionalColorInput({label, variable, value, onChange}: {
+    label: string;
+    variable: string;
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    const {t} = useTranslation("settings");
+    const controlID = useId();
+
+    return (
+        <SettingsRow label={label} controlId={controlID}>
+            <span className="font-mono text-xs text-muted-foreground">{(value || resolveCSSColor(variable)).toUpperCase()}</span>
+            <input
+                id={controlID}
+                type="color"
+                value={value || resolveCSSColor(variable)}
+                onChange={(event) => onChange(event.target.value)}
+                className="size-8 cursor-pointer rounded border border-border bg-transparent p-0.5"
+                aria-label={label}
+            />
+            {value && (
                 <Button
                     variant="ghost"
                     size="icon-xs"
-                    disabled={followsTheme}
-                    title={t("split_pane_border_theme")}
-                    aria-label={t("split_pane_border_theme")}
+                    title={t("color_follow_theme")}
+                    aria-label={t("color_follow_theme")}
                     onClick={() => onChange("")}
                 >
                     <RotateCcw/>
                 </Button>
-            </span>
-        </div>
+            )}
+        </SettingsRow>
     );
 }
 
@@ -259,6 +342,10 @@ export function SettingsPage() {
                 terminalFontFamily: appearanceDraft.terminalFontFamily,
                 terminalFontSize: appearanceDraft.terminalFontSize,
                 splitPaneBorder: appearanceDraft.splitPaneBorderColor,
+                splitPaneHeaderColor: appearanceDraft.splitPaneHeaderColor,
+                sidebarColor: appearanceDraft.sidebarColor,
+                inputColor: appearanceDraft.inputColor,
+                ringColor: appearanceDraft.ringColor,
             }));
             setAppearanceStatus(t("appearance_saved"));
         } catch (error) {
@@ -273,6 +360,7 @@ export function SettingsPage() {
     )?.[0] || "custom";
 
     return (
+        <TooltipProvider delayDuration={200}>
         <div className="flex h-full w-full flex-col overflow-y-auto p-8">
 
             <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -398,9 +486,8 @@ export function SettingsPage() {
                 <SettingsCard title={t("appearance_title")} description={t("appearance_desc")}>
                     <div className="grid gap-6 lg:grid-cols-2">
                         <section className="flex flex-col gap-3">
-                            <h3 className="text-sm font-semibold text-foreground">{t("app_appearance_title")}</h3>
-                            <label className="grid gap-2">
-                                <span className="text-sm text-foreground">{t("app_palette_label")}</span>
+                            <h3 className="px-3 text-sm font-semibold text-foreground">{t("app_appearance_title")}</h3>
+                            <SettingsRow label={t("app_palette_label")}>
                                 <Select value={selectedPalette} onValueChange={(value) => {
                                     if (value === "custom") {
                                         setIsCustomPalette(true);
@@ -410,7 +497,7 @@ export function SettingsPage() {
                                     setIsCustomPalette(false);
                                     updateAppearance(palette);
                                 }}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="dark">{t("palette_dark")}</SelectItem>
                                         <SelectItem value="light">{t("palette_light")}</SelectItem>
@@ -419,62 +506,61 @@ export function SettingsPage() {
                                         <SelectItem value="custom">{t("palette_custom")}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </label>
+                            </SettingsRow>
                             <AppearanceColorInput label={t("app_background_color")} value={appearanceDraft.appBackgroundColor} onChange={(appBackgroundColor) => updateAppearance({appBackgroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_text_color")} value={appearanceDraft.appForegroundColor} onChange={(appForegroundColor) => updateAppearance({appForegroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_accent_color")} value={appearanceDraft.appAccentColor} onChange={(appAccentColor) => updateAppearance({appAccentColor}, true)}/>
-                            <label className="grid gap-2">
-                                <span className="text-sm text-foreground">{t("app_font_label")}</span>
+                            <OptionalColorInput label={t("sidebar_color")} variable="--sidebar" value={appearanceDraft.sidebarColor} onChange={(sidebarColor) => updateAppearance({sidebarColor})}/>
+                            <OptionalColorInput label={t("search_highlight_color")} variable="--input" value={appearanceDraft.inputColor} onChange={(inputColor) => updateAppearance({inputColor})}/>
+                            <OptionalColorInput label={t("input_accent_color")} variable="--ring" value={appearanceDraft.ringColor} onChange={(ringColor) => updateAppearance({ringColor})}/>
+                            <SettingsRow label={t("app_font_label")}>
                                 <Select value={appearanceDraft.appFontFamily} onValueChange={(appFontFamily) => updateAppearance({appFontFamily})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         {FONT_FAMILIES.map((font) => <SelectItem key={font.family} value={font.family}>{font.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                            </label>
+                            </SettingsRow>
                         </section>
 
                         <section className="flex flex-col gap-3">
-                            <h3 className="text-sm font-semibold text-foreground">{t("terminal_appearance_title")}</h3>
+                            <h3 className="px-3 text-sm font-semibold text-foreground">{t("terminal_appearance_title")}</h3>
                             <AppearanceColorInput label={t("terminal_background_color")} value={appearanceDraft.terminalBackgroundColor} onChange={(terminalBackgroundColor) => updateAppearance({terminalBackgroundColor})}/>
                             <AppearanceColorInput label={t("terminal_text_color")} value={appearanceDraft.terminalForegroundColor} onChange={(terminalForegroundColor) => updateAppearance({terminalForegroundColor})}/>
                             <AppearanceColorInput label={t("terminal_cursor_color")} value={appearanceDraft.terminalCursorColor} onChange={(terminalCursorColor) => updateAppearance({terminalCursorColor})}/>
-                            <SplitPaneBorderInput value={appearanceDraft.splitPaneBorderColor} onChange={(splitPaneBorderColor) => updateAppearance({splitPaneBorderColor})}/>
-                            <label className="grid gap-2">
-                                <span className="text-sm text-foreground">{t("terminal_cursor_style")}</span>
+                            <OptionalColorInput label={t("split_pane_header_color")} variable="--split-pane-header" value={appearanceDraft.splitPaneHeaderColor} onChange={(splitPaneHeaderColor) => updateAppearance({splitPaneHeaderColor})}/>
+                            <OptionalColorInput label={t("split_pane_border_color")} variable="--split-pane-border" value={appearanceDraft.splitPaneBorderColor} onChange={(splitPaneBorderColor) => updateAppearance({splitPaneBorderColor})}/>
+                            <SettingsRow label={t("terminal_cursor_style")}>
                                 <Select value={appearanceDraft.terminalCursorStyle} onValueChange={(terminalCursorStyle) => updateAppearance({terminalCursorStyle: terminalCursorStyle as AppearanceSettings["terminalCursorStyle"]})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="block">{t("cursor_block")}</SelectItem>
                                         <SelectItem value="underline">{t("cursor_underline")}</SelectItem>
                                         <SelectItem value="bar">{t("cursor_bar")}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                            </label>
-                            <label className="grid gap-2">
-                                <span className="text-sm text-foreground">{t("terminal_font_label")}</span>
+                            </SettingsRow>
+                            <SettingsRow label={t("terminal_font_label")}>
                                 <Select value={appearanceDraft.terminalFontFamily} onValueChange={(terminalFontFamily) => updateAppearance({terminalFontFamily})}>
-                                    <SelectTrigger><SelectValue/></SelectTrigger>
+                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Cascadia Code">Cascadia Code (system)</SelectItem>
                                         {FONT_FAMILIES.map((font) => <SelectItem key={font.family} value={font.family}>{font.label}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
-                            </label>
-                            <label className="grid gap-2">
-                                <span className="flex justify-between text-sm text-foreground">
-                                    {t("terminal_font_size")}
-                                    <span className="text-muted-foreground">{appearanceDraft.terminalFontSize}px</span>
-                                </span>
+                            </SettingsRow>
+                            <SettingsRow label={t("terminal_font_size")}>
+                                <span className="font-mono text-xs text-muted-foreground">{appearanceDraft.terminalFontSize}px</span>
                                 <input
+                                    aria-label={t("terminal_font_size")}
                                     type="range"
                                     min={10}
                                     max={24}
                                     value={appearanceDraft.terminalFontSize}
                                     onChange={(event) => updateAppearance({terminalFontSize: Number(event.target.value)})}
-                                    className="w-full accent-primary"
+                                    className="h-8 w-32 accent-primary"
                                 />
-                            </label>
+                            </SettingsRow>
                         </section>
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
@@ -613,5 +699,6 @@ export function SettingsPage() {
             />
 
         </div>
+    </TooltipProvider>
     );
 }
