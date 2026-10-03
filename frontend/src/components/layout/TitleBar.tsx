@@ -269,7 +269,7 @@ export function TitleBar() {
                                 isDropTarget={pointerDropPreview?.tabID === tabID && pointerDropPreview.kind === "move"}
                                 onClick={() => setActiveWorkspace(workspace.id)}
                                 onClose={() => closeSplitWorkspace(workspace.id)}
-                                onCreate={createSplitWorkspace}
+                                onCreate={(title) => createSplitWorkspace(title, splitWorkspaceTabID(workspace.id))}
                                 onRename={(title) => renameSplitWorkspace(workspace.id, title)}
                                 onDropSession={addSessionToSplit}
                                 nextWorkspaceNumber={workspaces.length + 1}
@@ -314,7 +314,10 @@ export function TitleBar() {
                             isInSplit={false}
                             canAddToSplit={!activeWorkspace || splitPaneCount(activeWorkspace.layout) < 6}
                             onCreateSplit={() => {
-                                createSplitWorkspace(t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}));
+                                createSplitWorkspace(
+                                    t("split_workspace_default_title", {ns: "terminal", number: workspaces.length + 1}),
+                                    terminalSessionTabID(session.id),
+                                );
                                 addSessionToSplit(session.id);
                             }}
                             onToggleSplit={() => addSessionToSplit(
