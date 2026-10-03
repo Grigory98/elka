@@ -14,8 +14,10 @@ import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
+import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
+import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
 import { AppEvent } from "@/lib/events.ts";
-import { GripVertical, LoaderCircle, PanelTopClose, X } from "lucide-react";
+import { Columns2, CopyPlus, FolderOpen, GripVertical, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 
@@ -32,6 +34,10 @@ interface TerminalInstanceProps {
     onFocus: () => void;
     onDetachPane?: () => void;
     onCloseSession?: () => void;
+    onReconnect?: () => void;
+    onDuplicate?: () => void;
+    onOpenSFTP?: () => void;
+    onCloseOthers?: () => void;
     onDropSession?: (draggedSessionID: string, targetSessionID: string, placement: SplitPlacement) => void;
     config: SSHConnectionConfig;
 }
@@ -50,6 +56,10 @@ export function TerminalInstance({
     onFocus,
     onDetachPane,
     onCloseSession,
+    onReconnect,
+    onDuplicate,
+    onOpenSFTP,
+    onCloseOthers,
     onDropSession,
     config,
 }: TerminalInstanceProps) {
@@ -325,6 +335,8 @@ export function TerminalInstance({
             )}
         >
             {isSplitPane && (
+                <ContextMenuPrimitive.Root>
+                <ContextMenuPrimitive.Trigger asChild>
                 <div className={cn(
                     "flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 px-1",
                     isActive && "bg-white/[0.035]"
@@ -366,6 +378,32 @@ export function TerminalInstance({
                     </button>
                     </div>
                 </div>
+                </ContextMenuPrimitive.Trigger>
+                <ContextMenuPrimitive.Portal>
+                <ContextMenuPanel className="z-50 min-w-48 overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md outline-none">
+                    <ContextMenuAction onSelect={onReconnect} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <RefreshCw className="size-4"/>{t("reconnect")}
+                    </ContextMenuAction>
+                    <ContextMenuAction onSelect={onDuplicate} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <CopyPlus className="size-4"/>{t("duplicate_tab")}
+                    </ContextMenuAction>
+                    <ContextMenuAction onSelect={onDetachPane} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <Columns2 className="size-4"/>{t("remove_from_split")}
+                    </ContextMenuAction>
+                    <ContextMenuAction onSelect={onOpenSFTP} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <FolderOpen className="size-4"/>{t("open_sftp")}
+                    </ContextMenuAction>
+                    <ContextMenuPrimitive.Separator className="my-1 h-px bg-border"/>
+                    <ContextMenuAction onSelect={onCloseSession} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <X className="size-4"/>{t("close_named_tab", {name: paneTitle || config.host})}
+                    </ContextMenuAction>
+                    <ContextMenuPrimitive.Separator className="my-1 h-px bg-border"/>
+                    <ContextMenuAction onSelect={onCloseOthers} className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
+                        <X className="size-4"/>{t("close_other_tabs")}
+                    </ContextMenuAction>
+                </ContextMenuPanel>
+                </ContextMenuPrimitive.Portal>
+                </ContextMenuPrimitive.Root>
             )}
             {dropPlacement && (
                 <div className={cn(
