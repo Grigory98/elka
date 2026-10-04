@@ -238,12 +238,13 @@ export function TitleBar() {
 
     return (
         <header className="wails-no-drag relative flex h-11 shrink-0 items-end justify-between bg-background pr-0">
-            {/* Пустое место над боковым меню. Раньше здесь на Windows и Linux рисовалось пятно цвета
-                боковой панели с границей, которое выглядело квадратом на фоне заголовка; теперь полоса
-                везде остаётся фоном приложения, как на macOS. На macOS она шире, чтобы не заехать под
-                системные кнопки окна. */}
+            {/* Пустое место над боковым меню: на Windows и Linux здесь раньше рисовалось пятно цвета
+                боковой панели с границей, которое выглядело квадратом на фоне заголовка, теперь полоса
+                везде остаётся фоном приложения, как на macOS. На macOS она заметно шире: системные
+                кнопки рисует система, и в установленном приложении они крупнее, чем при запуске из
+                исходников, — без запаса первая вкладка прижимается к кнопке «Развернуть». */}
             <div
-                className={cn("relative flex h-full shrink-0 items-center justify-center", isMacOS ? "w-18" : "w-14")}
+                className={cn("relative flex h-full shrink-0 items-center justify-center", isMacOS ? "w-24" : "w-14")}
                 aria-hidden={isMacOS ? "true" : undefined}
             />
 
@@ -341,9 +342,10 @@ export function TitleBar() {
             </div>
 
             {/* Знак «+» стоит вне прокручиваемой полосы: он остаётся видимым при любом числе вкладок,
-                и его правая граница становится точной левой границей зоны перетаскивания. */}
+                и его правая граница становится точной левой границей зоны перетаскивания. Сдвиг на
+                macOS держит его на одной высоте с вкладками. */}
             {isUnlocked && sessions.length > 0 && (
-                <div className="flex h-full shrink-0 items-center">
+                <div className={cn("flex h-full shrink-0 items-center", isMacOS && "translate-y-1")}>
                     <Button
                         type="button"
                         variant="ghost"
