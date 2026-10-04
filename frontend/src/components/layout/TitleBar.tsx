@@ -251,8 +251,14 @@ export function TitleBar() {
                   onWheel={handleWheel}
                   onPointerDownCapture={handleTabPointerDown}
                   onClickCapture={handleTabClickCapture}
-                  className="wails-no-drag relative z-10 flex h-full min-w-0 flex-initial items-center gap-1 pl-2
-                             overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:hidden"
+                  className={cn(
+                      "wails-no-drag relative z-10 flex h-full min-w-0 flex-initial items-center gap-1 pl-2 overflow-x-auto",
+                      "overflow-y-hidden [&::-webkit-scrollbar]:hidden",
+                      // Системные кнопки на macOS рисует сама система, и в установленном приложении
+                      // они крупнее и ниже, чем при запуске из исходников. На Windows и Linux кнопки
+                      // наши собственные и всегда высотой с заголовок, поэтому там центр совпадает.
+                      isMacOS && "translate-y-1",
+                  )}
             >
                 {orderedTabIDs.map((tabID) => {
                     const workspace = workspaceByTabID.get(tabID);

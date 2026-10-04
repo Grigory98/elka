@@ -422,8 +422,15 @@ export function TerminalInstance({
             >
                 {/* The canvas paints the terminal background itself, so it needs no placeholder treatment
                     and stays interactive: hiding it would block focus switching and the context menu while
-                    the handshake is still running. */}
-                <div ref={containerRef} className="h-full w-full p-2"/>
+                    the handshake is still running.
+
+                    Отступ живёт на обёртке, а не на измеряемом элементе: xterm считает clientHeight
+                    вместе с отступами, поэтому при p-2 на самом контейнере терминал влезал на строку
+                    больше, чем помещается, и нижняя строка уходила под рамку. Снизу отступ больше,
+                    чтобы последняя строка не липла к краю окна. */}
+                <div className="h-full w-full px-2 pt-2 pb-3">
+                    <div ref={containerRef} className="h-full w-full"/>
+                </div>
                 {isConnecting && (
                     <div role="status"
                          className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-3"
