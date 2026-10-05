@@ -43,6 +43,25 @@ export interface CreateSessionParams {
 
 export type SplitPlacement = "left" | "right" | "above" | "below";
 
+/**
+ * Which side of a pane a dragged session would be inserted on.
+ *
+ * The same arithmetic used to live twice: once in TerminalInstance for HTML5 drags and inline again in
+ * TitleBar for pointer drags, so the two paths could drift. A pointer on a pane picks the nearest of
+ * its four edges, which is what makes the preview agree with where the session actually lands.
+ */
+export function paneDropPlacement(bounds: DOMRect, clientX: number, clientY: number): SplitPlacement {
+    const x = (clientX - bounds.left) / bounds.width;
+    const y = (clientY - bounds.top) / bounds.height;
+    const candidates: [SplitPlacement, number][] = [
+        ["left", x],
+        ["right", 1 - x],
+        ["above", y],
+        ["below", 1 - y],
+    ];
+    return candidates.reduce((closest, candidate) => candidate[1] < closest[1] ? candidate : closest)[0];
+}
+
 export type TerminalSplitLayout =
     | {type: "pane"; sessionId: string}
     | {type: "split"; direction: "horizontal" | "vertical"; ratio: number; first: TerminalSplitLayout; second: TerminalSplitLayout};

@@ -21,7 +21,7 @@ import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
 import { AppEvent } from "@/lib/events.ts";
 import { Columns2, CopyPlus, FolderOpen, GripVertical, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
-import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE } from "@/store/sessionStore";
+import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 
 type ConnectionState = "connecting" | "ready" | "failed";
@@ -78,7 +78,12 @@ export function TerminalInstance({
     const hasFailedRef = useRef(false);
     const lastSizeRef = useRef({rows: 0, cols: 0});
     const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+    // HTML5 drags set this locally; a drag that starts in the tab bar writes the store instead, because
+    // the pointer never crosses the pane as an HTML5 drag event. Both end up in the same highlight.
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
+    const paneDropPreview = useUIStore((state) => state.paneDropPreview);
+    const previewPlacement = isSplitPane && paneDropPreview?.paneID === sessionId ? paneDropPreview.placement : null;
+    const shownDropPlacement = previewPlacement || dropPlacement;
     const isConnecting = connectionState === "connecting";
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
     // Output that arrives before xterm exists, because the font it has to measure was still loading.
@@ -131,24 +136,11 @@ export function TerminalInstance({
         terminalRef.current.write(`\r\n\x1b[31m${translated}\x1b[0m\r\n`)
     };
 
-    const getDropPlacement = (event: ReactDragEvent<HTMLDivElement>): SplitPlacement => {
-        const bounds = event.currentTarget.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) / bounds.width;
-        const y = (event.clientY - bounds.top) / bounds.height;
-        const distances: [SplitPlacement, number][] = [
-            ["left", x],
-            ["right", 1 - x],
-            ["above", y],
-            ["below", 1 - y],
-        ];
-        return distances.reduce((closest, candidate) => candidate[1] < closest[1] ? candidate : closest)[0];
-    };
-
     const handleDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
         if (!isSplitPane || !event.dataTransfer.types.includes(TERMINAL_SESSION_DRAG_TYPE)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
-        setDropPlacement(getDropPlacement(event));
+        setDropPlacement(paneDropPlacement(event.currentTarget.getBoundingClientRect(), event.clientX, event.clientY));
     };
 
     // xterm only takes focus when the click lands on its own canvas, which leaves the inner padding and
@@ -174,7 +166,7 @@ export function TerminalInstance({
         const draggedSessionID = event.dataTransfer.getData(TERMINAL_SESSION_DRAG_TYPE);
         if (!draggedSessionID) return;
         event.preventDefault();
-        const placement = getDropPlacement(event);
+        const placement = paneDropPlacement(event.currentTarget.getBoundingClientRect(), event.clientX, event.clientY);
         setDropPlacement(null);
         if (draggedSessionID !== sessionId) onDropSession?.(draggedSessionID, sessionId, placement);
     };
@@ -458,13 +450,13 @@ export function TerminalInstance({
                 </ContextMenuPrimitive.Portal>
                 </ContextMenuPrimitive.Root>
             )}
-            {dropPlacement && (
+            {shownDropPlacement && (
                 <div className={cn(
                     "pointer-events-none absolute z-10 rounded-md border-2 border-primary bg-primary/15",
-                    dropPlacement === "left" && "inset-y-1 left-1 w-1/2",
-                    dropPlacement === "right" && "inset-y-1 right-1 w-1/2",
-                    dropPlacement === "above" && "inset-x-1 top-1 h-1/2",
-                    dropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
+                    shownDropPlacement === "left" && "inset-y-1 left-1 w-1/2",
+                    shownDropPlacement === "right" && "inset-y-1 right-1 w-1/2",
+                    shownDropPlacement === "above" && "inset-x-1 top-1 h-1/2",
+                    shownDropPlacement === "below" && "inset-x-1 bottom-1 h-1/2",
                 )}/>
             )}
             {/* The terminal surface carries the terminal background colour, so a terminal can bleed to

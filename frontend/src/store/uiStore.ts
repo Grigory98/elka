@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { getInitialAppearance, resolveAppFontFamily } from "@/lib/appearance";
 import type { AppearanceSettings } from "@/lib/appearance";
 import { resolveTerminalFontFamily } from "@/lib/terminalFont";
+import type { SplitPlacement } from "@/store/sessionStore";
 
 export enum ViewType {
     Hosts = "hosts",
@@ -14,6 +15,17 @@ export enum ViewType {
 
 export type HostViewMode = "cards" | "list" | "tree";
 
+/**
+ * Where a session dragged out of the top tab bar would land in the split workspace. TitleBar writes
+ * it while the pointer moves and TerminalStack renders it, and the two live in different branches of
+ * the tree, so the store is the only thing they share.
+ */
+export interface PaneDropPreview {
+    sessionID: string;
+    paneID: string;
+    placement: SplitPlacement;
+}
+
 interface UIState {
     activeView: ViewType;
     isSidebarVisible: boolean;
@@ -24,6 +36,7 @@ interface UIState {
     hostViewMode: HostViewMode;
     groupViewMode: HostViewMode;
     appearance: AppearanceSettings;
+    paneDropPreview: PaneDropPreview | null;
     setActiveView: (view: ViewType) => void;
     setShowHostGroups: (show: boolean) => void;
     setShowSidebarToggle: (show: boolean) => void;
@@ -32,6 +45,8 @@ interface UIState {
     setHostViewMode: (mode: HostViewMode) => void;
     setGroupViewMode: (mode: HostViewMode) => void;
     setAppearance: (appearance: AppearanceSettings) => void;
+    /** Accepts an updater so a drag can skip the update while the placement stays the same. */
+    setPaneDropPreview: (preview: PaneDropPreview | null | ((current: PaneDropPreview | null) => PaneDropPreview | null)) => void;
     toggleSidebar: () => void;
 }
 
@@ -45,6 +60,7 @@ export const useUIStore = create<UIState>((set) => ({
     hostViewMode: "cards",
     groupViewMode: "tree",
     appearance: getInitialAppearance(),
+    paneDropPreview: null,
     setActiveView: (view) => set({activeView: view}),
     setShowHostGroups: (show) => set({showHostGroups: show}),
     // Without the toggle button the sidebar has to stay visible, otherwise there is no way to bring it back.
@@ -66,5 +82,8 @@ export const useUIStore = create<UIState>((set) => ({
             terminalFontFamily: resolveTerminalFontFamily(appearance.terminalFontFamily),
         },
     }),
+    setPaneDropPreview: (paneDropPreview) => set((state) => ({
+        paneDropPreview: typeof paneDropPreview === "function" ? paneDropPreview(state.paneDropPreview) : paneDropPreview,
+    })),
     toggleSidebar: () => set((state) => ({isSidebarVisible: !state.isSidebarVisible})),
 }));

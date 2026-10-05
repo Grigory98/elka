@@ -5,6 +5,7 @@ import {
     MAX_SPLIT_PANES,
     terminalTabGroupID,
     useSessionStore,
+    paneDropPlacement,
 } from "@/store/sessionStore";
 import { useUIStore, ViewType } from "@/store/uiStore";
 import { WindowControls } from "@/components/layout/WindowControls";
@@ -68,7 +69,7 @@ export function TitleBar() {
         removeSessionFromGroup,
         ungroupTabs,
     } = useSessionStore();
-    const {activeView, isSidebarVisible, showSidebarToggle, toggleSidebar, setActiveView, setSelectedHostGroup} = useUIStore();
+    const {activeView, isSidebarVisible, showSidebarToggle, toggleSidebar, setActiveView, setSelectedHostGroup, setPaneDropPreview} = useUIStore();
 
     const isTerminalView = activeView === ViewType.Terminal;
     const isMacOS = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
@@ -113,6 +114,7 @@ export function TitleBar() {
             paneDropTargetRef.current?.removeAttribute("data-top-tab-drop-target");
             paneDropTargetRef.current = null;
             setPointerDropPreview(null);
+            setPaneDropPreview(null);
         };
 
         const handlePointerMove = (moveEvent: PointerEvent) => {
@@ -141,6 +143,20 @@ export function TitleBar() {
                 }
                 pane.setAttribute("data-top-tab-drop-target", "true");
                 setPointerDropPreview(null);
+
+                // Превью того, куда встанет сессия. Раньше здесь только вешался атрибут, и при
+                // переносе вкладки из общей полосы пользователь не видел, сторона выбиралась
+                // молча — в отличие от перетаскивания внутри самой полосы, где превью было.
+                const paneSessionID = pane.dataset.splitPaneId;
+                if (paneSessionID && paneSessionID !== drag.sessionID) {
+                    const placement = paneDropPlacement(pane.getBoundingClientRect(), moveEvent.clientX, moveEvent.clientY);
+                    setPaneDropPreview((current) =>
+                        current && current.paneID === paneSessionID && current.placement === placement
+                            ? current
+                            : {sessionID: drag.sessionID!, paneID: paneSessionID, placement});
+                } else {
+                    setPaneDropPreview(null);
+                }
                 return;
             }
             clearPreview();
@@ -168,14 +184,12 @@ export function TitleBar() {
                     const workspaceID = pane?.dataset.workspaceId;
                     const targetSessionID = pane?.dataset.splitPaneId;
                     if (drag.sessionID && pane && workspaceID && targetSessionID && targetSessionID !== drag.sessionID) {
-                        const bounds = pane.getBoundingClientRect();
-                        const x = (finishEvent.clientX - bounds.left) / bounds.width;
-                        const y = (finishEvent.clientY - bounds.top) / bounds.height;
-                        const candidates: ["left" | "right" | "above" | "below", number][] = [
-                            ["left", x], ["right", 1 - x], ["above", y], ["below", 1 - y],
-                        ];
-                        const placement = candidates.reduce((closest, candidate) => candidate[1] < closest[1] ? candidate : closest)[0];
-                        placeSessionBeside(workspaceID, targetSessionID, drag.sessionID, placement);
+                        placeSessionBeside(
+                            workspaceID,
+                            targetSessionID,
+                            drag.sessionID,
+                            paneDropPlacement(pane.getBoundingClientRect(), finishEvent.clientX, finishEvent.clientY),
+                        );
                     }
                 }
             }
