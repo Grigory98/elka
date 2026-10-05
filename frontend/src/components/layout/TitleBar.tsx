@@ -258,10 +258,10 @@ export function TitleBar() {
                   className={cn(
                       "wails-no-drag relative z-10 flex h-full min-w-0 flex-initial items-center gap-1 pl-2 overflow-x-auto",
                       "overflow-y-hidden [&::-webkit-scrollbar]:hidden",
-                      // Системные кнопки на macOS рисует сама система, и в установленном приложении
-                      // они крупнее и ниже, чем при запуске из исходников. На Windows и Linux кнопки
-                      // наши собственные и всегда высотой с заголовок, поэтому там центр совпадает.
-                      isMacOS && "translate-y-1",
+                      // На macOS центр системных кнопок ниже центра вкладки, поэтому полоса
+                      // опускается на --mac-tab-drop. Guard обязателен: переменная задана в :root и
+                      // на других платформах её значение не вычитается. Величина — в main.css.
+                      isMacOS && "translate-y-[var(--mac-tab-drop)]",
                   )}
             >
                 {orderedTabIDs.map((tabID) => {
@@ -345,10 +345,10 @@ export function TitleBar() {
             </div>
 
             {/* Знак «+» стоит вне прокручиваемой полосы: он остаётся видимым при любом числе вкладок,
-                и его правая граница становится точной левой границей зоны перетаскивания. Сдвиг на
-                macOS держит его на одной высоте с вкладками. */}
+                и его правая граница становится точной левой границей зоны перетаскивания. Сдвиг
+                тот же, что у вкладок, иначе он с ними разойдётся по вертикали. */}
             {isUnlocked && sessions.length > 0 && (
-                <div className={cn("flex h-full shrink-0 items-center", isMacOS && "translate-y-1")}>
+                <div className={cn("flex h-full shrink-0 items-center", isMacOS && "translate-y-[var(--mac-tab-drop)]")}>
                     <Button
                         type="button"
                         variant="ghost"
@@ -372,8 +372,11 @@ export function TitleBar() {
                 нет — их полоса помечена как wails-no-drag. */}
             <div className="wails-drag h-full min-w-8 flex-1" aria-hidden="true"/>
 
+            {/* Кнопка панели центрируется в заголовке так же, как вкладки, поэтому на macOS получает тот же
+                сдвиг --mac-tab-drop. Без него она осталась бы на 8px выше вкладок, потому что
+                сдвиг есть только у тех, кто его получил. */}
             {showSidebarButtonVisible && (
-                <div className="flex h-full shrink-0 items-center pr-1">
+                <div className={cn("flex h-full shrink-0 items-center pr-1", isMacOS && "translate-y-[var(--mac-tab-drop)]")}>
                     <Button
                         variant="ghost"
                         size="icon"

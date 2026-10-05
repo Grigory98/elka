@@ -84,7 +84,10 @@ export default function App() {
     return (
         <div className="flex h-screen w-screen flex-col overflow-hidden bg-background text-foreground">
             <TitleBar/>
-            <div className="flex flex-1 overflow-hidden relative">
+            {/* Зазор от нижней границы вкладок до содержимого задан здесь, а не на терминале:
+                боковая панель и сам терминал лежат рядом в одной строке, поэтому уезжают вниз
+                на равную величину и остаются одной высоты без отдельной подгонки. */}
+            <div className="relative flex flex-1 overflow-hidden pt-[var(--content-top-gap)]">
 
                 {!isUnlocked ? (
                     <LockScreen/>
