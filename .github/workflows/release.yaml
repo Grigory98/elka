@@ -4,6 +4,17 @@ on:
     tags:
       - 'v*'
 
+# Each platform packs its own installers with vpk, because that is the only step in this repository
+# that can produce a macOS .pkg, an AppImage or an NSIS installer. Only the installers are published:
+# vpk also writes *.nupkg (the full package and its delta) and releases.<channel>.json (the channel
+# manifest), and those feed Velopack's own updater. Nothing here ever starts it — Run() in
+# backend/cmd/elka-desktop/main.go only enables apply-on-startup and never constructs an
+# UpdateManager, and the real update path is backend/internal/services/updater, which reads the
+# GitHub API and launches the installer below. Those payloads were 42% of the release for nothing.
+#
+# Publishing moved into one job because vpk upload used to merge three parallel jobs into a single
+# release. With gh release create there is no merge, and racing create calls would fail, so the jobs
+# hand their installers over as artifacts instead.
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -22,17 +33,11 @@ jobs:
         env:
           CGO_ENABLED: 1
 
-      - name: Velopack
+      - name: Package installers
         shell: bash
         run: |
           dotnet tool install -g vpk
-          
-          vpk download github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel windows-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases || true
-          
+
           vpk pack \
             --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
@@ -44,22 +49,23 @@ jobs:
             --icon "build/windows/icon.ico" \
             --outputDir releases
 
+          rm -f releases/*.nupkg releases/releases.*.json
+
       - name: Get green checkmark
         uses: actions/attest@v4
         with:
           subject-path: |
             releases/*
 
-      - name: Upload
-        shell: bash
-        run: |
-          vpk upload github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel windows-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases \
-            --merge \
-            --tag "v${{ env.VERSION }}"
+      - name: Hand over installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-windows
+          path: |
+            releases/*.exe
+            releases/*.zip
+          if-no-files-found: error
+          retention-days: 1
 
   build-linux:
     runs-on: ubuntu-latest
@@ -88,17 +94,11 @@ jobs:
         env:
           CGO_ENABLED: 1
 
-      - name: Velopack
+      - name: Package installers
         shell: bash
         run: |
           dotnet tool install -g vpk
-          
-          vpk download github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel linux-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases || true
-          
+
           vpk pack \
             --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
@@ -110,22 +110,22 @@ jobs:
             --icon "build/appicon.png" \
             --outputDir releases
 
+          rm -f releases/*.nupkg releases/releases.*.json
+
       - name: Get green checkmark
         uses: actions/attest@v4
         with:
           subject-path: |
             releases/*
 
-      - name: Upload
-        shell: bash
-        run: |
-          vpk upload github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel linux-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases \
-            --merge \
-            --tag "v${{ env.VERSION }}"
+      - name: Hand over installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-linux
+          path: |
+            releases/*.AppImage
+          if-no-files-found: error
+          retention-days: 1
 
   build-mac:
     runs-on: macos-latest
@@ -144,19 +144,13 @@ jobs:
         env:
           CGO_ENABLED: 1
 
-      - name: Velopack
+      - name: Package installers
         shell: bash
         run: |
           dotnet tool install -g vpk
-          
-          vpk download github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel macos-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases || true
-          
+
           APP_BUNDLE=$(find bin -maxdepth 1 -name "*.app" | head -n 1)
-          
+
           vpk pack \
             --packId "Elka" \
             --packVersion "${{ env.VERSION }}" \
@@ -169,19 +163,60 @@ jobs:
             --icon "build/darwin/icons.icns" \
             --outputDir releases
 
+          rm -f releases/*.nupkg releases/releases.*.json
+
       - name: Get green checkmark
         uses: actions/attest@v4
         with:
           subject-path: |
             releases/*
 
-      - name: Upload
+      - name: Hand over installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: installers-macos
+          path: |
+            releases/*.pkg
+            releases/*.zip
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [build-windows, build-linux, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Collect installers
+        uses: actions/download-artifact@v4
+        with:
+          path: installers
+
+      - name: Create release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          vpk upload github \
-            --repoUrl "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
-            --channel macos-stable \
-            --token "${{ github.token }}" \
-            --outputDir releases \
-            --merge \
-            --tag "v${{ env.VERSION }}"
+          TAG="v${GITHUB_REF_NAME#v}"
+
+          # A tag carrying a pre-release marker becomes a GitHub pre-release, and /releases/latest
+          # excludes those. Without this a test build would be offered to every installed copy, and
+          # backend/internal/services/updater reads exactly that endpoint.
+          prerelease=()
+          case "$TAG" in
+            *-rc*|*-beta*|*-alpha*) prerelease=(--prerelease) ;;
+          esac
+
+          mapfile -t files < <(find installers -type f | sort)
+          if [ "${#files[@]}" -ne 5 ]; then
+            echo "expected 5 installers, found ${#files[@]}: ${files[*]}" >&2
+            exit 1
+          fi
+
+          gh release create "$TAG" "${files[@]}" \
+            --verify-tag \
+            --title "Elka $TAG" \
+            --generate-notes \
+            "${prerelease[@]}"
+
+          gh release view "$TAG"
