@@ -77,7 +77,7 @@ export function SplitWorkspaceTab({
                         setIsSessionDropTarget(false);
                     }}
                     className={cn(
-                        "wails-no-drag group relative my-1 flex h-8 min-w-36 max-w-56 cursor-pointer items-center justify-between rounded-md border px-3 text-xs font-medium transition-colors",
+                        "wails-no-drag group relative my-1 flex h-[27px] min-w-36 max-w-56 cursor-pointer items-center justify-between rounded-md border px-3 text-xs font-medium transition-colors",
                         isActive ? "border-primary/60 bg-card text-foreground" : "border-muted text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                         (isDropTarget || isSessionDropTarget) && "ring-2 ring-primary"
                     )}

@@ -22,15 +22,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
-import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
+import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES, appearanceToPalette, paletteToAppearance } from "@/lib/appearance";
 import { TERMINAL_FONT_FAMILIES } from "@/lib/terminalFont";
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
 import { UpdateSettingsCard } from "@/components/views/UpdateSettingsCard";
+import { NameDialog } from "@/components/layout/NameDialog";
 
 type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
 
@@ -200,8 +200,7 @@ export function SettingsPage() {
     const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
     const [isCustomPalette, setIsCustomPalette] = useState(false);
     const [savedPalettes, setSavedPalettes] = useState<ColorPalette[]>([]);
-    const [paletteName, setPaletteName] = useState("");
-    const paletteNameId = useId();
+    const [isPaletteDialogOpen, setIsPaletteDialogOpen] = useState(false);
 
     useEffect(() => setAppearanceDraft(appearance), [appearance]);
 
@@ -346,71 +345,59 @@ export function SettingsPage() {
         setAppearanceStatus(null);
     };
 
-    const saveAppearance = async () => {
-        try {
-            const current = await SettingsService.GetSettings();
-            await SettingsService.SaveSettings(new AppSettings({
-                ...current,
-                appBackgroundColor: appearanceDraft.appBackgroundColor,
-                appForegroundColor: appearanceDraft.appForegroundColor,
-                appAccentColor: appearanceDraft.appAccentColor,
-                appFontFamily: appearanceDraft.appFontFamily,
-                terminalBackground: appearanceDraft.terminalBackgroundColor,
-                terminalForeground: appearanceDraft.terminalForegroundColor,
-                terminalCursor: appearanceDraft.terminalCursorColor,
-                terminalCursorStyle: appearanceDraft.terminalCursorStyle,
-                terminalFontFamily: appearanceDraft.terminalFontFamily,
-                terminalFontSize: appearanceDraft.terminalFontSize,
-                splitPaneBorder: appearanceDraft.splitPaneBorderColor,
-                splitPaneHeaderColor: appearanceDraft.splitPaneHeaderColor,
-                sidebarColor: appearanceDraft.sidebarColor,
-                inputColor: appearanceDraft.inputColor,
-                ringColor: appearanceDraft.ringColor,
-            }));
-            setAppearanceStatus(t("appearance_saved"));
-        } catch (error) {
-            handleAppError(error);
-        }
-    };
+    /** The appearance fields the backend stores, named as AppSettings expects them. */
+    const appearanceToSettings = (appearance: AppearanceSettings) => {
+        return {
+            appBackgroundColor: appearance.appBackgroundColor,
+            appForegroundColor: appearance.appForegroundColor,
+            appAccentColor: appearance.appAccentColor,
+            appFontFamily: appearance.appFontFamily,
+            terminalBackground: appearance.terminalBackgroundColor,
+            terminalForeground: appearance.terminalForegroundColor,
+            terminalCursor: appearance.terminalCursorColor,
+            terminalCursorStyle: appearance.terminalCursorStyle,
+            terminalFontFamily: appearance.terminalFontFamily,
+            terminalFontSize: appearance.terminalFontSize,
+            splitPaneBorder: appearance.splitPaneBorderColor,
+            splitPaneHeaderColor: appearance.splitPaneHeaderColor,
+            serverMetricsColor: appearance.serverMetricsColor,
+            sidebarColor: appearance.sidebarColor,
+            inputColor: appearance.inputColor,
+            ringColor: appearance.ringColor,
+        };
+    }
 
-    // A named palette is written on its own rather than together with the appearance, so that it
-    // survives a later "Reset" and stays available even if the current colours are never saved.
-    const persistPalettes = async (palettes: ColorPalette[]) => {
+    const persist = async (appearance: AppearanceSettings, palettes?: ColorPalette[]) => {
         const current = await SettingsService.GetSettings();
         await SettingsService.SaveSettings(new AppSettings({
             ...current,
-            savedPalettes: palettes,
-            // Re-sent so the colours on screen at the moment of saving are the ones that stick.
-            appBackgroundColor: appearanceDraft.appBackgroundColor,
-            appForegroundColor: appearanceDraft.appForegroundColor,
-            appAccentColor: appearanceDraft.appAccentColor,
-            terminalBackground: appearanceDraft.terminalBackgroundColor,
-            terminalForeground: appearanceDraft.terminalForegroundColor,
-            terminalCursor: appearanceDraft.terminalCursorColor,
+            ...appearanceToSettings(appearance),
+            ...(palettes ? {savedPalettes: palettes} : {}),
         }));
     };
 
-    const savePalette = async () => {
-        const name = paletteName.trim();
-        if (!name) return;
+    /**
+     * One button serves both jobs. A stock theme only has to be written out, while a custom one is
+     * asked for by name first, because that name is what puts it in the theme list.
+     */
+    const saveAppearance = () => {
+        if (isCustomPalette) {
+            setIsPaletteDialogOpen(true);
+            return;
+        }
+        void persist(appearanceDraft).then(() => setAppearanceStatus(t("appearance_saved"))).catch(handleAppError);
+    };
 
-        const palette: ColorPalette = {
-            name,
-            appBackgroundColor: appearanceDraft.appBackgroundColor,
-            appForegroundColor: appearanceDraft.appForegroundColor,
-            appAccentColor: appearanceDraft.appAccentColor,
-            terminalBackgroundColor: appearanceDraft.terminalBackgroundColor,
-            terminalForegroundColor: appearanceDraft.terminalForegroundColor,
-            terminalCursorColor: appearanceDraft.terminalCursorColor,
-        };
-
+    const savePalette = async (name: string) => {
         // An existing name is overwritten instead of duplicated: two rows differing only in a hidden
         // suffix would be impossible to tell apart in the dropdown.
-        const next = [...savedPalettes.filter((saved) => saved.name !== name), palette];
+        const next = [...savedPalettes.filter((saved) => saved.name !== name), appearanceToPalette(name, appearanceDraft)];
         try {
-            await persistPalettes(next);
+            await persist(appearanceDraft, next);
             setSavedPalettes(next);
-            setPaletteName("");
+            // Any colour tweak flags the draft as custom, and that flag outlived the save, so the
+            // dropdown stayed on "Custom" and the theme just named never became the shown selection.
+            setIsCustomPalette(false);
             setAppearanceStatus(t("palette_saved", {name}));
         } catch (error) {
             handleAppError(error);
@@ -418,18 +405,24 @@ export function SettingsPage() {
     };
 
     const deletePalette = async (name: string) => {
-        const next = savedPalettes.filter((saved) => saved.name !== name);
         try {
-            await persistPalettes(next);
-            setSavedPalettes(next);
+            await persist(appearanceDraft, savedPalettes.filter((saved) => saved.name !== name));
+            setSavedPalettes(savedPalettes.filter((saved) => saved.name !== name));
         } catch (error) {
             handleAppError(error);
         }
     };
 
+    /** A built-in theme only paints six colours, so it is applied as a partial update. */
     const applyPalette = (colors: Partial<AppearanceSettings>) => {
         setIsCustomPalette(false);
         updateAppearance(colors);
+    };
+
+    /** A saved theme is a full snapshot, so it replaces the whole appearance. */
+    const applySavedPalette = (palette: ColorPalette) => {
+        setIsCustomPalette(false);
+        updateAppearance(paletteToAppearance(palette, appearanceDraft));
     };
 
     const builtinPaletteNames: Record<string, string> = {
@@ -440,11 +433,13 @@ export function SettingsPage() {
         "elka-tone": t("palette_elka_tone"),
     };
 
-    // A saved palette is matched on the six colours it stores, so switching back to it after an
-    // unrelated edit still highlights the right row.
+    /**
+     * Stock themes are matched on their six colours, saved ones on everything they store, so that
+     * picking a theme back highlights it even after the font or the cursor shape were changed.
+     */
     const selectedPalette = useMemo(() => {
         if (isCustomPalette) return "custom";
-        const matches = (colors: Partial<AppearanceSettings>) =>
+        const matchesColors = (colors: Partial<AppearanceSettings>) =>
             colors.appBackgroundColor === appearanceDraft.appBackgroundColor &&
             colors.appForegroundColor === appearanceDraft.appForegroundColor &&
             colors.appAccentColor === appearanceDraft.appAccentColor &&
@@ -452,9 +447,14 @@ export function SettingsPage() {
             colors.terminalForegroundColor === appearanceDraft.terminalForegroundColor &&
             colors.terminalCursorColor === appearanceDraft.terminalCursorColor;
 
-        const builtin = Object.entries(APP_COLOR_PALETTES).find(([, palette]) => matches(palette));
+        const builtin = Object.entries(APP_COLOR_PALETTES).find(([, palette]) => matchesColors(palette));
         if (builtin) return builtin[0];
-        const saved = savedPalettes.find((palette) => matches(palette));
+
+        const saved = savedPalettes.find((palette) => {
+            const restored = paletteToAppearance(palette, appearanceDraft);
+            return (Object.keys(restored) as (keyof AppearanceSettings)[])
+                .every((key) => restored[key] === appearanceDraft[key]);
+        });
         return saved ? `saved:${saved.name}` : "custom";
     }, [appearanceDraft, isCustomPalette, savedPalettes]);
 
@@ -553,7 +553,7 @@ export function SettingsPage() {
                                     }
                                     if (value.startsWith("saved:")) {
                                         const saved = savedPalettes.find((palette) => `saved:${palette.name}` === value);
-                                        if (saved) applyPalette(saved);
+                                        if (saved) applySavedPalette(saved);
                                         return;
                                     }
                                     const palette = APP_COLOR_PALETTES[value as keyof typeof APP_COLOR_PALETTES];
@@ -569,7 +569,24 @@ export function SettingsPage() {
                                                 <SelectSeparator/>
                                                 {savedPalettes.map((palette) => (
                                                     <SelectItem key={palette.name} value={`saved:${palette.name}`}>
-                                                        {palette.name}
+                                                        <span className="flex-1 truncate">{palette.name}</span>
+                                                        {/* Radix выбирает пункт по pointerup, когда указатель
+                                                            мыши, поэтому click по иконке без stopPropagation
+                                                            ещё и применял бы тему. Список при этом не
+                                                            закрывается, так что темы можно удалять подряд. */}
+                                                        <button
+                                                            type="button"
+                                                            className="flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                                                            title={t("palette_delete")}
+                                                            aria-label={t("palette_delete_named", {name: palette.name})}
+                                                            onPointerUp={(event) => event.stopPropagation()}
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                void deletePalette(palette.name);
+                                                            }}
+                                                        >
+                                                            <X className="size-3.5"/>
+                                                        </button>
                                                     </SelectItem>
                                                 ))}
                                             </>
@@ -579,57 +596,8 @@ export function SettingsPage() {
                                     </SelectContent>
                                 </Select>
                             </SettingsRow>
-                            {/* Deleting has to live outside the dropdown: a Radix item cannot host a
-                                button, and a nested control inside an option swallows the click that
-                                is supposed to pick the palette. */}
-                            {savedPalettes.length > 0 && (
-                                <SettingsRow label={t("palette_saved_list")}>
-                                    <div className="flex flex-wrap justify-end gap-1.5">
-                                        {savedPalettes.map((palette) => (
-                                            <span
-                                                key={palette.name}
-                                                className="inline-flex items-center gap-1 rounded-md border border-border py-0.5 pl-2 pr-0.5 text-xs">
-                                                <span
-                                                    aria-hidden="true"
-                                                    className="size-3 rounded-full border border-border"
-                                                    style={{backgroundColor: palette.appBackgroundColor}}
-                                                />
-                                                {palette.name}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="size-5"
-                                                    title={t("palette_delete")}
-                                                    aria-label={t("palette_delete_named", {name: palette.name})}
-                                                    onClick={() => void deletePalette(palette.name)}
-                                                >
-                                                    <X className="size-3"/>
-                                                </Button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                </SettingsRow>
-                            )}
-                            <SettingsRow label={t("palette_save_label")} controlId={paletteNameId}>
-                                <Input
-                                    id={paletteNameId}
-                                    value={paletteName}
-                                    onChange={(event) => setPaletteName(event.target.value)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Enter") void savePalette();
-                                    }}
-                                    placeholder={t("palette_save_placeholder")}
-                                    className="h-8 w-40"
-                                />
-                                <Button
-                                    variant="outline"
-                                    className="shrink-0"
-                                    disabled={!paletteName.trim()}
-                                    onClick={() => void savePalette()}
-                                >
-                                    {t("palette_save")}
-                                </Button>
-                            </SettingsRow>
+                            {/* Свои темы сохраняются той же кнопкой внизу: если тема своя, она сначала
+                                спрашивает название, иначе просто пишет оформление. */}
                             <AppearanceColorInput label={t("app_background_color")} value={appearanceDraft.appBackgroundColor} onChange={(appBackgroundColor) => updateAppearance({appBackgroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_text_color")} value={appearanceDraft.appForegroundColor} onChange={(appForegroundColor) => updateAppearance({appForegroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_accent_color")} value={appearanceDraft.appAccentColor} onChange={(appAccentColor) => updateAppearance({appAccentColor}, true)}/>
@@ -697,7 +665,7 @@ export function SettingsPage() {
                                 setIsCustomPalette(false);
                                 updateAppearance(DEFAULT_APPEARANCE);
                             }}>{t("appearance_reset")}</Button>
-                            <Button onClick={() => void saveAppearance()}>{t("appearance_save")}</Button>
+                            <Button onClick={saveAppearance}>{t("appearance_save")}</Button>
                         </div>
                     </div>
                 </SettingsCard>
@@ -835,6 +803,18 @@ export function SettingsPage() {
                 description={t("wipe_confirm_desc")}
                 confirmText={t("nuke_it")}
                 isDestructive={true}
+            />
+
+            <NameDialog
+                open={isPaletteDialogOpen}
+                title={t("palette_dialog_title")}
+                initialName=""
+                confirmLabel={t("palette_dialog_confirm")}
+                onCancel={() => setIsPaletteDialogOpen(false)}
+                onSubmit={(name) => {
+                    setIsPaletteDialogOpen(false);
+                    void savePalette(name);
+                }}
             />
 
         </div>

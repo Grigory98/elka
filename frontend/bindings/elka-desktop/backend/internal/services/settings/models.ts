@@ -75,9 +75,19 @@ export class ColorPalette {
     "appBackgroundColor": string;
     "appForegroundColor": string;
     "appAccentColor": string;
+    "appFontFamily"?: string;
     "terminalBackgroundColor": string;
     "terminalForegroundColor": string;
     "terminalCursorColor": string;
+    "terminalCursorStyle"?: string;
+    "terminalFontFamily"?: string;
+    "terminalFontSize"?: number;
+    "splitPaneBorderColor"?: string;
+    "splitPaneHeaderColor"?: string;
+    "serverMetricsColor"?: string;
+    "sidebarColor"?: string;
+    "inputColor"?: string;
+    "ringColor"?: string;
 
     /** Creates a new ColorPalette instance. */
     constructor($$source: Partial<ColorPalette> = {}) {

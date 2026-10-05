@@ -10,9 +10,11 @@ interface NameDialogProps {
     initialName: string;
     onCancel: () => void;
     onSubmit: (name: string) => void;
+    /** Overrides the confirming button label, which otherwise reads "Save". */
+    confirmLabel?: string;
 }
 
-export function NameDialog({open, title, initialName, onCancel, onSubmit}: NameDialogProps) {
+export function NameDialog({open, title, initialName, onCancel, onSubmit, confirmLabel}: NameDialogProps) {
     const {t} = useTranslation(["terminal", "common"]);
     const [name, setName] = useState(initialName);
 
@@ -45,7 +47,7 @@ export function NameDialog({open, title, initialName, onCancel, onSubmit}: NameD
                             {t("cancel", {ns: "common"})}
                         </Button>
                         <Button type="submit" disabled={!name.trim()}>
-                            {t("save", {ns: "common"})}
+                            {confirmLabel || t("save", {ns: "common"})}
                         </Button>
                     </DialogFooter>
                 </form>

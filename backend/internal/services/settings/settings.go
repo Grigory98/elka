@@ -12,16 +12,28 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-// ColorPalette is a set of colours the user saved under a name of their own, so that switching
-// between looks does not mean entering the same six values again.
+// ColorPalette is a named snapshot of the whole appearance: application chrome, terminal colours,
+// both fonts and the optional overrides. Storing only the six headline colours meant a saved theme
+// silently dropped the font, the cursor shape and the sidebar tint, so switching back never restored
+// the look the theme was saved from.
 type ColorPalette struct {
 	Name                    string `json:"name"`
 	AppBackgroundColor      string `json:"appBackgroundColor"`
 	AppForegroundColor      string `json:"appForegroundColor"`
 	AppAccentColor          string `json:"appAccentColor"`
+	AppFontFamily           string `json:"appFontFamily,omitempty"`
 	TerminalBackgroundColor string `json:"terminalBackgroundColor"`
 	TerminalForegroundColor string `json:"terminalForegroundColor"`
 	TerminalCursorColor     string `json:"terminalCursorColor"`
+	TerminalCursorStyle     string `json:"terminalCursorStyle,omitempty"`
+	TerminalFontFamily      string `json:"terminalFontFamily,omitempty"`
+	TerminalFontSize        int    `json:"terminalFontSize,omitempty"`
+	SplitPaneBorderColor    string `json:"splitPaneBorderColor,omitempty"`
+	SplitPaneHeaderColor    string `json:"splitPaneHeaderColor,omitempty"`
+	ServerMetricsColor      string `json:"serverMetricsColor,omitempty"`
+	SidebarColor            string `json:"sidebarColor,omitempty"`
+	InputColor              string `json:"inputColor,omitempty"`
+	RingColor               string `json:"ringColor,omitempty"`
 }
 
 type AppSettings struct {

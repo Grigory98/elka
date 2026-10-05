@@ -1,4 +1,5 @@
 import { DEFAULT_TERMINAL_FONT_FAMILY } from "@/lib/terminalFont";
+import { ColorPalette } from "../../bindings/elka-desktop/backend/internal/services/settings";
 
 export interface AppearanceSettings {
     appBackgroundColor: string;
@@ -50,13 +51,18 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
  * They carry the terminal colours too, because a palette that repainted the interface while leaving
  * the terminal on the previous background left the two halves of the window looking like different
  * applications. Each one can still be overridden field by field afterwards.
+ *
+ * Only Elka-Tone follows its own background in the terminal. The rest keep the terminal black on
+ * purpose: it is the one part of the window that shows remote output, and tinting it after the app
+ * chrome tinted the output too, which made the palette decide how a server log looked. A custom
+ * palette is the user's own and is left free to pick any background.
  */
 export const APP_COLOR_PALETTES = {
     dark: {
         appBackgroundColor: "#09090b",
         appForegroundColor: "#fafafa",
         appAccentColor: "#e4e4e7",
-        terminalBackgroundColor: "#09090b",
+        terminalBackgroundColor: "#000000",
         terminalForegroundColor: "#fafafa",
         terminalCursorColor: "#fafafa",
     },
@@ -64,15 +70,18 @@ export const APP_COLOR_PALETTES = {
         appBackgroundColor: "#f8fafc",
         appForegroundColor: "#111827",
         appAccentColor: "#334155",
-        terminalBackgroundColor: "#f8fafc",
-        terminalForegroundColor: "#111827",
-        terminalCursorColor: "#111827",
+        terminalBackgroundColor: "#000000",
+        // The light theme is the odd one out: it is the only palette whose text colour is dark, and
+        // dark text on the black terminal background this palette asks for came out at 1.18:1, i.e.
+        // invisible. Inverting it against the app background keeps the terminal readable.
+        terminalForegroundColor: "#f8fafc",
+        terminalCursorColor: "#f8fafc",
     },
     navy: {
         appBackgroundColor: "#0b1220",
         appForegroundColor: "#e2e8f0",
         appAccentColor: "#38bdf8",
-        terminalBackgroundColor: "#0b1220",
+        terminalBackgroundColor: "#000000",
         terminalForegroundColor: "#e2e8f0",
         terminalCursorColor: "#e2e8f0",
     },
@@ -80,7 +89,7 @@ export const APP_COLOR_PALETTES = {
         appBackgroundColor: "#071a12",
         appForegroundColor: "#dcfce7",
         appAccentColor: "#34d399",
-        terminalBackgroundColor: "#071a12",
+        terminalBackgroundColor: "#000000",
         terminalForegroundColor: "#dcfce7",
         terminalCursorColor: "#dcfce7",
     },
@@ -139,6 +148,60 @@ const APP_FONT_FAMILIES: readonly string[] = FONT_FAMILIES.map((font) => font.fa
  */
 export function resolveAppFontFamily(family: string) {
     return APP_FONT_FAMILIES.includes(family) ? family : DEFAULT_APPEARANCE.appFontFamily;
+}
+
+/**
+ * A saved theme is a snapshot of the whole appearance, so these two functions are the only place that
+ * knows which fields belong to a theme. The cursor style is validated on the way in because it is a
+ * closed set that also reaches the backend as a plain string.
+ */
+export function appearanceToPalette(name: string, appearance: AppearanceSettings) {
+    return {
+        name,
+        appBackgroundColor: appearance.appBackgroundColor,
+        appForegroundColor: appearance.appForegroundColor,
+        appAccentColor: appearance.appAccentColor,
+        appFontFamily: appearance.appFontFamily,
+        terminalBackgroundColor: appearance.terminalBackgroundColor,
+        terminalForegroundColor: appearance.terminalForegroundColor,
+        terminalCursorColor: appearance.terminalCursorColor,
+        terminalCursorStyle: appearance.terminalCursorStyle,
+        terminalFontFamily: appearance.terminalFontFamily,
+        terminalFontSize: appearance.terminalFontSize,
+        splitPaneBorderColor: appearance.splitPaneBorderColor,
+        splitPaneHeaderColor: appearance.splitPaneHeaderColor,
+        serverMetricsColor: appearance.serverMetricsColor,
+        sidebarColor: appearance.sidebarColor,
+        inputColor: appearance.inputColor,
+        ringColor: appearance.ringColor,
+    };
+}
+
+/**
+ * Fields a theme saved by an older build does not carry keep their current value instead of being
+ * reset: an absent font must not silently swap to the default when the theme is applied.
+ */
+export function paletteToAppearance(palette: ColorPalette, current: AppearanceSettings): AppearanceSettings {
+    const cursorStyle = palette.terminalCursorStyle;
+    return {
+        ...current,
+        appBackgroundColor: palette.appBackgroundColor,
+        appForegroundColor: palette.appForegroundColor,
+        appAccentColor: palette.appAccentColor,
+        appFontFamily: palette.appFontFamily || current.appFontFamily,
+        terminalBackgroundColor: palette.terminalBackgroundColor,
+        terminalForegroundColor: palette.terminalForegroundColor,
+        terminalCursorColor: palette.terminalCursorColor,
+        terminalCursorStyle: cursorStyle === "underline" || cursorStyle === "bar" ? cursorStyle : current.terminalCursorStyle,
+        terminalFontFamily: palette.terminalFontFamily || current.terminalFontFamily,
+        terminalFontSize: palette.terminalFontSize || current.terminalFontSize,
+        splitPaneBorderColor: palette.splitPaneBorderColor || "",
+        splitPaneHeaderColor: palette.splitPaneHeaderColor || "",
+        serverMetricsColor: palette.serverMetricsColor || "",
+        sidebarColor: palette.sidebarColor || "",
+        inputColor: palette.inputColor || "",
+        ringColor: palette.ringColor || "",
+    };
 }
 
 // Mirrored in the inline splash script of index.html, which reads it before any bundle loads.
@@ -300,11 +363,27 @@ export function getInitialAppearance(): AppearanceSettings {
     };
 }
 
-export function terminalSelectionColor(color: string) {
+// xterm themes take rgba strings, and the terminal text colour is stored as a hex the user picked, so
+// the translucency has to be applied here. Anything unparseable falls back to the light default.
+function withAlpha(color: string, alpha: number) {
     const hex = color.replace("#", "");
-    if (!/^[0-9a-f]{6}$/i.test(hex)) return "rgba(250, 250, 250, 0.3)";
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return `rgba(250, 250, 250, ${alpha})`;
     const red = parseInt(hex.slice(0, 2), 16);
     const green = parseInt(hex.slice(2, 4), 16);
     const blue = parseInt(hex.slice(4, 6), 16);
-    return `rgba(${red}, ${green}, ${blue}, 0.3)`;
+    return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+export function terminalSelectionColor(color: string) {
+    return withAlpha(color, 0.3);
+}
+
+/**
+ * The terminal scrollbar thumb is drawn by xterm itself, so unlike the native scrollbars it cannot be
+ * reached from CSS and has to be tinted through the theme. Tying it to the text colour keeps it
+ * readable on both the light and the dark palettes.
+ */
+export function terminalScrollbarColor(color: string, state: "rest" | "hover" | "active") {
+    const alpha = state === "rest" ? 0.28 : state === "hover" ? 0.46 : 0.62;
+    return withAlpha(color, alpha);
 }

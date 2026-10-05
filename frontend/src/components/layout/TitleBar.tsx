@@ -237,14 +237,27 @@ export function TitleBar() {
     const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID);
 
     return (
-        <header className="wails-no-drag relative flex h-11 shrink-0 items-end justify-between bg-background pr-0">
+        <header className="wails-no-drag relative flex h-[39px] shrink-0 items-end justify-between bg-background pr-0">
+            {/* Заголовок стал ниже на 5px вместе с вкладкой, и вся арифметика связана:
+                  вкладка   h-[27px] (было h-8 = 32px, −15%)
+                  отступы   my-1 = 4px сверху и снизу, не менялись
+                  блок      27 + 4 + 4 = 35px (было 40px)
+                  заголовок h-[39px] (было h-11 = 44px) = блок 35px + те же 4px запаса сверху
+
+                Нижняя граница вкладки поднялась на 5px: было 40px от верха окна, стало 35px. Чтобы
+                отступ от неё до нижних элементов боковой панели остался прежним, в Sidebar нижний
+                отступ увеличен с pb-4 (16px) до pb-[21px], тоже на 5px. Все четыре числа меняются
+                вместе, иначе панель либо наедет на вкладку, либо провиснет. */}
+
             {/* Пустое место над боковым меню: на Windows и Linux здесь раньше рисовалось пятно цвета
                 боковой панели с границей, которое выглядело квадратом на фоне заголовка, теперь полоса
                 везде остаётся фоном приложения, как на macOS. На macOS она заметно шире: системные
                 кнопки рисует система, и в установленном приложении они крупнее, чем при запуске из
-                исходников, — без запаса первая вкладка прижимается к кнопке «Развернуть». */}
+                исходников, — без запаса первая вкладка прижимается к кнопке «Развернуть». Запас
+                подбирался вручную: 96px → 67px (−30%) → 74px (+10%), в такой ширине вкладка
+                стоит, не наезжая на зелёную кнопку и не теряя центр. */}
             <div
-                className={cn("relative flex h-full shrink-0 items-center justify-center", isMacOS ? "w-24" : "w-14")}
+                className={cn("relative flex h-full shrink-0 items-center justify-center", isMacOS ? "w-[74px]" : "w-14")}
                 aria-hidden={isMacOS ? "true" : undefined}
             />
 

@@ -241,27 +241,79 @@ body,
 }
 
 
-.app-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(161, 161, 170, 0.38) transparent;
+/* Scrollbars.
+
+   This used to be an opt-in `.app-scrollbar` class, which left the settings, keys and credentials
+   pages, every dialog and the select popovers on the platform default: a light track running the
+   full height with a grey thumb. Styling the pseudo element globally covers all of them, and covers
+   whatever is added next without anyone having to remember the class.
+
+   `scrollbar-width` and `scrollbar-color` must NOT be set here. Either one, as soon as it differs
+   from `auto`, makes the engine fall back to standard scrollbar rendering and ignore every
+   `::-webkit-scrollbar` rule below, which is exactly the light track and grey thumb this is meant to
+   replace. The old `.app-scrollbar` class made that mistake, and so did the first version of this
+   block, so the pseudo elements below were dead everywhere; only the terminal looked right, because
+   its scrollbar is drawn by xterm and never was a native one.
+
+   Engines without `::-webkit-scrollbar` support therefore get the standard properties instead, which
+   is the only way to style them without breaking the ones that do support it. */
+@supports not selector(::-webkit-scrollbar) {
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: color-mix(in oklab, var(--foreground) 26%, transparent) transparent;
+    }
 }
 
-.app-scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
 }
 
-.app-scrollbar::-webkit-scrollbar-track {
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
     background: transparent;
 }
 
-.app-scrollbar::-webkit-scrollbar-thumb {
+::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 999px;
-    background-color: rgba(161, 161, 170, 0.38);
+    background-color: color-mix(in oklab, var(--foreground) 26%, transparent);
     background-clip: padding-box;
+    transition: background-color 150ms ease;
 }
 
-.app-scrollbar::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(161, 161, 170, 0.72);
+::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklab, var(--foreground) 45%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+    background-color: color-mix(in oklab, var(--foreground) 62%, transparent);
+}
+
+/* The terminal keeps a native scroller on its viewport purely to reserve room, and paints its own
+   10px slider on top of it. Left alone, the native one shows through as that light bar, and the
+   hardcoded black viewport background paints a dark strip over the themed terminal colour, so both
+   are undone here and the themed slider becomes the only visible scrollbar.
+
+   xterm ships its own `.xterm .xterm-viewport` rule, and because main.css is imported before the
+   component that pulls xterm's stylesheet in, it ends up last in the bundle and would win on equal
+   specificity. Going through .xterm-scrollable-element is both accurate, the viewport really is a
+   direct child of it, and specific enough to take precedence. `overflow-y: scroll` is deliberately
+   left in place: xterm needs the viewport scrollable even though nothing of its scrollbar shows. */
+.xterm .xterm-scrollable-element > .xterm-viewport {
+    background-color: transparent;
+    scrollbar-width: none;
+}
+
+.xterm .xterm-scrollable-element > .xterm-viewport::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+}
+
+/* xterm sizes and positions the slider itself and pins it with `contain: strict`, so only the shape
+   can be adjusted from here. A margin would shift it off the computed top, which is why there is
+   none: the rounded ends simply meet the edges of the pane. */
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+    border-radius: 999px;
 }
