@@ -14,7 +14,7 @@
     !define INFO_PRODUCTNAME "Elka"
 !endif
 !ifndef INFO_PRODUCTVERSION
-    !define INFO_PRODUCTVERSION "1.1.2"
+    !define INFO_PRODUCTVERSION "1.1.3"
 !endif
 !ifndef INFO_COPYRIGHT
     !define INFO_COPYRIGHT "Copyright Elka"
