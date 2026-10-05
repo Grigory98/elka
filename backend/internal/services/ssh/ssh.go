@@ -274,6 +274,23 @@ func newClientConfig(username, password, privateKey, passphrase string) (*ssh.Cl
 	}
 	if password != "" {
 		authMethods = append(authMethods, ssh.Password(password))
+		// Многие серверы (sshd с PasswordAuthentication no и KbdInteractiveAuthentication yes,
+		// PAM, свежие Windows/OpenSSH-образы) объявляют только keyboard-interactive. x/crypto
+		// пробует лишь те методы из Auth, что перечислил сервер, поэтому без этой строки клиент
+		// уходил с "attempted methods [none]", хотя пароль был верный. На первый же вопрос с
+		// паролем отвечаем тем же паролем, на остальные (логин, код и т.п.) — пустой строкой.
+		authMethods = append(authMethods, ssh.KeyboardInteractiveChallenge(func(_, _ string, questions []string, _ []bool) ([]string, error) {
+			answers := make([]string, len(questions))
+			for index, question := range questions {
+				if strings.Contains(strings.ToLower(question), "password") || strings.Contains(strings.ToLower(question), "парол") {
+					answers[index] = password
+				}
+			}
+			return answers, nil
+		}))
+	}
+	if len(authMethods) == 0 {
+		return nil, fmt.Errorf("no authentication method available: provide a password or a private key")
 	}
 	return &ssh.ClientConfig{
 		User: username,
