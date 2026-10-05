@@ -7,5 +7,6 @@ export {
 };
 
 export {
-    AppSettings
+    AppSettings,
+    ColorPalette
 } from "./models.js";

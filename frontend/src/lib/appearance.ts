@@ -44,26 +44,53 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     serverMetricsColor: "",
 };
 
+/**
+ * Presets for the palette dropdown.
+ *
+ * They carry the terminal colours too, because a palette that repainted the interface while leaving
+ * the terminal on the previous background left the two halves of the window looking like different
+ * applications. Each one can still be overridden field by field afterwards.
+ */
 export const APP_COLOR_PALETTES = {
     dark: {
         appBackgroundColor: "#09090b",
         appForegroundColor: "#fafafa",
         appAccentColor: "#e4e4e7",
+        terminalBackgroundColor: "#09090b",
+        terminalForegroundColor: "#fafafa",
+        terminalCursorColor: "#fafafa",
     },
     light: {
         appBackgroundColor: "#f8fafc",
         appForegroundColor: "#111827",
         appAccentColor: "#334155",
+        terminalBackgroundColor: "#f8fafc",
+        terminalForegroundColor: "#111827",
+        terminalCursorColor: "#111827",
     },
     navy: {
         appBackgroundColor: "#0b1220",
         appForegroundColor: "#e2e8f0",
         appAccentColor: "#38bdf8",
+        terminalBackgroundColor: "#0b1220",
+        terminalForegroundColor: "#e2e8f0",
+        terminalCursorColor: "#e2e8f0",
     },
     green: {
         appBackgroundColor: "#071a12",
         appForegroundColor: "#dcfce7",
         appAccentColor: "#34d399",
+        terminalBackgroundColor: "#071a12",
+        terminalForegroundColor: "#dcfce7",
+        terminalCursorColor: "#dcfce7",
+    },
+    "elka-tone": {
+        appBackgroundColor: "#1a1b2c",
+        appForegroundColor: "#d6dde0",
+        appAccentColor: "#00648e",
+        terminalBackgroundColor: "#141728",
+        terminalForegroundColor: "#1fb366",
+        terminalCursorColor: "#92a0a7",
     },
 } as const;
 

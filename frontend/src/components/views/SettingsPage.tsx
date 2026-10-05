@@ -1,8 +1,8 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { User, Lock, Trash2, Globe, FolderOpen, Download, Upload, LoaderCircle, RotateCcw } from "lucide-react";
+import { User, Lock, Trash2, Globe, FolderOpen, Download, Upload, LoaderCircle, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SettingsCard } from "@/components/ui/settings-card";
@@ -11,16 +11,18 @@ import { useCurrentUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { AuthService } from "../../../bindings/elka-desktop/backend/internal/services/auth";
-import { AppSettings, SettingsService } from "../../../bindings/elka-desktop/backend/internal/services/settings";
+import { AppSettings, ColorPalette, SettingsService } from "../../../bindings/elka-desktop/backend/internal/services/settings";
 import { handleAppError } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
@@ -197,12 +199,20 @@ export function SettingsPage() {
     const [appearanceDraft, setAppearanceDraft] = useState<AppearanceSettings>(appearance);
     const [appearanceStatus, setAppearanceStatus] = useState<string | null>(null);
     const [isCustomPalette, setIsCustomPalette] = useState(false);
+    const [savedPalettes, setSavedPalettes] = useState<ColorPalette[]>([]);
+    const [paletteName, setPaletteName] = useState("");
+    const paletteNameId = useId();
 
     useEffect(() => setAppearanceDraft(appearance), [appearance]);
 
     useEffect(() => {
         SettingsService.GetSettings()
-            .then((settings) => setVaultDirectory(settings.vaultDirectory || ""))
+            .then((settings) => {
+                setVaultDirectory(settings.vaultDirectory || "");
+                // Guard against a settings file that predates the field, and against a palette whose
+                // name never made it to disk: an empty label would render as a blank dropdown row.
+                setSavedPalettes((settings.savedPalettes || []).filter((palette) => palette.name?.trim()));
+            })
             .catch(handleAppError);
     }, []);
 
@@ -363,11 +373,90 @@ export function SettingsPage() {
         }
     };
 
-    const selectedPalette = isCustomPalette ? "custom" : Object.entries(APP_COLOR_PALETTES).find(([, palette]) =>
-        palette.appBackgroundColor === appearanceDraft.appBackgroundColor &&
-        palette.appForegroundColor === appearanceDraft.appForegroundColor &&
-        palette.appAccentColor === appearanceDraft.appAccentColor
-    )?.[0] || "custom";
+    // A named palette is written on its own rather than together with the appearance, so that it
+    // survives a later "Reset" and stays available even if the current colours are never saved.
+    const persistPalettes = async (palettes: ColorPalette[]) => {
+        const current = await SettingsService.GetSettings();
+        await SettingsService.SaveSettings(new AppSettings({
+            ...current,
+            savedPalettes: palettes,
+            // Re-sent so the colours on screen at the moment of saving are the ones that stick.
+            appBackgroundColor: appearanceDraft.appBackgroundColor,
+            appForegroundColor: appearanceDraft.appForegroundColor,
+            appAccentColor: appearanceDraft.appAccentColor,
+            terminalBackground: appearanceDraft.terminalBackgroundColor,
+            terminalForeground: appearanceDraft.terminalForegroundColor,
+            terminalCursor: appearanceDraft.terminalCursorColor,
+        }));
+    };
+
+    const savePalette = async () => {
+        const name = paletteName.trim();
+        if (!name) return;
+
+        const palette: ColorPalette = {
+            name,
+            appBackgroundColor: appearanceDraft.appBackgroundColor,
+            appForegroundColor: appearanceDraft.appForegroundColor,
+            appAccentColor: appearanceDraft.appAccentColor,
+            terminalBackgroundColor: appearanceDraft.terminalBackgroundColor,
+            terminalForegroundColor: appearanceDraft.terminalForegroundColor,
+            terminalCursorColor: appearanceDraft.terminalCursorColor,
+        };
+
+        // An existing name is overwritten instead of duplicated: two rows differing only in a hidden
+        // suffix would be impossible to tell apart in the dropdown.
+        const next = [...savedPalettes.filter((saved) => saved.name !== name), palette];
+        try {
+            await persistPalettes(next);
+            setSavedPalettes(next);
+            setPaletteName("");
+            setAppearanceStatus(t("palette_saved", {name}));
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const deletePalette = async (name: string) => {
+        const next = savedPalettes.filter((saved) => saved.name !== name);
+        try {
+            await persistPalettes(next);
+            setSavedPalettes(next);
+        } catch (error) {
+            handleAppError(error);
+        }
+    };
+
+    const applyPalette = (colors: Partial<AppearanceSettings>) => {
+        setIsCustomPalette(false);
+        updateAppearance(colors);
+    };
+
+    const builtinPaletteNames: Record<string, string> = {
+        dark: t("palette_dark"),
+        light: t("palette_light"),
+        navy: t("palette_navy"),
+        green: t("palette_green"),
+        "elka-tone": t("palette_elka_tone"),
+    };
+
+    // A saved palette is matched on the six colours it stores, so switching back to it after an
+    // unrelated edit still highlights the right row.
+    const selectedPalette = useMemo(() => {
+        if (isCustomPalette) return "custom";
+        const matches = (colors: Partial<AppearanceSettings>) =>
+            colors.appBackgroundColor === appearanceDraft.appBackgroundColor &&
+            colors.appForegroundColor === appearanceDraft.appForegroundColor &&
+            colors.appAccentColor === appearanceDraft.appAccentColor &&
+            colors.terminalBackgroundColor === appearanceDraft.terminalBackgroundColor &&
+            colors.terminalForegroundColor === appearanceDraft.terminalForegroundColor &&
+            colors.terminalCursorColor === appearanceDraft.terminalCursorColor;
+
+        const builtin = Object.entries(APP_COLOR_PALETTES).find(([, palette]) => matches(palette));
+        if (builtin) return builtin[0];
+        const saved = savedPalettes.find((palette) => matches(palette));
+        return saved ? `saved:${saved.name}` : "custom";
+    }, [appearanceDraft, isCustomPalette, savedPalettes]);
 
     return (
         <TooltipProvider delayDuration={200}>
@@ -462,19 +551,84 @@ export function SettingsPage() {
                                         setIsCustomPalette(true);
                                         return;
                                     }
+                                    if (value.startsWith("saved:")) {
+                                        const saved = savedPalettes.find((palette) => `saved:${palette.name}` === value);
+                                        if (saved) applyPalette(saved);
+                                        return;
+                                    }
                                     const palette = APP_COLOR_PALETTES[value as keyof typeof APP_COLOR_PALETTES];
-                                    setIsCustomPalette(false);
-                                    updateAppearance(palette);
+                                    applyPalette(palette);
                                 }}>
                                     <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="dark">{t("palette_dark")}</SelectItem>
-                                        <SelectItem value="light">{t("palette_light")}</SelectItem>
-                                        <SelectItem value="navy">{t("palette_navy")}</SelectItem>
-                                        <SelectItem value="green">{t("palette_green")}</SelectItem>
+                                        {Object.entries(APP_COLOR_PALETTES).map(([key]) => (
+                                            <SelectItem key={key} value={key}>{builtinPaletteNames[key]}</SelectItem>
+                                        ))}
+                                        {savedPalettes.length > 0 && (
+                                            <>
+                                                <SelectSeparator/>
+                                                {savedPalettes.map((palette) => (
+                                                    <SelectItem key={palette.name} value={`saved:${palette.name}`}>
+                                                        {palette.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </>
+                                        )}
+                                        <SelectSeparator/>
                                         <SelectItem value="custom">{t("palette_custom")}</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </SettingsRow>
+                            {/* Deleting has to live outside the dropdown: a Radix item cannot host a
+                                button, and a nested control inside an option swallows the click that
+                                is supposed to pick the palette. */}
+                            {savedPalettes.length > 0 && (
+                                <SettingsRow label={t("palette_saved_list")}>
+                                    <div className="flex flex-wrap justify-end gap-1.5">
+                                        {savedPalettes.map((palette) => (
+                                            <span
+                                                key={palette.name}
+                                                className="inline-flex items-center gap-1 rounded-md border border-border py-0.5 pl-2 pr-0.5 text-xs">
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="size-3 rounded-full border border-border"
+                                                    style={{backgroundColor: palette.appBackgroundColor}}
+                                                />
+                                                {palette.name}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="size-5"
+                                                    title={t("palette_delete")}
+                                                    aria-label={t("palette_delete_named", {name: palette.name})}
+                                                    onClick={() => void deletePalette(palette.name)}
+                                                >
+                                                    <X className="size-3"/>
+                                                </Button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </SettingsRow>
+                            )}
+                            <SettingsRow label={t("palette_save_label")} controlId={paletteNameId}>
+                                <Input
+                                    id={paletteNameId}
+                                    value={paletteName}
+                                    onChange={(event) => setPaletteName(event.target.value)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Enter") void savePalette();
+                                    }}
+                                    placeholder={t("palette_save_placeholder")}
+                                    className="h-8 w-40"
+                                />
+                                <Button
+                                    variant="outline"
+                                    className="shrink-0"
+                                    disabled={!paletteName.trim()}
+                                    onClick={() => void savePalette()}
+                                >
+                                    {t("palette_save")}
+                                </Button>
                             </SettingsRow>
                             <AppearanceColorInput label={t("app_background_color")} value={appearanceDraft.appBackgroundColor} onChange={(appBackgroundColor) => updateAppearance({appBackgroundColor}, true)}/>
                             <AppearanceColorInput label={t("app_text_color")} value={appearanceDraft.appForegroundColor} onChange={(appForegroundColor) => updateAppearance({appForegroundColor}, true)}/>

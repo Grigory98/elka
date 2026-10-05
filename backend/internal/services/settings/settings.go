@@ -12,33 +12,46 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+// ColorPalette is a set of colours the user saved under a name of their own, so that switching
+// between looks does not mean entering the same six values again.
+type ColorPalette struct {
+	Name                    string `json:"name"`
+	AppBackgroundColor      string `json:"appBackgroundColor"`
+	AppForegroundColor      string `json:"appForegroundColor"`
+	AppAccentColor          string `json:"appAccentColor"`
+	TerminalBackgroundColor string `json:"terminalBackgroundColor"`
+	TerminalForegroundColor string `json:"terminalForegroundColor"`
+	TerminalCursorColor     string `json:"terminalCursorColor"`
+}
+
 type AppSettings struct {
-	Language              string `json:"language"`
-	ShowHostGroups        bool   `json:"showHostGroups"`
-	ShowSidebarToggle     bool   `json:"showSidebarToggle"`
-	ServerMetrics         bool   `json:"serverMetrics"`
-	HostViewMode          string `json:"hostViewMode"`
-	GroupViewMode         string `json:"groupViewMode"`
-	AppBackgroundColor    string `json:"appBackgroundColor,omitempty"`
-	AppForegroundColor    string `json:"appForegroundColor,omitempty"`
-	AppAccentColor        string `json:"appAccentColor,omitempty"`
-	AppFontFamily         string `json:"appFontFamily,omitempty"`
-	TerminalBackground    string `json:"terminalBackground,omitempty"`
-	TerminalForeground    string `json:"terminalForeground,omitempty"`
-	TerminalCursor        string `json:"terminalCursor,omitempty"`
-	TerminalCursorStyle   string `json:"terminalCursorStyle,omitempty"`
-	TerminalFontFamily    string `json:"terminalFontFamily,omitempty"`
-	TerminalFontSize      int    `json:"terminalFontSize,omitempty"`
-	SplitPaneBorder       string `json:"splitPaneBorder,omitempty"`
-	SplitPaneHeaderColor  string `json:"splitPaneHeaderColor,omitempty"`
-	ServerMetricsColor    string `json:"serverMetricsColor,omitempty"`
-	SidebarColor          string `json:"sidebarColor,omitempty"`
-	InputColor            string `json:"inputColor,omitempty"`
-	RingColor             string `json:"ringColor,omitempty"`
-	GroupViewModeVersion  int    `json:"groupViewModeVersion,omitempty"`
-	VaultDirectory        string `json:"vaultDirectory"`
-	PendingVaultDirectory string `json:"pendingVaultDirectory,omitempty"`
-	PendingVaultAction    string `json:"pendingVaultAction,omitempty"`
+	Language              string         `json:"language"`
+	ShowHostGroups        bool           `json:"showHostGroups"`
+	ShowSidebarToggle     bool           `json:"showSidebarToggle"`
+	ServerMetrics         bool           `json:"serverMetrics"`
+	HostViewMode          string         `json:"hostViewMode"`
+	GroupViewMode         string         `json:"groupViewMode"`
+	AppBackgroundColor    string         `json:"appBackgroundColor,omitempty"`
+	AppForegroundColor    string         `json:"appForegroundColor,omitempty"`
+	AppAccentColor        string         `json:"appAccentColor,omitempty"`
+	AppFontFamily         string         `json:"appFontFamily,omitempty"`
+	TerminalBackground    string         `json:"terminalBackground,omitempty"`
+	TerminalForeground    string         `json:"terminalForeground,omitempty"`
+	TerminalCursor        string         `json:"terminalCursor,omitempty"`
+	TerminalCursorStyle   string         `json:"terminalCursorStyle,omitempty"`
+	TerminalFontFamily    string         `json:"terminalFontFamily,omitempty"`
+	TerminalFontSize      int            `json:"terminalFontSize,omitempty"`
+	SplitPaneBorder       string         `json:"splitPaneBorder,omitempty"`
+	SplitPaneHeaderColor  string         `json:"splitPaneHeaderColor,omitempty"`
+	ServerMetricsColor    string         `json:"serverMetricsColor,omitempty"`
+	SidebarColor          string         `json:"sidebarColor,omitempty"`
+	InputColor            string         `json:"inputColor,omitempty"`
+	RingColor             string         `json:"ringColor,omitempty"`
+	SavedPalettes         []ColorPalette `json:"savedPalettes,omitempty"`
+	GroupViewModeVersion  int            `json:"groupViewModeVersion,omitempty"`
+	VaultDirectory        string         `json:"vaultDirectory"`
+	PendingVaultDirectory string         `json:"pendingVaultDirectory,omitempty"`
+	PendingVaultAction    string         `json:"pendingVaultAction,omitempty"`
 }
 
 type SettingsService struct {

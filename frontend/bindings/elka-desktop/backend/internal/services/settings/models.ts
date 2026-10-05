@@ -28,6 +28,7 @@ export class AppSettings {
     "sidebarColor"?: string;
     "inputColor"?: string;
     "ringColor"?: string;
+    "savedPalettes"?: ColorPalette[];
     "groupViewModeVersion"?: number;
     "vaultDirectory": string;
     "pendingVaultDirectory"?: string;
@@ -66,5 +67,50 @@ export class AppSettings {
     static createFrom($$source: any = {}): AppSettings {
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         return new AppSettings($$parsedSource as Partial<AppSettings>);
+    }
+}
+
+export class ColorPalette {
+    "name": string;
+    "appBackgroundColor": string;
+    "appForegroundColor": string;
+    "appAccentColor": string;
+    "terminalBackgroundColor": string;
+    "terminalForegroundColor": string;
+    "terminalCursorColor": string;
+
+    /** Creates a new ColorPalette instance. */
+    constructor($$source: Partial<ColorPalette> = {}) {
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("appBackgroundColor" in $$source)) {
+            this["appBackgroundColor"] = "";
+        }
+        if (!("appForegroundColor" in $$source)) {
+            this["appForegroundColor"] = "";
+        }
+        if (!("appAccentColor" in $$source)) {
+            this["appAccentColor"] = "";
+        }
+        if (!("terminalBackgroundColor" in $$source)) {
+            this["terminalBackgroundColor"] = "";
+        }
+        if (!("terminalForegroundColor" in $$source)) {
+            this["terminalForegroundColor"] = "";
+        }
+        if (!("terminalCursorColor" in $$source)) {
+            this["terminalCursorColor"] = "";
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new ColorPalette instance from a string or object.
+     */
+    static createFrom($$source: any = {}): ColorPalette {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new ColorPalette($$parsedSource as Partial<ColorPalette>);
     }
 }
