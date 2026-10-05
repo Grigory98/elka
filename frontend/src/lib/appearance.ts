@@ -1,3 +1,5 @@
+import { DEFAULT_TERMINAL_FONT_FAMILY } from "@/lib/terminalFont";
+
 export interface AppearanceSettings {
     appBackgroundColor: string;
     appForegroundColor: string;
@@ -32,7 +34,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     terminalForegroundColor: "#fafafa",
     terminalCursorColor: "#fafafa",
     terminalCursorStyle: "block",
-    terminalFontFamily: "Cascadia Code",
+    terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
     terminalFontSize: 14,
     splitPaneBorderColor: "",
     sidebarColor: "",
@@ -65,28 +67,52 @@ export const APP_COLOR_PALETTES = {
     },
 } as const;
 
+/**
+ * Families offered for the interface itself. The terminal has its own, monospace only list in
+ * `terminalFont.ts`, and Source Code Pro appears in both because a monospaced interface is a valid
+ * choice.
+ *
+ * Every entry here has to cover the whole Russian alphabet in its bundled subsets. A family without
+ * them renders the Russian interface through the system font instead, so Lato, Work Sans, DM Sans and
+ * Plus Jakarta Sans were dropped rather than left to fail halfway through a word.
+ */
 export const FONT_FAMILIES = [
     {family: "Geist Variable", label: "Geist"},
     {family: "Inter", label: "Inter"},
     {family: "Roboto", label: "Roboto"},
     {family: "Open Sans", label: "Open Sans"},
-    {family: "Lato", label: "Lato"},
     {family: "Montserrat", label: "Montserrat"},
     {family: "Noto Sans", label: "Noto Sans"},
     {family: "Source Sans 3", label: "Source Sans 3"},
     {family: "Nunito Sans", label: "Nunito Sans"},
-    {family: "Work Sans", label: "Work Sans"},
+    {family: "Nunito", label: "Nunito"},
+    {family: "Rubik", label: "Rubik"},
+    {family: "Raleway", label: "Raleway"},
+    {family: "PT Sans", label: "PT Sans"},
+    {family: "Mulish", label: "Mulish"},
+    {family: "Jost", label: "Jost"},
     {family: "Ubuntu", label: "Ubuntu"},
     {family: "IBM Plex Sans", label: "IBM Plex Sans"},
     {family: "Manrope", label: "Manrope"},
-    {family: "DM Sans", label: "DM Sans"},
-    {family: "Plus Jakarta Sans", label: "Plus Jakarta Sans"},
     {family: "Fira Sans", label: "Fira Sans"},
+    {family: "Commissioner", label: "Commissioner"},
+    {family: "Onest", label: "Onest"},
     {family: "IBM Plex Mono", label: "IBM Plex Mono"},
     {family: "Roboto Mono", label: "Roboto Mono"},
     {family: "JetBrains Mono", label: "JetBrains Mono"},
     {family: "Fira Code", label: "Fira Code"},
+    {family: "Source Code Pro", label: "Source Code Pro"},
 ] as const;
+
+const APP_FONT_FAMILIES: readonly string[] = FONT_FAMILIES.map((font) => font.family);
+
+/**
+ * A font saved by an older build, or one that has since been dropped from the list, would leave the
+ * settings dropdown showing nothing at all.
+ */
+export function resolveAppFontFamily(family: string) {
+    return APP_FONT_FAMILIES.includes(family) ? family : DEFAULT_APPEARANCE.appFontFamily;
+}
 
 // Mirrored in the inline splash script of index.html, which reads it before any bundle loads.
 const APPEARANCE_STORAGE_KEY = "elka.appearance";
@@ -245,11 +271,6 @@ export function getInitialAppearance(): AppearanceSettings {
         appForegroundColor: cached.foreground || DEFAULT_APPEARANCE.appForegroundColor,
         appAccentColor: cached.accent || DEFAULT_APPEARANCE.appAccentColor,
     };
-}
-
-export function terminalFontStack(fontFamily: string) {
-    if (fontFamily === "Cascadia Code") return '"Cascadia Code", Consolas, monospace';
-    return `"${fontFamily}", monospace`;
 }
 
 export function terminalSelectionColor(color: string) {

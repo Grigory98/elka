@@ -50,6 +50,7 @@
   "input_accent_color": "Input accent",
   "color_follow_theme": "Follow theme",
   "app_font_label": "Application font",
+  "font_from_system": "{{name}} (system)",
   "terminal_background_color": "Terminal background",
   "terminal_text_color": "Terminal text",
   "terminal_cursor_color": "Terminal cursor",

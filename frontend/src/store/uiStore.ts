@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { getInitialAppearance } from "@/lib/appearance";
+import { getInitialAppearance, resolveAppFontFamily } from "@/lib/appearance";
 import type { AppearanceSettings } from "@/lib/appearance";
+import { resolveTerminalFontFamily } from "@/lib/terminalFont";
 
 export enum ViewType {
     Hosts = "hosts",
@@ -55,6 +56,15 @@ export const useUIStore = create<UIState>((set) => ({
     setSelectedHostGroup: (group) => set({selectedHostGroup: group}),
     setHostViewMode: (mode) => set({hostViewMode: mode}),
     setGroupViewMode: (mode) => set({groupViewMode: mode}),
-    setAppearance: (appearance) => set({appearance}),
+    setAppearance: (appearance) => set({
+        appearance: {
+            ...appearance,
+            // A font saved by an older build, or one that has since been dropped from the list, would
+            // leave the settings dropdown blank. The terminal case matters twice over, because a grid
+            // that cannot match its glyphs is unreadable.
+            appFontFamily: resolveAppFontFamily(appearance.appFontFamily),
+            terminalFontFamily: resolveTerminalFontFamily(appearance.terminalFontFamily),
+        },
+    }),
     toggleSidebar: () => set((state) => ({isSidebarVisible: !state.isSidebarVisible})),
 }));

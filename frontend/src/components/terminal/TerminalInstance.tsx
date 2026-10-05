@@ -6,9 +6,12 @@ import type {
     PointerEvent as ReactPointerEvent,
 } from "react";
 import { Terminal } from "@xterm/xterm";
+import type { IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { Events, Clipboard } from "@wailsio/runtime";
 import { createTerminalOptions } from "@/lib/terminalTheme";
+import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
@@ -78,6 +81,8 @@ export function TerminalInstance({
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
     const isConnecting = connectionState === "connecting";
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
+    // Output that arrives before xterm exists, because the font it has to measure was still loading.
+    const pendingWritesRef = useRef<Uint8Array[]>([]);
     const appearanceRef = useRef(appearance);
     appearanceRef.current = appearance;
     const onFocusRef = useRef(onFocus);
@@ -175,51 +180,21 @@ export function TerminalInstance({
     };
 
     useEffect(() => {
-        if (!containerRef.current || terminalRef.current) return;
         const container = containerRef.current;
+        if (!container || terminalRef.current) return;
 
-        const term = new Terminal(createTerminalOptions(appearanceRef.current));
-        const fitAddon = new FitAddon();
-
-        term.loadAddon(fitAddon);
-        term.open(containerRef.current);
-
-        terminalRef.current = term;
-        fitAddonRef.current = fitAddon;
+        let cancelled = false;
+        let onDataDisposable: IDisposable | null = null;
         const handleFocus = () => onFocusRef.current();
         container.addEventListener("focusin", handleFocus);
-
-        term.attachCustomKeyEventHandler((arg) => {
-            if (arg.type === "keydown") {
-                if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyC") {
-                    arg.preventDefault();
-                    const selection = term.getSelection();
-                    if (selection) {
-                        Clipboard.SetText(selection).catch(console.error);
-                    }
-                    return false;
-                }
-
-                if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyV") {
-                    arg.preventDefault();
-                    Clipboard.Text().then((text) => {
-                        if (text && isReadyRef.current) {
-                            term.paste(text);
-                        }
-                    }).catch(console.error);
-                    return false;
-                }
-            }
-            return true;
-        });
 
         const handleContextMenu = (e: MouseEvent) => {
             e.preventDefault();
 
-            const selection = term.getSelection();
+            const selection = terminalRef.current?.getSelection();
             if (selection) {
                 Clipboard.SetText(selection).catch(console.error);
-                term.clearSelection();
+                terminalRef.current?.clearSelection();
             } else {
                 Clipboard.Text().then((text) => {
                     if (text && isReadyRef.current) {
@@ -228,36 +203,92 @@ export function TerminalInstance({
                 }).catch(console.error);
             }
         };
-        containerRef.current.addEventListener("contextmenu", handleContextMenu);
+        container.addEventListener("contextmenu", handleContextMenu);
 
-        if (!hasConnectedRef.current) {
-            hasConnectedRef.current = true;
-            SshService.Connect(config)
-                .then(() => {
-                    isReadyRef.current = true;
-                    setConnectionState("ready");
-                })
-                .catch((err) => {
-                    // The error is printed into the terminal, so the overlay has to give way to it.
-                    hasFailedRef.current = true;
-                    setConnectionState("failed");
+        // xterm measures the character cell once, when it opens, and keeps that measurement for the
+        // lifetime of the instance. A web font that is still downloading at that moment is measured
+        // through the fallback face, so every glyph ends up drawn at the wrong pitch and the columns
+        // stop lining up. Nothing in xterm waits for a font, so opening is deferred until the face is
+        // really in use, and output that arrives meanwhile is buffered below.
+        const start = async () => {
+            const current = appearanceRef.current;
+            await ensureTerminalFontLoaded(current.terminalFontFamily, current.terminalFontSize);
+            if (cancelled || terminalRef.current) return;
+
+            const term = new Terminal(createTerminalOptions(current));
+            const fitAddon = new FitAddon();
+            // Without the Unicode 11 tables the built in ones misjudge the width of newer characters,
+            // which shifts the rest of the line sideways.
+            term.loadAddon(new Unicode11Addon());
+            term.loadAddon(fitAddon);
+            term.open(container);
+
+            terminalRef.current = term;
+            fitAddonRef.current = fitAddon;
+
+            const buffered = pendingWritesRef.current;
+            if (buffered.length > 0) {
+                pendingWritesRef.current = [];
+                for (const chunk of buffered) term.write(chunk);
+            }
+
+            term.attachCustomKeyEventHandler((arg) => {
+                if (arg.type === "keydown") {
+                    if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyC") {
+                        arg.preventDefault();
+                        const selection = term.getSelection();
+                        if (selection) {
+                            Clipboard.SetText(selection).catch(console.error);
+                        }
+                        return false;
+                    }
+
+                    if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyV") {
+                        arg.preventDefault();
+                        Clipboard.Text().then((text) => {
+                            if (text && isReadyRef.current) {
+                                term.paste(text);
+                            }
+                        }).catch(console.error);
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            onDataDisposable = term.onData((data) => {
+                if (!isReadyRef.current) return;
+
+                SshService.Input(sessionId, data).catch((err) => {
                     printErrorToTerminal(err);
                 });
-        }
-
-        const onDataDisposable = term.onData((data) => {
-            if (!isReadyRef.current) return;
-
-            SshService.Input(sessionId, data).catch((err) => {
-                printErrorToTerminal(err);
             });
-        });
+
+            if (!hasConnectedRef.current) {
+                hasConnectedRef.current = true;
+                SshService.Connect(config)
+                    .then(() => {
+                        isReadyRef.current = true;
+                        setConnectionState("ready");
+                    })
+                    .catch((err) => {
+                        // The error is printed into the terminal, so the overlay has to give way to it.
+                        hasFailedRef.current = true;
+                        setConnectionState("failed");
+                        printErrorToTerminal(err);
+                    });
+            }
+
+            fitAndResizeRef.current(true);
+        };
+        void start();
 
         return () => {
+            cancelled = true;
             container.removeEventListener("contextmenu", handleContextMenu);
             container.removeEventListener("focusin", handleFocus);
-            onDataDisposable.dispose();
-            term.dispose();
+            onDataDisposable?.dispose();
+            terminalRef.current?.dispose();
             terminalRef.current = null;
             fitAddonRef.current = null;
             SshService.Disconnect(sessionId).catch(() => {
@@ -268,12 +299,28 @@ export function TerminalInstance({
     useEffect(() => {
         const terminal = terminalRef.current;
         if (!terminal) return;
-        const options = createTerminalOptions(appearance);
-        terminal.options.fontFamily = options.fontFamily;
-        terminal.options.fontSize = options.fontSize;
-        terminal.options.theme = options.theme;
-        terminal.refresh(0, terminal.rows - 1);
-        fitAndResizeRef.current(true);
+
+        let cancelled = false;
+        const apply = async () => {
+            // Same reason as on creation: the new face has to be in use before xterm measures it,
+            // otherwise the grid keeps the pitch of whatever the browser had at that moment.
+            await ensureTerminalFontLoaded(appearance.terminalFontFamily, appearance.terminalFontSize);
+            if (cancelled) return;
+
+            const options = createTerminalOptions(appearance);
+            // Changing a font option is what makes xterm measure the cell again and rebuild its glyph
+            // atlas, so these assignments are the whole fix once the face is available.
+            terminal.options.fontFamily = options.fontFamily;
+            terminal.options.fontSize = options.fontSize;
+            terminal.options.theme = options.theme;
+            terminal.refresh(0, terminal.rows - 1);
+            fitAndResizeRef.current(true);
+        };
+        void apply();
+
+        return () => {
+            cancelled = true;
+        };
     }, [
         appearance.terminalBackgroundColor,
         appearance.terminalCursorColor,
@@ -284,10 +331,16 @@ export function TerminalInstance({
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshData, (event) => {
-            if (event.data.id === sessionId && terminalRef.current) {
-                const rawBytes = decodeBase64ToUint8Array(event.data.data);
+            if (event.data.id !== sessionId) return;
 
-                terminalRef.current.write(rawBytes);
+            const rawBytes = decodeBase64ToUint8Array(event.data.data);
+            const terminal = terminalRef.current;
+            if (terminal) {
+                terminal.write(rawBytes);
+            } else {
+                // The terminal opens once its font is ready, and the handshake output has to survive
+                // that wait instead of being dropped on the floor.
+                pendingWritesRef.current.push(rawBytes);
             }
         });
         return () => unsubscribe();

@@ -12,6 +12,7 @@ import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
+import { ensureTerminalFontLoaded, preloadTerminalFonts } from "@/lib/terminalFont";
 import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
@@ -60,6 +61,13 @@ export default function App() {
     useEffect(() => {
         applyAppAppearance(appearance);
     }, [appearance]);
+
+    useEffect(() => {
+        // Warming the faces here, while the user is still on the hosts screen, keeps the first
+        // terminal from having to wait for a download before xterm can measure its character cell.
+        void ensureTerminalFontLoaded(appearance.terminalFontFamily, appearance.terminalFontSize);
+        preloadTerminalFonts(appearance.terminalFontSize);
+    }, [appearance.terminalFontFamily, appearance.terminalFontSize]);
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshClosed, (event) => {

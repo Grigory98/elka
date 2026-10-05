@@ -50,6 +50,7 @@
   "input_accent_color": "Акцент полей ввода",
   "color_follow_theme": "Как в теме",
   "app_font_label": "Шрифт приложения",
+  "font_from_system": "{{name}} (системный)",
   "terminal_background_color": "Фон терминала",
   "terminal_text_color": "Текст терминала",
   "terminal_cursor_color": "Курсор терминала",

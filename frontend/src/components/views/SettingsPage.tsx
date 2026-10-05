@@ -24,6 +24,7 @@ import {
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES } from "@/lib/appearance";
+import { TERMINAL_FONT_FAMILIES } from "@/lib/terminalFont";
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
@@ -513,8 +514,11 @@ export function SettingsPage() {
                                 <Select value={appearanceDraft.terminalFontFamily} onValueChange={(terminalFontFamily) => updateAppearance({terminalFontFamily})}>
                                     <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Cascadia Code">Cascadia Code (system)</SelectItem>
-                                        {FONT_FAMILIES.map((font) => <SelectItem key={font.family} value={font.family}>{font.label}</SelectItem>)}
+                                        {TERMINAL_FONT_FAMILIES.map((font) => (
+                                            <SelectItem key={font.family} value={font.family}>
+                                                {font.system ? t("font_from_system", {name: font.label}) : font.label}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </SettingsRow>

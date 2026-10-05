@@ -1,6 +1,7 @@
 import type { ITerminalOptions } from "@xterm/xterm";
 import type { AppearanceSettings } from "@/lib/appearance";
-import { terminalFontStack, terminalSelectionColor, DEFAULT_APPEARANCE } from "@/lib/appearance";
+import { terminalSelectionColor, DEFAULT_APPEARANCE } from "@/lib/appearance";
+import { terminalFontStack } from "@/lib/terminalFont";
 
 export function createTerminalOptions(appearance: AppearanceSettings = DEFAULT_APPEARANCE): ITerminalOptions {
     return {
