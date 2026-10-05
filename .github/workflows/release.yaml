@@ -196,6 +196,10 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          # This job has no checkout, so gh cannot work out the repository from a git remote and
+          # dies with "not a git repository". Naming it explicitly removes the git dependency
+          # entirely, which is why there is no checkout step here.
+          GH_REPO: ${{ github.repository }}
         run: |
           TAG="v${GITHUB_REF_NAME#v}"
 
@@ -207,7 +211,13 @@ jobs:
             *-rc*|*-beta*|*-alpha*) prerelease=(--prerelease) ;;
           esac
 
-          mapfile -t files < <(find installers -type f | sort)
+          # Read into an array with a loop rather than mapfile: that builtin needs bash 4, and the
+          # workflow declares no shell version, so relying on it would only work by accident.
+          files=()
+          while IFS= read -r f; do
+            files+=("$f")
+          done < <(find installers -type f | sort)
+
           if [ "${#files[@]}" -ne 5 ]; then
             echo "expected 5 installers, found ${#files[@]}: ${files[*]}" >&2
             exit 1
