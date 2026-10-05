@@ -20,7 +20,7 @@ import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
 import { AppEvent } from "@/lib/events.ts";
-import { Columns2, CopyPlus, FolderOpen, GripVertical, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
+import { Columns2, CopyPlus, FolderOpen, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 
@@ -382,13 +382,15 @@ export function TerminalInstance({
             {isSplitPane && (
                 <ContextMenuPrimitive.Root>
                 <ContextMenuPrimitive.Trigger asChild>
+                {/* Левая часть шапки и есть зона перетаскивания терминала: от левого края панели
+                    до кнопок справа. Отдельный значок захвата для этого не нужен, а роль перетаскивания
+                    окна сюда приклеивать нельзя — на нём ловится и правая кнопка, из-за чего контекстное
+                    меню по шапке переставало открываться и вместо него двигалось окно. */}
                 <div
-                    className="flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 px-1"
+                    className="flex h-6 shrink-0 items-center justify-between gap-1 border-b border-white/15 pl-3 pr-1"
                     style={{backgroundColor: "var(--split-pane-header)"}}
                 >
-                    <div className="flex min-w-0 items-center gap-1.5">
-                    <button
-                        type="button"
+                    <div
                         draggable
                         onDragStart={(event) => {
                             event.dataTransfer.setData(TERMINAL_SESSION_DRAG_TYPE, sessionId);
@@ -396,10 +398,8 @@ export function TerminalInstance({
                         }}
                         title={t("drag_pane")}
                         aria-label={t("drag_pane")}
-                        className="flex size-5 shrink-0 cursor-grab items-center justify-center rounded hover:bg-muted active:cursor-grabbing"
+                        className="flex min-w-0 flex-1 cursor-grab items-center active:cursor-grabbing"
                     >
-                        <GripVertical className="size-3.5"/>
-                    </button>
                     <span className="truncate text-xs font-medium text-foreground">{paneTitle || config.host}</span>
                     </div>
                     <div className="flex shrink-0 items-center gap-0.5">
