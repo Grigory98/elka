@@ -57,10 +57,9 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                // pb-[21px] вместо pb-4: заголовок стал ниже на 5px вместе с вкладкой, поэтому и нижние
-                // элементы подняты на те же 5px, чтобы отступ от нижней границы вкладки не изменился.
-                // Связано с высотой вкладки и заголовка в TitleBar, см. комментарий там.
-                "wails-no-drag relative z-30 flex shrink-0 flex-col items-center justify-between pb-[21px] pt-2",
+                // Нижние элементы панели держат тот же отступ от нижней границы вкладки при любой её
+                // высоте: значение выведено из --tab-height в main.css.
+                "wails-no-drag relative z-30 flex shrink-0 flex-col items-center justify-between pb-[var(--sidebar-bottom)] pt-2",
                 isSidebarVisible ? "w-14" : "w-0 overflow-hidden border-r-0"
             )}
         >
