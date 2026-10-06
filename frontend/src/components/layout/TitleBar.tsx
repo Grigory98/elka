@@ -16,6 +16,7 @@ import { NameDialog } from "@/components/layout/NameDialog";
 import { SFTPBrowser } from "@/components/terminal/SFTPBrowser";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isMac } from "@/lib/platform";
 import { useAuthStore } from "@/store/authStore.ts";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -72,7 +73,7 @@ export function TitleBar() {
     const {activeView, isSidebarVisible, showSidebarToggle, toggleSidebar, setActiveView, setSelectedHostGroup, setPaneDropPreview} = useUIStore();
 
     const isTerminalView = activeView === ViewType.Terminal;
-    const isMacOS = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
+    const isMacOS = isMac();
 
     const {isUnlocked} = useAuthStore();
     const showSidebarButtonVisible = isUnlocked && showSidebarToggle;

@@ -13,6 +13,7 @@ import { Events, Clipboard } from "@wailsio/runtime";
 import { createTerminalOptions } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
+import { terminalNavigationSequence } from "@/lib/terminalKeys";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
@@ -226,6 +227,13 @@ export function TerminalInstance({
 
             term.attachCustomKeyEventHandler((arg) => {
                 if (arg.type === "keydown") {
+                    const navigationSequence = terminalNavigationSequence(arg);
+                    if (navigationSequence) {
+                        arg.preventDefault();
+                        term.paste(navigationSequence);
+                        return false;
+                    }
+
                     if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyC") {
                         arg.preventDefault();
                         const selection = term.getSelection();
