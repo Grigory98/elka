@@ -13,15 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { CredentialModal } from "@/components/views/CredentialModal";
 import { useCredentials, useDeleteCredential, useSaveCredential } from "@/hooks/useCredentials";
-import { CredentialKind, SavedCredential } from "../../../bindings/elka-desktop/backend/internal/services/blob";
-
-function credentialParts(credential: SavedCredential) {
-    return {
-        password: credential.password || (credential.kind === CredentialKind.CredentialKindPassword ? credential.secret : "") || "",
-        passphrase: credential.passphrase || (credential.kind === CredentialKind.CredentialKindPassphrase ? credential.secret : "") || "",
-        privateKey: credential.privateKey || (credential.kind === CredentialKind.CredentialKindPrivateKey ? credential.secret : "") || "",
-    };
-}
+import { SavedCredential } from "../../../bindings/elka-desktop/backend/internal/services/blob";
+import { credentialParts } from "@/lib/credentials";
 
 export function CredentialsPage() {
     const {t} = useTranslation(["credentials", "common"]);

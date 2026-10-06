@@ -1,6 +1,6 @@
 import { useState, useEffect, SyntheticEvent } from "react";
 import {useTranslation} from "react-i18next";
-import {ArrowDown, ArrowLeftRight, ArrowUp, Plus, Trash2} from "lucide-react";
+import {ArrowDown, ArrowLeftRight, ArrowUp, Folder, Plus, Trash2} from "lucide-react";
 import {Host, ItemType, JumpHopMode, JumpHostHop, PortForward, PortForwardMode} from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
@@ -14,6 +14,8 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import {SearchableSelect} from "@/components/ui/searchable-select";
+import {credentialParts} from "@/lib/credentials";
+import {cn} from "@/lib/utils";
 import {useKeys} from "@/hooks/useKeys";
 import {useCredentials} from "@/hooks/useCredentials";
 import {useGroups} from "@/hooks/useGroups";
@@ -58,6 +60,16 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
     const jumpHosts = (hosts || []).filter((host) => host.id !== formData.id);
     const selectedGroup = groups?.find((group) => group.name.trim().toLocaleLowerCase() === formData.group?.trim().toLocaleLowerCase());
     const selectedCredential = credentials?.find((credential) => credential.id === (formData.credentialId || selectedGroup?.credentialId));
+    const groupCredential = credentials?.find((credential) => credential.id === selectedGroup?.credentialId);
+    const isGroupCredentialOverridden = !!groupCredential && !!formData.credentialId;
+    const groupCredentialSummary = groupCredential
+        ? [
+            groupCredential.username && `${t("username", {ns: "common"})}: ${groupCredential.username}`,
+            credentialParts(groupCredential).password && t("password_kind", {ns: "credentials"}),
+            credentialParts(groupCredential).passphrase && t("passphrase_kind", {ns: "credentials"}),
+            credentialParts(groupCredential).privateKey && t("private_key_kind", {ns: "credentials"}),
+        ].filter(Boolean).join(" · ")
+        : "";
     const legacyPasswordCredential = credentials?.find((credential) => credential.id === formData.passwordCredentialId);
     const inheritedUsername = legacyPasswordCredential?.username || selectedCredential?.username;
 
@@ -457,10 +469,21 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
                             searchPlaceholder={t("search_group", {ns: "hosts"})}
                             emptyLabel={t("no_groups_found", {ns: "hosts"})}
                         />
-                        {selectedGroup?.credentialId && !formData.credentialId && (
-                            <p className="text-xs text-muted-foreground">
-                                {t("inherited_group_credential", {ns: "credentials", name: selectedCredential?.name})}
-                            </p>
+                        {selectedGroup && groupCredential && (
+                            <div className="grid gap-1 rounded-md border border-dashed border-border bg-muted/30 p-2.5 text-xs">
+                                <div className="flex items-center gap-1.5 font-medium">
+                                    <Folder className="size-3.5 shrink-0 text-muted-foreground"/>
+                                    {t("group_credentials_title", {ns: "credentials", name: selectedGroup.name})}
+                                </div>
+                                {groupCredentialSummary && (
+                                    <p className="text-muted-foreground">{groupCredentialSummary}</p>
+                                )}
+                                <p className={cn("text-muted-foreground", isGroupCredentialOverridden && "text-amber-600 dark:text-amber-400")}>
+                                    {isGroupCredentialOverridden
+                                        ? t("group_credentials_overridden", {ns: "credentials"})
+                                        : t("group_credentials_precedence", {ns: "credentials"})}
+                                </p>
+                            </div>
                         )}
                     </div>
 
