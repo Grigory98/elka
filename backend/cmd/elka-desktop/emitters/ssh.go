@@ -21,6 +21,15 @@ type SSHClosedPayload struct {
 	ID string `json:"id"`
 }
 
+type SFTPProgressPayload struct {
+	ID          string `json:"id"`
+	Direction   string `json:"direction"`
+	Name        string `json:"name"`
+	Path        string `json:"path"`
+	Transferred int64  `json:"transferred"`
+	Total       int64  `json:"total"`
+}
+
 type SSHMetricsPayload struct {
 	ID     string  `json:"id"`
 	CPU    float64 `json:"cpu"`
@@ -42,9 +51,10 @@ type SSHMetricsPayload struct {
 }
 
 const (
-	SSHDataEvent    = "ssh:data"
-	SSHClosedEvent  = "ssh:closed"
-	SSHMetricsEvent = "ssh:metrics"
+	SSHDataEvent      = "ssh:data"
+	SSHClosedEvent    = "ssh:closed"
+	SSHMetricsEvent   = "ssh:metrics"
+	SFTPProgressEvent = "sftp:progress"
 )
 
 func NewWailsSSHEmitter(app *application.App) *WailsSSHEmitter {
@@ -61,6 +71,17 @@ func (e *WailsSSHEmitter) EmitData(sessionID string, data []byte) {
 func (e *WailsSSHEmitter) EmitClosed(sessionID string) {
 	e.app.Event.Emit(SSHClosedEvent, SSHClosedPayload{
 		ID: sessionID,
+	})
+}
+
+func (e *WailsSSHEmitter) EmitSFTPProgress(sessionID, direction, name, remotePath string, transferred, total int64) {
+	e.app.Event.Emit(SFTPProgressEvent, SFTPProgressPayload{
+		ID:          sessionID,
+		Direction:   direction,
+		Name:        name,
+		Path:        remotePath,
+		Transferred: transferred,
+		Total:       total,
 	})
 }
 

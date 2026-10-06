@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"elka-desktop/backend/internal/apperror"
 	"errors"
 	"fmt"
@@ -23,6 +24,7 @@ type SSHEmitter interface {
 	EmitData(sessionID string, data []byte)
 	EmitClosed(sessionID string)
 	EmitMetrics(sessionID string, metrics ServerMetrics)
+	EmitSFTPProgress(sessionID, direction, name, remotePath string, transferred, total int64)
 }
 
 type SSHConnectionConfig struct {
@@ -97,6 +99,8 @@ type SshService struct {
 const timeout = 15 * time.Second
 
 const batchRatePerSecond = 60
+
+const sftpProgressInterval = 150 * time.Millisecond
 
 func NewSshService(emitter SSHEmitter, app *application.App) *SshService {
 	return &SshService{
@@ -448,7 +452,7 @@ func (s *SshService) ListSFTPDirectory(sessionID, directory string) (SFTPDirecto
 	return SFTPDirectory{Path: directory, Entries: entries}, nil
 }
 
-func (s *SshService) DownloadSFTPFile(sessionID, remotePath, suggestedFilename, dialogTitle string) (bool, error) {
+func (s *SshService) DownloadSFTPFile(ctx context.Context, sessionID, remotePath, suggestedFilename, dialogTitle string) (bool, error) {
 	client, err := s.newSFTPClient(sessionID)
 	if err != nil {
 		return false, err
@@ -489,8 +493,18 @@ func (s *SshService) DownloadSFTPFile(sessionID, remotePath, suggestedFilename, 
 	if err != nil {
 		return false, fmt.Errorf("create local file %s: %w", localPath, err)
 	}
-	if _, err = io.Copy(localFile, remoteFile); err != nil {
+	var total int64
+	if info, statErr := remoteFile.Stat(); statErr == nil {
+		total = info.Size()
+	}
+	if err = s.copySFTPWithProgress(ctx, sessionID, "download", path.Base(remotePath), remotePath, remoteFile, localFile, total); err != nil {
 		_ = localFile.Close()
+		if errors.Is(err, context.Canceled) {
+			// A cancelled download leaves a truncated file behind, and a truncated file that looks
+			// complete is worse than no file at all.
+			_ = os.Remove(localPath)
+			return false, err
+		}
 		return false, fmt.Errorf("download remote file %s: %w", remotePath, err)
 	}
 	if err = localFile.Close(); err != nil {
@@ -499,7 +513,7 @@ func (s *SshService) DownloadSFTPFile(sessionID, remotePath, suggestedFilename, 
 	return true, nil
 }
 
-func (s *SshService) UploadSFTPFile(sessionID, remotePath string, data []byte) error {
+func (s *SshService) UploadSFTPFile(ctx context.Context, sessionID, remotePath string, data []byte) error {
 	client, err := s.newSFTPClient(sessionID)
 	if err != nil {
 		return err
@@ -514,14 +528,56 @@ func (s *SshService) UploadSFTPFile(sessionID, remotePath string, data []byte) e
 	if err != nil {
 		return fmt.Errorf("create remote file %s: %w", remotePath, err)
 	}
-	if _, err = io.Copy(file, bytes.NewReader(data)); err != nil {
+	if err = s.copySFTPWithProgress(ctx, sessionID, "upload", path.Base(remotePath), remotePath, bytes.NewReader(data), file, int64(len(data))); err != nil {
 		_ = file.Close()
+		if errors.Is(err, context.Canceled) {
+			_ = client.Remove(remotePath)
+			return err
+		}
 		return fmt.Errorf("write remote file %s: %w", remotePath, err)
 	}
 	if err = file.Close(); err != nil {
 		return fmt.Errorf("close remote file %s: %w", remotePath, err)
 	}
 	return nil
+}
+
+// copySFTPWithProgress moves the bytes itself instead of leaning on io.Copy, because pkg/sftp provides
+// WriteTo and ReadFrom fast paths that would read or write around any counting wrapper, and the
+// frontend only ever repaints on an emitted event, so one event per buffer would be wasted work.
+func (s *SshService) copySFTPWithProgress(ctx context.Context, sessionID, direction, name, remotePath string, source io.Reader, target io.Writer, total int64) error {
+	buffer := make([]byte, 128*1024)
+	var transferred int64
+	lastReport := time.Now()
+	s.emitter.EmitSFTPProgress(sessionID, direction, name, remotePath, transferred, total)
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		read, readErr := source.Read(buffer)
+		if read > 0 {
+			if _, err := target.Write(buffer[:read]); err != nil {
+				return err
+			}
+			transferred += int64(read)
+			if time.Since(lastReport) >= sftpProgressInterval {
+				lastReport = time.Now()
+				// The caller has already been told the transfer is over once the context is done,
+				// so a last event here would put a progress bar back on screen for good.
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				s.emitter.EmitSFTPProgress(sessionID, direction, name, remotePath, transferred, total)
+			}
+		}
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				return nil
+			}
+			return readErr
+		}
+	}
 }
 
 func (s *SshService) newSFTPClient(sessionID string) (*sftp.Client, error) {
