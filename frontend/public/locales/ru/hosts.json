@@ -15,6 +15,8 @@
   "new_title": "Новый хост",
   "group_label": "Группа",
   "select_group": "Выберите группу...",
+  "search_group": "Поиск группы...",
+  "no_groups_found": "Группы не найдены.",
   "no_group": "Без группы",
   "new_group": "Создать группу",
   "filtered_group": "Группа: {{name}}",

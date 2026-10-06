@@ -15,6 +15,8 @@
   "new_title": "New Host",
   "group_label": "Group",
   "select_group": "Select a group...",
+  "search_group": "Search groups...",
+  "no_groups_found": "No groups found.",
   "no_group": "No group",
   "new_group": "New Group",
   "filtered_group": "Showing group: {{name}}",

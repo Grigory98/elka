@@ -13,10 +13,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {SearchableSelect} from "@/components/ui/searchable-select";
 import {useKeys} from "@/hooks/useKeys";
 import {useCredentials} from "@/hooks/useCredentials";
 import {useGroups} from "@/hooks/useGroups";
 import {useHosts} from "@/hooks/useHosts";
+
+const NO_GROUP_VALUE = "none";
 
 interface HostModalProps {
     isOpen: boolean;
@@ -440,18 +443,20 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
 
                     <div className="order-2 grid gap-2">
                         <Label>{t("group_label", {ns: "hosts"})}</Label>
-                        <Select
-                            value={formData.group || "none"}
-                            onValueChange={(value) => setFormData({...formData, group: value === "none" ? undefined : value})}
-                        >
-                            <SelectTrigger><SelectValue placeholder={t("select_group", {ns: "hosts"})}/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">{t("no_group", {ns: "hosts"})}</SelectItem>
-                                {groups?.map((group) => (
-                                    <SelectItem key={group.id} value={group.name}>{group.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                            value={formData.group || NO_GROUP_VALUE}
+                            onValueChange={(value) => setFormData({
+                                ...formData,
+                                group: value === NO_GROUP_VALUE ? undefined : value,
+                            })}
+                            options={[
+                                {value: NO_GROUP_VALUE, label: t("no_group", {ns: "hosts"})},
+                                ...(groups || []).map((group) => ({value: group.name, label: group.name})),
+                            ]}
+                            placeholder={t("select_group", {ns: "hosts"})}
+                            searchPlaceholder={t("search_group", {ns: "hosts"})}
+                            emptyLabel={t("no_groups_found", {ns: "hosts"})}
+                        />
                         {selectedGroup?.credentialId && !formData.credentialId && (
                             <p className="text-xs text-muted-foreground">
                                 {t("inherited_group_credential", {ns: "credentials", name: selectedCredential?.name})}
