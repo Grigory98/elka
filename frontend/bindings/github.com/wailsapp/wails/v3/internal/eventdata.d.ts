@@ -17,6 +17,7 @@ declare module "@wailsio/runtime" {
             "ssh:closed": emitters$0.SSHClosedPayload;
             "ssh:data": emitters$0.SSHDataPayload;
             "ssh:metrics": emitters$0.SSHMetricsPayload;
+            "sftp:progress": emitters$0.SFTPProgressPayload;
             "updater:progress": emitters$0.UpdaterProgressPayload;
         }
     }

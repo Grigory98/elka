@@ -155,3 +155,44 @@ export class UpdaterProgressPayload {
         return new UpdaterProgressPayload($$parsedSource as Partial<UpdaterProgressPayload>);
     }
 }
+
+export class SFTPProgressPayload {
+    "id": string;
+    "direction": string;
+    "name": string;
+    "path": string;
+    "transferred": number;
+    "total": number;
+
+    /** Creates a new SFTPProgressPayload instance. */
+    constructor($$source: Partial<SFTPProgressPayload> = {}) {
+        if (!("id" in $$source)) {
+            this["id"] = "";
+        }
+        if (!("direction" in $$source)) {
+            this["direction"] = "";
+        }
+        if (!("name" in $$source)) {
+            this["name"] = "";
+        }
+        if (!("path" in $$source)) {
+            this["path"] = "";
+        }
+        if (!("transferred" in $$source)) {
+            this["transferred"] = 0;
+        }
+        if (!("total" in $$source)) {
+            this["total"] = 0;
+        }
+
+        Object.assign(this, $$source);
+    }
+
+    /**
+     * Creates a new SFTPProgressPayload instance from a string or object.
+     */
+    static createFrom($$source: any = {}): SFTPProgressPayload {
+        let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
+        return new SFTPProgressPayload($$parsedSource as Partial<SFTPProgressPayload>);
+    }
+}

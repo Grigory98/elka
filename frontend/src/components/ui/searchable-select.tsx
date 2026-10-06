@@ -1,5 +1,6 @@
 import * as React from "react"
 import { CheckIcon, ChevronDownIcon, SearchIcon } from "lucide-react"
+import { RemoveScroll } from "react-remove-scroll"
 
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -119,37 +120,45 @@ function SearchableSelect({
             spellCheck={false}
           />
         </div>
-        <div role="listbox" className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
-          {filteredOptions.length === 0 ? (
-            <p className="px-2 py-1.5 text-xs text-muted-foreground">{emptyLabel}</p>
-          ) : (
-            filteredOptions.map((option, index) => (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                ref={(element) => {
-                  optionRefs.current[index] = element
-                }}
-                aria-selected={option.value === value}
-                data-active={index === activeIndex ? "" : undefined}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => selectOption(option.value)}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors outline-none data-[active]:bg-muted",
-                  option.value === value && "font-medium"
-                )}
-              >
-                <CheckIcon
+        <div role="listbox">
+          {/* Radix locks scrolling outside of the dialog content with an unconditional
+              preventDefault, so this popup needs its own lock to sit on top of it, the same way
+              SelectContent brings its own. Without it the wheel does nothing here. */}
+          <RemoveScroll
+            className="flex max-h-56 flex-col gap-0.5 overflow-y-auto"
+            removeScrollBar={false}
+          >
+            {filteredOptions.length === 0 ? (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">{emptyLabel}</p>
+            ) : (
+              filteredOptions.map((option, index) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  ref={(element) => {
+                    optionRefs.current[index] = element
+                  }}
+                  aria-selected={option.value === value}
+                  data-active={index === activeIndex ? "" : undefined}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => selectOption(option.value)}
                   className={cn(
-                    "size-4 shrink-0 text-primary",
-                    option.value !== value && "invisible"
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors outline-none data-[active]:bg-muted",
+                    option.value === value && "font-medium"
                   )}
-                />
-                <span className="truncate">{option.label}</span>
-              </button>
-            ))
-          )}
+                >
+                  <CheckIcon
+                    className={cn(
+                      "size-4 shrink-0 text-primary",
+                      option.value !== value && "invisible"
+                    )}
+                  />
+                  <span className="truncate">{option.label}</span>
+                </button>
+              ))
+            )}
+          </RemoveScroll>
         </div>
       </PopoverContent>
     </Popover>

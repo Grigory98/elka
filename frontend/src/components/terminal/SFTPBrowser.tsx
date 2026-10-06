@@ -127,12 +127,13 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
         const unsubscribe = Events.On(AppEvent.SftpProgress, (event) => {
             const payload = event.data;
             if (payload.id !== sessionID) return;
+            const direction: TransferDirection = payload.direction === "upload" ? "upload" : "download";
             // A transfer that has already been settled here must not be revived by a trailing
             // event, otherwise the progress bar and the row spinner stay on screen for good.
-            if (transferKeyRef.current !== `${payload.direction}:${payload.name}`) return;
+            if (transferKeyRef.current !== `${direction}:${payload.name}`) return;
             setTransfer({
                 sessionID,
-                direction: payload.direction,
+                direction,
                 name: payload.name,
                 transferred: payload.transferred,
                 total: payload.total,

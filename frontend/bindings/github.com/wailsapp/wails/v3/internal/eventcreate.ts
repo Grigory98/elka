@@ -15,6 +15,7 @@ function configure() {
         "ssh:closed": $$createType0,
         "ssh:data": $$createType1,
         "ssh:metrics": $$createType2,
+        "sftp:progress": $$createType4,
         "updater:progress": $$createType3,
     }));
 }
@@ -24,5 +25,6 @@ const $$createType0 = emitters$0.SSHClosedPayload.createFrom;
 const $$createType1 = emitters$0.SSHDataPayload.createFrom;
 const $$createType2 = emitters$0.SSHMetricsPayload.createFrom;
 const $$createType3 = emitters$0.UpdaterProgressPayload.createFrom;
+const $$createType4 = emitters$0.SFTPProgressPayload.createFrom;
 
 configure();
