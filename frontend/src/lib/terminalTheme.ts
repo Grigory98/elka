@@ -7,6 +7,7 @@ export function createTerminalOptions(appearance: AppearanceSettings = DEFAULT_A
     return {
         fontFamily: terminalFontStack(appearance.terminalFontFamily),
         fontSize: appearance.terminalFontSize,
+        scrollback: appearance.terminalScrollback,
         cursorStyle: appearance.terminalCursorStyle,
         cursorBlink: true,
         theme: {

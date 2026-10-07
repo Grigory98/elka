@@ -67,6 +67,7 @@
   "cursor_bar": "Тонкая вертикальная линия",
   "terminal_font_label": "Шрифт терминала",
   "terminal_font_size": "Размер шрифта терминала",
+  "terminal_scrollback": "История терминала, строк",
   "split_pane_border_color": "Граница разделенных окон",
   "appearance_save": "Сохранить оформление",
   "appearance_reset": "Сбросить оформление",

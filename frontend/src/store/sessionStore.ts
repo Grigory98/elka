@@ -1,5 +1,7 @@
 import { create } from "zustand";
-import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } from "../../bindings/elka-desktop/backend/internal/services/ssh";
+import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward } from "../../bindings/elka-desktop/backend/internal/services/ssh";
+import { useConnectionStore } from "@/store/connectionStore";
+import { forgetTerminalSession } from "@/lib/terminalSessions";
 import { useUIStore, ViewType } from "@/store/uiStore";
 
 export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
@@ -260,6 +262,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         };
 
         useUIStore.getState().setActiveView(ViewType.Terminal);
+        // The session is opened here rather than when its terminal happens to mount: a terminal comes
+        // and goes with the tab, and the connection has to outlive all of that.
+        useConnectionStore.getState().connect(newId, fullConfig);
         return {
             sessions: [...state.sessions, newSession],
             activeSessionId: newId,
@@ -562,47 +567,64 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             topTabOrder: [terminalSessionTabID(id)],
         });
         useUIStore.getState().setActiveView(ViewType.Terminal);
-        toClose.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
+        toClose.forEach((session) => {
+            useConnectionStore.getState().disconnect(session.id);
+            forgetTerminalSession(session.id);
+        });
     },
 
-    removeSession: (id) => set((state) => {
-        const newSessions = state.sessions.filter((session) => session.id !== id);
-        const group = state.tabGroups.find((item) => item.sessionIds.includes(id));
-        const groupFallbackID = group?.sessionIds.find((sessionID) => sessionID !== id) || null;
-        const workspaces = removeSessionsFromWorkspaces(state.workspaces, [id]);
-        const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
-        const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
-        const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
-        let activeSessionId = state.activeSessionId;
-        if (activeSessionId === id) {
-            if (groupFallbackID) activeSessionId = groupFallbackID;
-            else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
-            else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
-        }
+        removeSession: (id) => {
+        // The tab is gone, so its SSH session goes with it and nothing of it is left behind for a later
+        // tab. A close that came from the backend has already dropped the connection, and disconnecting
+        // a session that is not tracked does nothing.
+        useConnectionStore.getState().disconnect(id);
+        forgetTerminalSession(id);
 
-        if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
+        set((state) => {
+            const newSessions = state.sessions.filter((session) => session.id !== id);
+            const group = state.tabGroups.find((item) => item.sessionIds.includes(id));
+            const groupFallbackID = group?.sessionIds.find((sessionID) => sessionID !== id) || null;
+            const workspaces = removeSessionsFromWorkspaces(state.workspaces, [id]);
+            const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
+            const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
+            const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
+            let activeSessionId = state.activeSessionId;
+            if (activeSessionId === id) {
+                if (groupFallbackID) activeSessionId = groupFallbackID;
+                else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
+                else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
+            }
 
-        const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [id]);
+            if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
 
-        return {
-            sessions: newSessions,
-            activeSessionId,
-            workspaces,
-            tabGroups,
-            topTabOrder,
-        };
-    }),
+            const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [id]);
 
-    // Reconnect reuses the mount/cleanup cycle of the terminal: the current session is closed and a
-    // new one is opened inside the same tab, which also retries a session that failed to connect.
+            return {
+                sessions: newSessions,
+                activeSessionId,
+                workspaces,
+                tabGroups,
+                topTabOrder,
+            };
+        });
+    },
+
+    // Reconnect redials the SSH session and remounts the terminal, which also retries a session that
+    // failed to connect. The remount is what gives the tab the empty screen a new shell needs: the
+    // connection is the store's business, and the screen is the component's.
     reconnectSession: (id) => {
-        if (!get().sessions.some((session) => session.id === id)) return;
+        const session = get().sessions.find((item) => item.id === id);
+        if (!session) return;
 
         get().setActiveSession(id);
+        // A reconnect gets a new shell, so the screen of the old one goes with it: the snapshot and the
+        // missed output are dropped, and the remount below brings up an empty terminal.
+        forgetTerminalSession(id);
+        useConnectionStore.getState().reconnect(id, session.config);
         set((state) => ({
-            sessions: state.sessions.map((session) => session.id === id
-                ? {...session, reconnectCount: session.reconnectCount + 1}
-                : session),
+            sessions: state.sessions.map((item) => item.id === id
+                ? {...item, reconnectCount: item.reconnectCount + 1}
+                : item),
         }));
     },
 
@@ -620,7 +642,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     clearSessions: () => {
         const {sessions} = get();
-        sessions.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
+        sessions.forEach((session) => {
+            useConnectionStore.getState().disconnect(session.id);
+            forgetTerminalSession(session.id);
+        });
         useUIStore.getState().setActiveView(ViewType.Hosts);
         set({
             sessions: [], activeSessionId: null, workspaces: [], activeWorkspaceID: null, tabGroups: [],

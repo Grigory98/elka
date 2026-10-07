@@ -1,3 +1,5 @@
+import { ensureFontFamilyLoaded, isBundledFontFamily } from "@/lib/fontLoader";
+
 export interface TerminalFontOption {
     family: string;
     label: string;
@@ -63,6 +65,13 @@ function quote(family: string) {
 }
 
 /**
+ * The face the stack falls back to when the chosen family is missing from the host, which is the
+ * normal case for a system font on another platform. It is bundled, so it is the one fallback worth
+ * fetching: without it xterm would measure the generic `monospace` face instead.
+ */
+const FALLBACK_BUNDLED_FAMILY = "JetBrains Mono";
+
+/**
  * Settings files and older builds can name a font that is no longer offered, including proportional
  * application fonts. Falling back to the default keeps the terminal readable instead of leaving it
  * with a grid that cannot match its glyphs.
@@ -109,7 +118,13 @@ export async function ensureTerminalFontLoaded(fontFamily: string, fontSize: num
     const fontSet = document.fonts;
     if (!fontSet) return;
 
-    const spec = fontSpec(fontFamily, fontSize);
+    // The stylesheet has to be in the document before `document.fonts` is asked for the family: it is
+    // what declares the @font-face rules, and a family nothing declares resolves to nothing.
+    const family = resolveTerminalFontFamily(fontFamily);
+    await ensureFontFamilyLoaded(family);
+    if (!isBundledFontFamily(family)) await ensureFontFamilyLoaded(FALLBACK_BUNDLED_FAMILY);
+
+    const spec = fontSpec(family, fontSize);
     const inFlight = fontRequests.get(spec);
     if (inFlight) return inFlight;
 
@@ -133,11 +148,11 @@ export async function ensureTerminalFontLoaded(fontFamily: string, fontSize: num
 }
 
 /**
- * Warms the bundled faces while the user is still on the hosts screen, so that opening a terminal
- * does not have to wait for the network on the very first session.
+ * Warms the face of a terminal that is already chosen while the user is still on the hosts screen, so
+ * that opening it does not have to wait for the network on the very first session. The other bundled
+ * families are deliberately left alone: each of them is a few hundred kilobytes that would sit in the
+ * webview until someone picks that font, and `ensureTerminalFontLoaded` fetches it at that point.
  */
-export function preloadTerminalFonts(fontSize: number) {
-    for (const font of BUNDLED_TERMINAL_FONTS) {
-        void ensureTerminalFontLoaded(font.family, fontSize);
-    }
+export function preloadTerminalFont(family: string, fontSize: number) {
+    void ensureTerminalFontLoaded(family, fontSize);
 }

@@ -67,6 +67,7 @@
   "cursor_bar": "Thin bar",
   "terminal_font_label": "Terminal font",
   "terminal_font_size": "Terminal font size",
+  "terminal_scrollback": "Terminal history, lines",
   "split_pane_border_color": "Split pane border",
   "appearance_save": "Save appearance",
   "appearance_reset": "Reset defaults",

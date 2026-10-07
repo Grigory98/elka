@@ -1,63 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/700.css";
-@import "@fontsource/roboto/400.css";
-@import "@fontsource/roboto/700.css";
-@import "@fontsource/open-sans/400.css";
-@import "@fontsource/open-sans/700.css";
-@import "@fontsource/montserrat/400.css";
-@import "@fontsource/montserrat/700.css";
-@import "@fontsource/noto-sans/400.css";
-@import "@fontsource/noto-sans/700.css";
-@import "@fontsource/source-sans-3/400.css";
-@import "@fontsource/source-sans-3/700.css";
-@import "@fontsource/nunito-sans/400.css";
-@import "@fontsource/nunito-sans/700.css";
-@import "@fontsource/ubuntu/400.css";
-@import "@fontsource/ubuntu/700.css";
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/700.css";
-@import "@fontsource/manrope/400.css";
-@import "@fontsource/manrope/700.css";
-@import "@fontsource/fira-sans/400.css";
-@import "@fontsource/fira-sans/700.css";
-@import "@fontsource/rubik/400.css";
-@import "@fontsource/rubik/700.css";
-@import "@fontsource/nunito/400.css";
-@import "@fontsource/nunito/700.css";
-@import "@fontsource/raleway/400.css";
-@import "@fontsource/raleway/700.css";
-@import "@fontsource/pt-sans/400.css";
-@import "@fontsource/pt-sans/700.css";
-@import "@fontsource/mulish/400.css";
-@import "@fontsource/mulish/700.css";
-@import "@fontsource/jost/400.css";
-@import "@fontsource/jost/700.css";
-@import "@fontsource/commissioner/400.css";
-@import "@fontsource/commissioner/700.css";
-@import "@fontsource/onest/400.css";
-@import "@fontsource/onest/700.css";
-@import "@fontsource/source-code-pro/400.css";
-@import "@fontsource/source-code-pro/700.css";
-@import "@fontsource/ibm-plex-mono/400.css";
-@import "@fontsource/ibm-plex-mono/700.css";
-@import "@fontsource/roboto-mono/400.css";
-@import "@fontsource/roboto-mono/700.css";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/700.css";
-@import "@fontsource/fira-code/400.css";
-@import "@fontsource/fira-code/700.css";
-@import "@fontsource/martian-mono/400.css";
-@import "@fontsource/martian-mono/700.css";
-@import "@fontsource/victor-mono/400.css";
-@import "@fontsource/victor-mono/700.css";
-@import "@fontsource/ubuntu-mono/400.css";
-@import "@fontsource/ubuntu-mono/700.css";
-@import "@fontsource/overpass-mono/400.css";
-@import "@fontsource/overpass-mono/700.css";
+/* The font faces are not imported here on purpose. Every family the interface and the terminal offer
+   used to be listed in this file, which made the webview fetch and parse all of them at startup and
+   keep them in memory for the whole session, and none of them are on screen at the same time.
+   `lib/fontLoader.ts` now loads the two families that are actually in use. */
 
 @custom-variant dark (&:is(.dark *));
 

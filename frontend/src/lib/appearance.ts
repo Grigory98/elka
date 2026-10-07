@@ -1,4 +1,5 @@
 import { DEFAULT_TERMINAL_FONT_FAMILY } from "@/lib/terminalFont";
+import { ensureFontFamilyLoaded } from "@/lib/fontLoader";
 import { ColorPalette } from "../../bindings/elka-desktop/backend/internal/services/settings";
 
 export interface AppearanceSettings {
@@ -12,6 +13,12 @@ export interface AppearanceSettings {
     terminalCursorStyle: "block" | "underline" | "bar";
     terminalFontFamily: string;
     terminalFontSize: number;
+    /**
+     * How many lines a terminal keeps above the screen. Every line is real memory in every open tab, so
+     * it is a setting rather than a constant, and it only takes effect on a terminal that is built after
+     * the change: xterm sizes its buffer when the terminal opens.
+     */
+    terminalScrollback: number;
     /** Empty string keeps the split pane frame tied to the app theme. */
     splitPaneBorderColor: string;
     /** Left menu background. Empty string keeps the colour derived from the app palette. */
@@ -37,6 +44,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     terminalCursorStyle: "block",
     terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
     terminalFontSize: 14,
+    terminalScrollback: 1000,
     splitPaneBorderColor: "",
     sidebarColor: "",
     inputColor: "",
@@ -168,6 +176,7 @@ export function appearanceToPalette(name: string, appearance: AppearanceSettings
         terminalCursorStyle: appearance.terminalCursorStyle,
         terminalFontFamily: appearance.terminalFontFamily,
         terminalFontSize: appearance.terminalFontSize,
+        terminalScrollback: appearance.terminalScrollback,
         splitPaneBorderColor: appearance.splitPaneBorderColor,
         splitPaneHeaderColor: appearance.splitPaneHeaderColor,
         serverMetricsColor: appearance.serverMetricsColor,
@@ -195,6 +204,7 @@ export function paletteToAppearance(palette: ColorPalette, current: AppearanceSe
         terminalCursorStyle: cursorStyle === "underline" || cursorStyle === "bar" ? cursorStyle : current.terminalCursorStyle,
         terminalFontFamily: palette.terminalFontFamily || current.terminalFontFamily,
         terminalFontSize: palette.terminalFontSize || current.terminalFontSize,
+        terminalScrollback: palette.terminalScrollback || current.terminalScrollback,
         splitPaneBorderColor: palette.splitPaneBorderColor || "",
         splitPaneHeaderColor: palette.splitPaneHeaderColor || "",
         serverMetricsColor: palette.serverMetricsColor || "",
@@ -211,6 +221,7 @@ interface CachedAppearance {
     background?: string;
     foreground?: string;
     accent?: string;
+    font?: string;
 }
 
 function relativeLuminance(color: string) {
@@ -312,11 +323,17 @@ export function applyAppAppearance(appearance: AppearanceSettings) {
     root.style.setProperty("--split-pane-border", splitPaneBorder.border);
     root.style.setProperty("--split-pane-border-active", splitPaneBorder.active);
 
+    // The family is applied only once its face is in the document. Setting it straight away would
+    // repaint the whole interface in the fallback face for as long as the fetch takes, and the fetch
+    // happens on every font change in the settings. A family with no stylesheet is a system font, which
+    // resolves immediately, and `ensureFontFamilyLoaded` never rejects, so the stack is always set.
     const fontStack = `"${appearance.appFontFamily}", sans-serif`;
-    root.style.setProperty("--font-sans", fontStack);
-    root.style.setProperty("--font-heading", fontStack);
-    root.style.setProperty("--app-font-family", fontStack);
-    root.style.fontFamily = fontStack;
+    void ensureFontFamilyLoaded(appearance.appFontFamily).then(() => {
+        root.style.setProperty("--font-sans", fontStack);
+        root.style.setProperty("--font-heading", fontStack);
+        root.style.setProperty("--app-font-family", fontStack);
+        root.style.fontFamily = fontStack;
+    });
 
     cacheAppearance(appearance);
 }
@@ -333,6 +350,7 @@ function cacheAppearance(appearance: AppearanceSettings) {
             background,
             foreground,
             accent,
+            font: appearance.appFontFamily,
         }));
     } catch (error) {
         console.warn("could not cache the appearance for the splash screen", error);
@@ -360,6 +378,9 @@ export function getInitialAppearance(): AppearanceSettings {
         appBackgroundColor: cached.background || DEFAULT_APPEARANCE.appBackgroundColor,
         appForegroundColor: cached.foreground || DEFAULT_APPEARANCE.appForegroundColor,
         appAccentColor: cached.accent || DEFAULT_APPEARANCE.appAccentColor,
+        // Faces are fetched on demand, so the first paint asks for the family the user actually uses.
+        // Reading it from the cache is what keeps the app from pulling the default face on the way to it.
+        appFontFamily: resolveAppFontFamily(cached.font || DEFAULT_APPEARANCE.appFontFamily),
     };
 }
 
