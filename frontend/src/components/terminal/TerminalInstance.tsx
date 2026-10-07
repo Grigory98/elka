@@ -13,7 +13,7 @@ import { Events, Clipboard } from "@wailsio/runtime";
 import { createTerminalOptions } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
-import { terminalNavigationSequence } from "@/lib/terminalKeys";
+import { registerTerminalInput } from "@/lib/terminalInput";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
@@ -178,6 +178,7 @@ export function TerminalInstance({
 
         let cancelled = false;
         let onDataDisposable: IDisposable | null = null;
+        let unregisterInput: (() => void) | null = null;
         const handleFocus = () => onFocusRef.current();
         container.addEventListener("focusin", handleFocus);
 
@@ -227,13 +228,6 @@ export function TerminalInstance({
 
             term.attachCustomKeyEventHandler((arg) => {
                 if (arg.type === "keydown") {
-                    const navigationSequence = terminalNavigationSequence(arg);
-                    if (navigationSequence) {
-                        arg.preventDefault();
-                        term.paste(navigationSequence);
-                        return false;
-                    }
-
                     if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyC") {
                         arg.preventDefault();
                         const selection = term.getSelection();
@@ -256,13 +250,19 @@ export function TerminalInstance({
                 return true;
             });
 
-            onDataDisposable = term.onData((data) => {
+            // Both ordinary typing and the macOS shortcuts end up here, so the session only ever receives
+            // what this terminal decided to send, and a sequence does not depend on which element holds
+            // the DOM focus.
+            const sendInput = (data: string) => {
                 if (!isReadyRef.current) return;
 
                 SshService.Input(sessionId, data).catch((err) => {
                     printErrorToTerminal(err);
                 });
-            });
+            };
+
+            onDataDisposable = term.onData(sendInput);
+            unregisterInput = registerTerminalInput(sessionId, sendInput);
 
             if (!hasConnectedRef.current) {
                 hasConnectedRef.current = true;
@@ -287,6 +287,7 @@ export function TerminalInstance({
             cancelled = true;
             container.removeEventListener("contextmenu", handleContextMenu);
             container.removeEventListener("focusin", handleFocus);
+            unregisterInput?.();
             onDataDisposable?.dispose();
             terminalRef.current?.dispose();
             terminalRef.current = null;

@@ -8,6 +8,7 @@ import { SFTPBrowser } from "@/components/terminal/SFTPBrowser";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/store/uiStore";
 import { useServerMetrics } from "@/hooks/useServerMetrics";
+import { useTerminalShortcuts } from "@/hooks/useTerminalShortcuts";
 
 interface TerminalStackProps {
     isVisible: boolean;
@@ -101,6 +102,9 @@ function layoutPanes(
 
 export function TerminalStack({isVisible}: TerminalStackProps) {
     const {t} = useTranslation("terminal");
+    // The shortcuts live on the window rather than on a pane, so a lone tab, a tab group and every split
+    // pane all answer them the same way.
+    useTerminalShortcuts();
     const {
         sessions,
         activeSessionId,
