@@ -14,6 +14,7 @@ import { createTerminalOptions } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
 import { registerTerminalInput } from "@/lib/terminalInput";
+import { attachSessionDragImage } from "@/lib/sessionDrag";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
@@ -82,6 +83,9 @@ export function TerminalInstance({
     // HTML5 drags set this locally; a drag that starts in the tab bar writes the store instead, because
     // the pointer never crosses the pane as an HTML5 drag event. Both end up in the same highlight.
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
+    // Панель гаснет на время переноса: без этого источник и цель выглядят одинаково, и перенос
+    // панели не читается. Состояние локальное, ререндерится только шапка панели.
+    const [isPaneDragging, setIsPaneDragging] = useState(false);
     const paneDropPreview = useUIStore((state) => state.paneDropPreview);
     const previewPlacement = isSplitPane && paneDropPreview?.paneID === sessionId ? paneDropPreview.placement : null;
     const shownDropPlacement = previewPlacement || dropPlacement;
@@ -141,6 +145,10 @@ export function TerminalInstance({
         if (!isSplitPane || !event.dataTransfer.types.includes(TERMINAL_SESSION_DRAG_TYPE)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
+        // Своя картинка задаётся через setDragImage, но WebKit рисует перенос из text/plain и
+        // игнорирует setDragImage, если этот тип не задан: тогда под курсором появляется название
+        // сессии. В Chromium выигрывает setDragImage, и текст нужен только как этот запасной путь.
+        event.dataTransfer.setData("text/plain", paneTitle || config.host);
         setDropPlacement(paneDropPlacement(event.currentTarget.getBoundingClientRect(), event.clientX, event.clientY));
     };
 
@@ -404,10 +412,18 @@ export function TerminalInstance({
                         onDragStart={(event) => {
                             event.dataTransfer.setData(TERMINAL_SESSION_DRAG_TYPE, sessionId);
                             event.dataTransfer.effectAllowed = "move";
+                            // Системная картинка берётся с узла-источника, а источник здесь — шапка
+                            // в 24px высотой, и перенос читался бы как случайное выделение текста.
+                            attachSessionDragImage(event, paneTitle || config.host);
+                            setIsPaneDragging(true);
                         }}
+                        onDragEnd={() => setIsPaneDragging(false)}
                         title={t("drag_pane")}
                         aria-label={t("drag_pane")}
-                        className="flex min-w-0 flex-1 cursor-grab items-center active:cursor-grabbing"
+                        className={cn(
+                            "flex min-w-0 flex-1 cursor-grab items-center active:cursor-grabbing",
+                            isPaneDragging && "opacity-50"
+                        )}
                     >
                     <span className="truncate text-xs font-medium text-foreground">{paneTitle || config.host}</span>
                     </div>

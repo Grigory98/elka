@@ -573,11 +573,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
         const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
         const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
+        let activeWorkspaceID = state.activeWorkspaceID;
         let activeSessionId = state.activeSessionId;
         if (activeSessionId === id) {
             if (groupFallbackID) activeSessionId = groupFallbackID;
             else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
             else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
+        }
+
+        // Закрытие последней одиночной вкладки не должно оставлять под собой пустой фон. Все
+        // оставшиеся сессии лежат в разделённом экране, а он не был активен, поэтому показываем
+        // его — то же место, куда мы уходим на список хостов, когда закрыты вообще все терминалы.
+        if (!activeSessionId && newSessions.length > 0) {
+            const fallbackWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID && paneIDs(workspace.layout).length > 0)
+                || workspaces.find((workspace) => paneIDs(workspace.layout).length > 0);
+            if (fallbackWorkspace) {
+                const fallbackPaneIDs = paneIDs(fallbackWorkspace.layout);
+                activeWorkspaceID = fallbackWorkspace.id;
+                activeSessionId = fallbackPaneIDs.includes(fallbackWorkspace.activeSessionId || "")
+                    ? fallbackWorkspace.activeSessionId
+                    : fallbackPaneIDs[0];
+            }
         }
 
         if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
@@ -587,6 +603,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         return {
             sessions: newSessions,
             activeSessionId,
+            activeWorkspaceID,
             workspaces,
             tabGroups,
             topTabOrder,
