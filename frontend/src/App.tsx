@@ -10,13 +10,9 @@ import { SettingsService } from "../bindings/elka-desktop/backend/internal/servi
 import { useTranslation } from "react-i18next";
 import { AppEvent } from "@/lib/events.ts";
 import { useSessionStore } from "@/store/sessionStore.ts";
-import { useConnectionStore } from "@/store/connectionStore";
 import { useUIStore } from "@/store/uiStore.ts";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
-import { preloadTerminalFont } from "@/lib/terminalFont";
-import { ensureFontFamilyLoaded } from "@/lib/fontLoader";
-import { handleSshData } from "@/lib/terminalSessions";
-import { decodeBase64ToUint8Array } from "@/lib/utils";
+import { ensureTerminalFontLoaded, preloadTerminalFonts } from "@/lib/terminalFont";
 import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
@@ -50,7 +46,6 @@ export default function App() {
                         : DEFAULT_APPEARANCE.terminalCursorStyle,
                     terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
-                    terminalScrollback: settings.terminalScrollback || DEFAULT_APPEARANCE.terminalScrollback,
                     splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
                     splitPaneHeaderColor: settings.splitPaneHeaderColor || DEFAULT_APPEARANCE.splitPaneHeaderColor,
                     serverMetricsColor: settings.serverMetricsColor || DEFAULT_APPEARANCE.serverMetricsColor,
@@ -58,10 +53,6 @@ export default function App() {
                     inputColor: settings.inputColor || DEFAULT_APPEARANCE.inputColor,
                     ringColor: settings.ringColor || DEFAULT_APPEARANCE.ringColor,
                 });
-                // Faces are fetched on demand now, and the splash screen is what the user watches until
-                // this resolves: dismissing it before the fetch paints the whole interface in the
-                // fallback face and repaints it a moment later.
-                return ensureFontFamilyLoaded(settings.appFontFamily || DEFAULT_APPEARANCE.appFontFamily);
             })
             .catch(console.error)
             .finally(dismissSplash);
@@ -72,30 +63,21 @@ export default function App() {
     }, [appearance]);
 
     useEffect(() => {
-        // Warming the chosen face here, while the user is still on the hosts screen, keeps the first
+        // Warming the faces here, while the user is still on the hosts screen, keeps the first
         // terminal from having to wait for a download before xterm can measure its character cell.
-        // Only that one face: the other families are fetched if and when they are picked.
-        preloadTerminalFont(appearance.terminalFontFamily, appearance.terminalFontSize);
+        void ensureTerminalFontLoaded(appearance.terminalFontFamily, appearance.terminalFontSize);
+        preloadTerminalFonts(appearance.terminalFontSize);
     }, [appearance.terminalFontFamily, appearance.terminalFontSize]);
 
     useEffect(() => {
-        const unsubscribeData = Events.On(AppEvent.SshData, (event) => {
-            handleSshData(event.data.id, decodeBase64ToUint8Array(event.data.data));
-        });
-        const unsubscribeClosed = Events.On(AppEvent.SshClosed, (event) => {
-            // The backend has already closed this session, so it is only forgotten here: the tab it
-            // belongs to goes away next, and closing it must not try to hang up on it again.
-            useConnectionStore.getState().forget(event.data.id);
+        const unsubscribe = Events.On(AppEvent.SshClosed, (event) => {
             // setTimeout(() => {
             //     removeSession(event.data.id);
             // }, 500);
             removeSession(event.data.id);
         });
 
-        return () => {
-            unsubscribeData();
-            unsubscribeClosed();
-        };
+        return () => unsubscribe();
     }, [removeSession]);
 
 

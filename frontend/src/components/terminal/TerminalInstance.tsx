@@ -9,22 +9,23 @@ import { Terminal } from "@xterm/xterm";
 import type { IDisposable } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
-import { Clipboard } from "@wailsio/runtime";
+import { Events, Clipboard } from "@wailsio/runtime";
 import { createTerminalOptions } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
-import { applyTerminalSnapshot, captureTerminalSnapshot } from "@/lib/terminalSnapshot";
-import { attachTerminal, takeBufferedOutput, takeTerminalSnapshot } from "@/lib/terminalSessions";
-import { cn } from "@/lib/utils";
+import { registerTerminalInput } from "@/lib/terminalInput";
+import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import "@xterm/xterm/css/xterm.css";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
+import { AppEvent } from "@/lib/events.ts";
 import { Columns2, CopyPlus, FolderOpen, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement } from "@/store/sessionStore";
-import { useConnectionStore } from "@/store/connectionStore";
 import { useUIStore } from "@/store/uiStore";
+
+type ConnectionState = "connecting" | "ready" | "failed";
 
 interface TerminalInstanceProps {
     sessionId: string;
@@ -47,9 +48,6 @@ interface TerminalInstanceProps {
 
 // Split panes are rounded on every corner, wherever they sit in the layout.
 const PANE_RADIUS = "rounded-xl";
-
-/** How long the teardown waits for xterm to parse what it was handed before it stops waiting. */
-const TERMINAL_DRAIN_TIMEOUT_MS = 1000;
 
 export function TerminalInstance({
     sessionId,
@@ -76,20 +74,21 @@ export function TerminalInstance({
     const containerRef = useRef<HTMLDivElement>(null);
     const terminalRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
+    const hasConnectedRef = useRef(false);
+    const isReadyRef = useRef(false);
+    const hasFailedRef = useRef(false);
     const lastSizeRef = useRef({rows: 0, cols: 0});
+    const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
     // HTML5 drags set this locally; a drag that starts in the tab bar writes the store instead, because
     // the pointer never crosses the pane as an HTML5 drag event. Both end up in the same highlight.
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
     const paneDropPreview = useUIStore((state) => state.paneDropPreview);
     const previewPlacement = isSplitPane && paneDropPreview?.paneID === sessionId ? paneDropPreview.placement : null;
     const shownDropPlacement = previewPlacement || dropPlacement;
-    // The connection is owned by the store, not by this component, so it survives the terminal being
-    // thrown away and built again every time the tab comes back on screen.
-    const connection = useConnectionStore((state) => state.connections[sessionId]);
-    const connectionState = connection?.state ?? "connecting";
-    const connectionError = connection?.error;
     const isConnecting = connectionState === "connecting";
     const fitAndResizeRef = useRef<(forceResize?: boolean) => void>(() => {});
+    // Output that arrives before xterm exists, because the font it has to measure was still loading.
+    const pendingWritesRef = useRef<Uint8Array[]>([]);
     const appearanceRef = useRef(appearance);
     appearanceRef.current = appearance;
     const onFocusRef = useRef(onFocus);
@@ -102,9 +101,7 @@ export function TerminalInstance({
 
     fitAndResizeRef.current = (forceResize = false) => {
         // A failed session still has to be fitted, otherwise the error printed into it stays invisible.
-        const store = useConnectionStore.getState();
-        const connection = store.connections[sessionId];
-        if (!isVisible || !connection || connection.state === "connecting") return;
+        if (!isVisible || (!isReadyRef.current && !hasFailedRef.current)) return;
 
         window.requestAnimationFrame(() => {
             const container = containerRef.current;
@@ -118,7 +115,7 @@ export function TerminalInstance({
                 if (isActiveRef.current) terminal.focus();
 
                 const sizeChanged = lastSizeRef.current.rows !== terminal.rows || lastSizeRef.current.cols !== terminal.cols;
-                if (store.isReady(sessionId) && (forceResize || sizeChanged)) {
+                if (isReadyRef.current && (forceResize || sizeChanged)) {
                     lastSizeRef.current = {rows: terminal.rows, cols: terminal.cols};
                     SshService.Resize(sessionId, terminal.rows, terminal.cols).catch(printErrorToTerminal);
                 }
@@ -181,7 +178,7 @@ export function TerminalInstance({
 
         let cancelled = false;
         let onDataDisposable: IDisposable | null = null;
-        let detachTerminal: (() => void) | null = null;
+        let unregisterInput: (() => void) | null = null;
         const handleFocus = () => onFocusRef.current();
         container.addEventListener("focusin", handleFocus);
 
@@ -194,7 +191,7 @@ export function TerminalInstance({
                 terminalRef.current?.clearSelection();
             } else {
                 Clipboard.Text().then((text) => {
-                    if (text && useConnectionStore.getState().isReady(sessionId)) {
+                    if (text && isReadyRef.current) {
                         SshService.Input(sessionId, text).catch(printErrorToTerminal);
                     }
                 }).catch(console.error);
@@ -206,7 +203,7 @@ export function TerminalInstance({
         // lifetime of the instance. A web font that is still downloading at that moment is measured
         // through the fallback face, so every glyph ends up drawn at the wrong pitch and the columns
         // stop lining up. Nothing in xterm waits for a font, so opening is deferred until the face is
-        // really in use, and output that arrives meanwhile waits in the session buffer.
+        // really in use, and output that arrives meanwhile is buffered below.
         const start = async () => {
             const current = appearanceRef.current;
             await ensureTerminalFontLoaded(current.terminalFontFamily, current.terminalFontSize);
@@ -223,13 +220,11 @@ export function TerminalInstance({
             terminalRef.current = term;
             fitAddonRef.current = fitAddon;
 
-            // This tab was on another screen when the terminal was built, so what it looked like then is
-            // painted back first and everything the server printed meanwhile lands on top of it. A tab
-            // that is being opened for the first time has neither and simply starts empty.
-            const snapshot = takeTerminalSnapshot(sessionId);
-            if (snapshot) applyTerminalSnapshot(term, snapshot);
-            const missedOutput = takeBufferedOutput(sessionId);
-            if (missedOutput) term.write(missedOutput);
+            const buffered = pendingWritesRef.current;
+            if (buffered.length > 0) {
+                pendingWritesRef.current = [];
+                for (const chunk of buffered) term.write(chunk);
+            }
 
             term.attachCustomKeyEventHandler((arg) => {
                 if (arg.type === "keydown") {
@@ -245,7 +240,7 @@ export function TerminalInstance({
                     if (arg.ctrlKey && arg.shiftKey && arg.code === "KeyV") {
                         arg.preventDefault();
                         Clipboard.Text().then((text) => {
-                            if (text && useConnectionStore.getState().isReady(sessionId)) {
+                            if (text && isReadyRef.current) {
                                 term.paste(text);
                             }
                         }).catch(console.error);
@@ -259,7 +254,7 @@ export function TerminalInstance({
             // what this terminal decided to send, and a sequence does not depend on which element holds
             // the DOM focus.
             const sendInput = (data: string) => {
-                if (!useConnectionStore.getState().isReady(sessionId)) return;
+                if (!isReadyRef.current) return;
 
                 SshService.Input(sessionId, data).catch((err) => {
                     printErrorToTerminal(err);
@@ -267,31 +262,22 @@ export function TerminalInstance({
             };
 
             onDataDisposable = term.onData(sendInput);
-            detachTerminal = attachTerminal(sessionId, {
-                write: (data) => term.write(data),
-                sendInput,
-                // An empty write with a callback runs once everything queued before it has been parsed,
-                // which is what the screen has to be read after. The timeout is a backstop: a terminal
-                // that somehow never drains must still be thrown away rather than kept alive for it.
-                drain: () => Promise.race([
-                    new Promise<void>((resolve) => term.write("", () => resolve())),
-                    new Promise<void>((resolve) => window.setTimeout(resolve, TERMINAL_DRAIN_TIMEOUT_MS)),
-                ]),
-                captureSnapshot: () => captureTerminalSnapshot(term),
-                dispose: () => {
-                    term.dispose();
-                    if (terminalRef.current === term) {
-                        terminalRef.current = null;
-                        fitAddonRef.current = null;
-                    }
-                },
-            });
+            unregisterInput = registerTerminalInput(sessionId, sendInput);
 
-            // The session can already be up by the time the terminal opens, and it can already have
-            // failed while this tab was in the background, in which case the reason has to be printed
-            // here as well.
-            const connection = useConnectionStore.getState().connections[sessionId];
-            if (connection?.state === "failed") printErrorToTerminal(connection.error);
+            if (!hasConnectedRef.current) {
+                hasConnectedRef.current = true;
+                SshService.Connect(config)
+                    .then(() => {
+                        isReadyRef.current = true;
+                        setConnectionState("ready");
+                    })
+                    .catch((err) => {
+                        // The error is printed into the terminal, so the overlay has to give way to it.
+                        hasFailedRef.current = true;
+                        setConnectionState("failed");
+                        printErrorToTerminal(err);
+                    });
+            }
 
             fitAndResizeRef.current(true);
         };
@@ -301,13 +287,13 @@ export function TerminalInstance({
             cancelled = true;
             container.removeEventListener("contextmenu", handleContextMenu);
             container.removeEventListener("focusin", handleFocus);
+            unregisterInput?.();
             onDataDisposable?.dispose();
-
-            // The terminal is about to be thrown away and the SSH session stays up, so this is where the
-            // screen is kept for the next time the tab is looked at. The registry decides whether it
-            // should be: a closed tab and a reconnect ask for it not to be, and the throwaway itself
-            // happens once the queue has drained.
-            detachTerminal?.();
+            terminalRef.current?.dispose();
+            terminalRef.current = null;
+            fitAddonRef.current = null;
+            SshService.Disconnect(sessionId).catch(() => {
+            });
         };
     }, [sessionId, config]);
 
@@ -345,14 +331,21 @@ export function TerminalInstance({
     ]);
 
     useEffect(() => {
-        // A failure that happened while this tab was in the background has no terminal to print itself,
-        // so it is printed here instead. The one that arrives while the terminal is on screen prints
-        // itself, and a terminal that was built after the failure already did it in `start`.
-        if (connectionState !== "failed" || !connectionError) return;
-        if (!terminalRef.current) return;
+        const unsubscribe = Events.On(AppEvent.SshData, (event) => {
+            if (event.data.id !== sessionId) return;
 
-        printErrorToTerminal(connectionError);
-    }, [connectionError, connectionState]);
+            const rawBytes = decodeBase64ToUint8Array(event.data.data);
+            const terminal = terminalRef.current;
+            if (terminal) {
+                terminal.write(rawBytes);
+            } else {
+                // The terminal opens once its font is ready, and the handshake output has to survive
+                // that wait instead of being dropped on the floor.
+                pendingWritesRef.current.push(rawBytes);
+            }
+        });
+        return () => unsubscribe();
+    }, [sessionId]);
 
     useEffect(() => {
         if (!isVisible || isConnecting) return;

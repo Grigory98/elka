@@ -358,7 +358,6 @@ export function SettingsPage() {
             terminalCursorStyle: appearance.terminalCursorStyle,
             terminalFontFamily: appearance.terminalFontFamily,
             terminalFontSize: appearance.terminalFontSize,
-            terminalScrollback: appearance.terminalScrollback,
             splitPaneBorder: appearance.splitPaneBorderColor,
             splitPaneHeaderColor: appearance.splitPaneHeaderColor,
             serverMetricsColor: appearance.serverMetricsColor,
@@ -654,21 +653,6 @@ export function SettingsPage() {
                                     max={24}
                                     value={appearanceDraft.terminalFontSize}
                                     onChange={(event) => updateAppearance({terminalFontSize: Number(event.target.value)})}
-                                    className="h-8 w-32 accent-primary"
-                                />
-                            </SettingsRow>
-                            {/* xterm sizes its buffer once, when a terminal opens, so this applies to the
-                                tabs that are opened after the change and not to the ones already on screen. */}
-                            <SettingsRow label={t("terminal_scrollback")}>
-                                <span className="font-mono text-xs text-muted-foreground">{appearanceDraft.terminalScrollback}</span>
-                                <input
-                                    aria-label={t("terminal_scrollback")}
-                                    type="range"
-                                    min={200}
-                                    max={10000}
-                                    step={100}
-                                    value={appearanceDraft.terminalScrollback}
-                                    onChange={(event) => updateAppearance({terminalScrollback: Number(event.target.value)})}
                                     className="h-8 w-32 accent-primary"
                                 />
                             </SettingsRow>

@@ -140,18 +140,6 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
     const {panes, dividers} = useMemo(() => layoutPanes(layout), [layout]);
     const paneBySession = useMemo(() => new Map(panes.map((pane) => [pane.sessionId, pane])), [panes]);
 
-    // A terminal is only mounted while its tab is on screen. Every session stays open either way, but a
-    // mounted xterm is the most expensive thing in the web content process by a wide margin: its buffer,
-    // its glyphs and a DOM tree per row. A tab that is not being looked at keeps its SSH session, a
-    // snapshot of its screen and the output it missed, and is rebuilt from those when it comes back.
-    const visibleSessionIDs = useMemo(() => {
-        const ids = new Set<string>();
-        if (!isVisible) return ids;
-
-        for (const pane of panes) ids.add(pane.sessionId);
-        return ids;
-    }, [isVisible, panes]);
-
     const startResize = (divider: SplitDivider, event: ReactPointerEvent<HTMLDivElement>) => {
         const parent = event.currentTarget.parentElement;
         const bounds = parent?.getBoundingClientRect();
@@ -202,8 +190,6 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
             <div className={cn("absolute inset-y-0 left-0", splitWorkspaceActive ? "right-1" : "right-0")}>
             {sessions.map((session) => {
                 const pane = paneBySession.get(session.id);
-                if (!visibleSessionIDs.has(session.id)) return null;
-
                 // Panes fill their region exactly, so the black surface reaches the window edges and
                 // the dividers ride on top of it instead of eating into the pane width.
                 const layoutStyle: CSSProperties | undefined = pane ? {
@@ -216,13 +202,13 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
 
                 return (
                     // The reconnect counter is part of the key on purpose: a new key remounts the
-                    // instance, which gives the tab the empty screen a new shell needs.
+                    // instance, which closes the old SSH session and opens a fresh one in this tab.
                     <TerminalInstance
                         key={`${session.id}:${session.reconnectCount}`}
                         sessionId={session.id}
                         config={session.config}
                         isActive={session.id === activeSessionId}
-                        isVisible={isVisible}
+                        isVisible={isVisible && !!pane}
                         isSplitPane={splitWorkspaceActive && !!pane}
                         workspaceID={splitWorkspaceActive ? activeWorkspaceID || undefined : undefined}
                         paneTitle={session.title}

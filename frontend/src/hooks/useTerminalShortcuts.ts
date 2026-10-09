@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { terminalNavigationSequence } from "@/lib/terminalKeys";
-import { hasTerminalInput, sendTerminalInput } from "@/lib/terminalSessions";
+import { hasTerminalInput, sendTerminalInput } from "@/lib/terminalInput";
 import { useSessionStore } from "@/store/sessionStore";
 import { useUIStore, ViewType } from "@/store/uiStore";
 

@@ -28,7 +28,6 @@ type ColorPalette struct {
 	TerminalCursorStyle     string `json:"terminalCursorStyle,omitempty"`
 	TerminalFontFamily      string `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize        int    `json:"terminalFontSize,omitempty"`
-	TerminalScrollback      int    `json:"terminalScrollback,omitempty"`
 	SplitPaneBorderColor    string `json:"splitPaneBorderColor,omitempty"`
 	SplitPaneHeaderColor    string `json:"splitPaneHeaderColor,omitempty"`
 	ServerMetricsColor      string `json:"serverMetricsColor,omitempty"`
@@ -54,7 +53,6 @@ type AppSettings struct {
 	TerminalCursorStyle   string         `json:"terminalCursorStyle,omitempty"`
 	TerminalFontFamily    string         `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize      int            `json:"terminalFontSize,omitempty"`
-	TerminalScrollback    int            `json:"terminalScrollback,omitempty"`
 	SplitPaneBorder       string         `json:"splitPaneBorder,omitempty"`
 	SplitPaneHeaderColor  string         `json:"splitPaneHeaderColor,omitempty"`
 	ServerMetricsColor    string         `json:"serverMetricsColor,omitempty"`
@@ -108,7 +106,6 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		TerminalCursorStyle:  "block",
 		TerminalFontFamily:   "Cascadia Code",
 		TerminalFontSize:     14,
-		TerminalScrollback:   1000,
 		GroupViewModeVersion: 1,
 		VaultDirectory:       s.appDir,
 	}
