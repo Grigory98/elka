@@ -86,6 +86,16 @@ type activeSession struct {
 	forwarders  []io.Closer
 	// metricsChannel непустой только пока вкладка с этой сессией на экране.
 	metricsChannel *ssh.Session
+	// config переживает сессию ради отдельного соединения под SFTP. В нём остаются креды, но они и
+	// так лежат во фронтендовом сторе, а второе подключение без них не поднять.
+	config *SSHConnectionConfig
+	// sftpMu защищает sftp-клиент: операции идут по очереди, а его подъём и закрытие не должны
+	// наезжать друг на друга.
+	sftpMu sync.Mutex
+	// sftp непустой, пока подсистема жива. sftpConn и sftpJumps — её отдельное соединение.
+	sftp      *sftp.Client
+	sftpConn  *ssh.Client
+	sftpJumps []*ssh.Client
 }
 
 type SshService struct {
@@ -185,6 +195,7 @@ func (s *SshService) Connect(config *SSHConnectionConfig) error {
 		session:     session,
 		stdin:       stdin,
 		forwarders:  forwarders,
+		config:      config,
 	}
 	s.sessions[config.ID] = currentSession
 	s.mu.Unlock()
@@ -420,46 +431,55 @@ func (s *SshService) Resize(sessionID string, rows, cols int) error {
 }
 
 func (s *SshService) ListSFTPDirectory(sessionID, directory string) (SFTPDirectory, error) {
-	client, err := s.newSFTPClient(sessionID)
+	var result SFTPDirectory
+	err := s.withSFTP(sessionID, func(client *sftp.Client) error {
+		resolved, err := resolveSFTPPath(client, directory)
+		if err != nil {
+			return fmt.Errorf("resolve remote directory: %w", err)
+		}
+		files, err := client.ReadDir(resolved)
+		if err != nil {
+			return fmt.Errorf("read remote directory %s: %w", resolved, err)
+		}
+
+		entries := make([]SFTPEntry, 0, len(files))
+		for _, file := range files {
+			if file.Name() == "." || file.Name() == ".." {
+				continue
+			}
+			entries = append(entries, SFTPEntry{
+				Name:    file.Name(),
+				Path:    path.Join(resolved, file.Name()),
+				IsDir:   file.IsDir(),
+				Size:    file.Size(),
+				ModTime: file.ModTime().Unix(),
+				Mode:    file.Mode().String(),
+			})
+		}
+		result = SFTPDirectory{Path: resolved, Entries: entries}
+		return nil
+	})
 	if err != nil {
 		return SFTPDirectory{}, err
 	}
-	defer client.Close()
-
-	directory, err = resolveSFTPPath(client, directory)
-	if err != nil {
-		return SFTPDirectory{}, fmt.Errorf("resolve remote directory: %w", err)
-	}
-	files, err := client.ReadDir(directory)
-	if err != nil {
-		return SFTPDirectory{}, fmt.Errorf("read remote directory %s: %w", directory, err)
-	}
-
-	entries := make([]SFTPEntry, 0, len(files))
-	for _, file := range files {
-		if file.Name() == "." || file.Name() == ".." {
-			continue
-		}
-		entries = append(entries, SFTPEntry{
-			Name:    file.Name(),
-			Path:    path.Join(directory, file.Name()),
-			IsDir:   file.IsDir(),
-			Size:    file.Size(),
-			ModTime: file.ModTime().Unix(),
-			Mode:    file.Mode().String(),
-		})
-	}
-	return SFTPDirectory{Path: directory, Entries: entries}, nil
+	return result, nil
 }
 
 func (s *SshService) DownloadSFTPFile(ctx context.Context, sessionID, remotePath, suggestedFilename, dialogTitle string) (bool, error) {
-	client, err := s.newSFTPClient(sessionID)
+	var downloaded bool
+	err := s.withSFTP(sessionID, func(client *sftp.Client) error {
+		var err error
+		downloaded, err = s.downloadSFTPFile(ctx, client, sessionID, remotePath, suggestedFilename, dialogTitle)
+		return err
+	})
 	if err != nil {
 		return false, err
 	}
-	defer client.Close()
+	return downloaded, nil
+}
 
-	remotePath, err = resolveSFTPPath(client, remotePath)
+func (s *SshService) downloadSFTPFile(ctx context.Context, client *sftp.Client, sessionID, remotePath, suggestedFilename, dialogTitle string) (bool, error) {
+	remotePath, err := resolveSFTPPath(client, remotePath)
 	if err != nil {
 		return false, fmt.Errorf("resolve remote file: %w", err)
 	}
@@ -514,13 +534,13 @@ func (s *SshService) DownloadSFTPFile(ctx context.Context, sessionID, remotePath
 }
 
 func (s *SshService) UploadSFTPFile(ctx context.Context, sessionID, remotePath string, data []byte) error {
-	client, err := s.newSFTPClient(sessionID)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
+	return s.withSFTP(sessionID, func(client *sftp.Client) error {
+		return s.uploadSFTPFile(ctx, client, sessionID, remotePath, data)
+	})
+}
 
-	remotePath, err = resolveSFTPPath(client, remotePath)
+func (s *SshService) uploadSFTPFile(ctx context.Context, client *sftp.Client, sessionID, remotePath string, data []byte) error {
+	remotePath, err := resolveSFTPPath(client, remotePath)
 	if err != nil {
 		return fmt.Errorf("resolve remote file: %w", err)
 	}
@@ -580,18 +600,81 @@ func (s *SshService) copySFTPWithProgress(ctx context.Context, sessionID, direct
 	}
 }
 
-func (s *SshService) newSFTPClient(sessionID string) (*sftp.Client, error) {
+// withSFTP выполняет операцию на общем sftp-клиенте сессии.
+//
+// Подсистема живёт на отдельном SSH-соединении, а не на том, где идёт терминал. На том соединении
+// слоты сессий уже заняты шеллом и сбором метрик, и сервер с жёстким MaxSessions (часто 1 или 2)
+// просто не даёт открыть ещё один канал сессии для SFTP. У отдельного соединения свой лимит, поэтому
+// SFTP получает первый слот независимо от настроек сервера. Так же делают Termius и Tabby.
+//
+// Клиент один на сессию, а не на операцию: новый канал на каждый каталог означал бы новый хендшейк и
+// гонку за слот, который сервер освобождает не сразу. Ошибка операции закрывает клиент, чтобы
+// следующая операция началась с чистого соединения.
+func (s *SshService) withSFTP(sessionID string, operation func(*sftp.Client) error) error {
 	s.mu.RLock()
 	active, exists := s.sessions[sessionID]
 	s.mu.RUnlock()
 	if !exists || active.client == nil {
-		return nil, apperror.SSHSessionNotFound()
+		return apperror.SSHSessionNotFound()
 	}
-	client, err := sftp.NewClient(active.client)
+
+	active.sftpMu.Lock()
+	defer active.sftpMu.Unlock()
+
+	client, err := s.openSFTPClient(active)
 	if err != nil {
+		return err
+	}
+	if err = operation(client); err != nil {
+		closeSFTPLocked(active)
+		return err
+	}
+	return nil
+}
+
+// openSFTPClient поднимает подсистему на отдельном соединении при первом обращении. Вызывается под
+// sftpMu.
+func (s *SshService) openSFTPClient(active *activeSession) (*sftp.Client, error) {
+	if active.sftp != nil {
+		return active.sftp, nil
+	}
+	if active.config == nil {
+		return nil, fmt.Errorf("start SFTP subsystem: no connection settings for a second connection")
+	}
+
+	connection, jumps, err := connectSSH(active.config)
+	if err != nil {
+		return nil, fmt.Errorf("start SFTP subsystem: open a second connection: %w", err)
+	}
+	client, err := sftp.NewClient(connection)
+	if err != nil {
+		_ = connection.Close()
+		closeJumpClients(jumps)
 		return nil, fmt.Errorf("start SFTP subsystem: %w", err)
 	}
+	active.sftp, active.sftpConn, active.sftpJumps = client, connection, jumps
 	return client, nil
+}
+
+// closeSFTPConnection закрывает подсистему и её отдельное соединение, если они были подняты.
+// Основное соединение закрывает вызывающий.
+func closeSFTPConnection(active *activeSession) {
+	active.sftpMu.Lock()
+	defer active.sftpMu.Unlock()
+	closeSFTPLocked(active)
+}
+
+func closeSFTPLocked(active *activeSession) {
+	if active.sftp != nil {
+		_ = active.sftp.Close()
+		active.sftp = nil
+	}
+	if active.sftpConn != nil {
+		_ = active.sftpConn.Close()
+		closeJumpClients(active.sftpJumps)
+		active.sftpConn = nil
+		active.sftpJumps = nil
+	}
 }
 
 func resolveSFTPPath(client *sftp.Client, requested string) (string, error) {
@@ -632,6 +715,7 @@ func (s *SshService) Disconnect(sessionID string) {
 	if exists {
 		closeForwarders(active.forwarders)
 		_ = active.session.Close()
+		closeSFTPConnection(active)
 		_ = active.client.Close()
 		closeJumpClients(active.jumpClients)
 	}
@@ -706,6 +790,7 @@ func (s *SshService) cleanupSession(sessionID string, current *activeSession) {
 			_ = current.metricsChannel.Close()
 		}
 		closeForwarders(current.forwarders)
+		closeSFTPConnection(current)
 		if current.client != nil {
 			_ = current.client.Close()
 		}
