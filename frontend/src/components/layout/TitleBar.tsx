@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isMac } from "@/lib/platform";
 import { useAuthStore } from "@/store/authStore.ts";
+import { hideSessionDragGhost, moveSessionDragGhost, showSessionDragGhost } from "@/lib/sessionDrag";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TerminalSplitLayout } from "@/store/sessionStore";
@@ -91,6 +92,7 @@ export function TitleBar() {
     useEffect(() => () => {
         pointerTabDragRef.current?.cleanUp();
         paneDropTargetRef.current?.removeAttribute("data-top-tab-drop-target");
+        hideSessionDragGhost();
     }, []);
 
     const handleTabPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -121,8 +123,19 @@ export function TitleBar() {
         const handlePointerMove = (moveEvent: PointerEvent) => {
             if (moveEvent.pointerId !== drag.pointerID) return;
             if (!drag.moved && Math.hypot(moveEvent.clientX - drag.startX, moveEvent.clientY - drag.startY) < 5) return;
-            drag.moved = true;
+            if (!drag.moved) {
+                drag.moved = true;
+                // Перенос вкладки идёт на pointer-событиях, поэтому системная картинка перетаскивания
+                // тут не появляется: без своей плашки под курсором перенос выглядит как обычное
+                // движение мыши, и непонятно, что вкладку вообще можно куда-то донести.
+                if (drag.sessionID) {
+                    const session = sessions.find((item) => item.id === drag.sessionID);
+                    showSessionDragGhost(session?.title || drag.tabID);
+                    tab.setAttribute("data-top-tab-dragging", "true");
+                }
+            }
             moveEvent.preventDefault();
+            if (drag.sessionID) moveSessionDragGhost(moveEvent.clientX, moveEvent.clientY);
 
             const hovered = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null;
             const targetTab = hovered?.closest<HTMLElement>("[data-top-tab-id]");
@@ -205,11 +218,25 @@ export function TitleBar() {
             window.removeEventListener("pointermove", handlePointerMove);
             window.removeEventListener("pointerup", finishDrag);
             window.removeEventListener("pointercancel", finishDrag);
+            window.removeEventListener("blur", cancelDrag);
+            // Снимается здесь, а не только на успешном drop: прерванный перенос (Esc, потеря фокуса
+            // окна) иначе оставил бы плашку висеть поверх интерфейса.
+            tab.removeAttribute("data-top-tab-dragging");
+            hideSessionDragGhost();
         };
+        // Отпущенная кнопка вне окна не доносит pointerup, и перенос иначе завис бы вместе с
+        // плашкой под курсором, пока пользователь не вернётся в приложение.
+        const cancelDrag = () => {
+            drag.cleanUp();
+            clearPreview();
+            pointerTabDragRef.current = null;
+        };
+
         pointerTabDragRef.current = drag;
         window.addEventListener("pointermove", handlePointerMove, {passive: false});
         window.addEventListener("pointerup", finishDrag);
         window.addEventListener("pointercancel", finishDrag);
+        window.addEventListener("blur", cancelDrag);
     };
 
     const handleTabClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {

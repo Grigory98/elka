@@ -257,6 +257,13 @@ body,
     outline-offset: -4px;
 }
 
+/* Источник переноса гаснет: пока вкладка едет под курсором, её хорошо видно в трее — иначе
+   непонятно, какая именно вкладка переносится в разделённый экран. Метку ставит TitleBar
+   напрямую на узел, без ререндера трея на каждом движении указателя. */
+[data-top-tab-dragging="true"] {
+    opacity: 0.4;
+}
+
 [role="menuitem"]:hover {
     background-color: var(--accent) !important;
     color: var(--accent-foreground) !important;
