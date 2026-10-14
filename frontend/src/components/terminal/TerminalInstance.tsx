@@ -52,6 +52,15 @@ async function loadTerminalModules() {
 type TerminalModules = Awaited<ReturnType<typeof loadTerminalModules>>;
 
 /**
+ * How long a session has to be out of sight before its canvases are handed back, in milliseconds.
+ *
+ * Long enough that switching a tab, splitting a pane or dragging a divider costs nothing at all, and
+ * short enough that walking away from a screenful of terminals gives the memory back long before
+ * anyone goes looking for where it went.
+ */
+const RENDERER_RELEASE_DELAY_MS = 30000;
+
+/**
  * Whether this machine's WebGL is only a software rasteriser.
  *
  * A virtual machine, a remote desktop session without GPU passthrough, or Mesa's llvmpipe will hand
@@ -595,6 +604,34 @@ export function TerminalInstance({
         frameIds.push(firstFrame);
         return () => frameIds.forEach((frame) => window.cancelAnimationFrame(frame));
     }, [isActive, isConnecting, isVisible, sessionId]);
+
+    /**
+     * Hands the renderer back while nobody is looking, and takes it again on the way back.
+     *
+     * The accelerated renderer draws into two canvases the size of the terminal and keeps them for as
+     * long as the session exists: three sessions, two of them on other tabs, were measured holding six
+     * canvases of 2624x1664 — thirty five megabytes a tab — while two of those terminals sat at a size
+     * of zero. Disposing the addon is the whole of the fix. It puts the built in renderer back and
+     * repaints, so the session keeps its buffer, its cursor and the modes the shell negotiated, and
+     * putting the renderer back is the install path that the next fit already runs.
+     *
+     * Rendering itself is not the problem here and is not what this stops: xterm watches its own screen
+     * with an IntersectionObserver, and a hidden pane is `display: none`, so it has already stopped
+     * drawing. What it cannot do is give the canvases back.
+     */
+    useEffect(() => {
+        // Nothing to hand back on the way in: the fit installs the renderer for a pane on screen.
+        if (isVisible) return;
+        const timer = window.setTimeout(() => {
+            const addon = webglRef.current;
+            if (!addon) return;
+            webglRef.current = null;
+            // Cleared so that the next fit installs the renderer again rather than assuming it is there.
+            rendererInstalledRef.current = false;
+            addon.dispose();
+        }, RENDERER_RELEASE_DELAY_MS);
+        return () => window.clearTimeout(timer);
+    }, [isVisible]);
 
     // A pane that becomes the visible one takes the keyboard, whether it was just switched to or was
     // waiting behind another tab. The fit does the same for a pane that resized into place, which is
