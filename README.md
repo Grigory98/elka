@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="images/SplitScreen-ing.png" alt="Split screen" width="100%"/>
-</p>
-
 <h1 align="center">Elka</h1>
 
 <p align="center">
@@ -17,7 +13,8 @@
 Elka — SSH-клиент, в котором всё хранится в зашифрованном хранилище прямо на вашей машине. Написан на Go и React, интерфейс нативный — без Electron.
 
 <p align="center">
-  <img src="images/NewSession-ing.png" alt="New session" width="100%"/>
+  <img src="images/SplitScreen-ing.png" alt="Split screen" width="49%"/>
+  <img src="images/NewSession-ing.png" alt="New session" width="49%"/>
 </p>
 
 ## Что умеет приложение
