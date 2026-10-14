@@ -53,3 +53,13 @@ releases/
 .eslintcache
 *.tsbuildinfo
 coverage/
+frontend/.vite/
+
+# Local debugging
+# Working notes from an investigation session: useful while it lasts, noise afterwards.
+MEMORY_WORKLOG.md
+# Heap snapshots and memory dumps taken from the webview.
+*.heapsnapshot
+*.heapprofile
+# Scratch copy of the measurement harness, which lives outside the repository.
+memory-harness/

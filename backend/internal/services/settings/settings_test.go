@@ -152,3 +152,57 @@ func TestApplyPendingVaultDirectorySwitchesWithoutMovingData(t *testing.T) {
 		t.Fatalf("switch moved or overwrote vault data: first=%q second=%q", firstContents, secondContents)
 	}
 }
+
+func TestGetSettingsFillsInTerminalScrollbackForOlderFiles(t *testing.T) {
+	appDir := t.TempDir()
+	configPath := filepath.Join(appDir, "settings.json")
+	// A file written before the field existed carries no key at all, which unmarshals to zero. Zero is
+	// also what an absent field means here, so it has to come back as the default rather than as "no
+	// history at all".
+	if err := os.WriteFile(configPath, []byte(`{"language":"en"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	service := NewSettingsService(appDir, "elka.db", nil, nil)
+	settings, err := service.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.TerminalScrollback != DefaultTerminalScrollback {
+		t.Fatalf("scrollback from an older settings file = %d, want %d", settings.TerminalScrollback, DefaultTerminalScrollback)
+	}
+}
+
+func TestTerminalScrollbackIsKeptAndBounded(t *testing.T) {
+	appDir := t.TempDir()
+	service := NewSettingsService(appDir, "elka.db", nil, nil)
+
+	current, err := service.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	current.TerminalScrollback = 20000
+	if err = service.SaveSettings(current); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.TerminalScrollback != 20000 {
+		t.Fatalf("stored scrollback = %d, want 20000", updated.TerminalScrollback)
+	}
+
+	updated.TerminalScrollback = MaxTerminalScrollback * 4
+	if err = service.SaveSettings(updated); err != nil {
+		t.Fatal(err)
+	}
+	updated, err = service.GetSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.TerminalScrollback != MaxTerminalScrollback {
+		t.Fatalf("scrollback above the ceiling = %d, want %d", updated.TerminalScrollback, MaxTerminalScrollback)
+	}
+}

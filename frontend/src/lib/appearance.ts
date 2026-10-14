@@ -1,4 +1,5 @@
-import { DEFAULT_TERMINAL_FONT_FAMILY } from "@/lib/terminalFont";
+import { DEFAULT_APP_FONT_FAMILY } from "@/lib/fontLoader";
+import { DEFAULT_TERMINAL_FONT_FAMILY, DEFAULT_TERMINAL_SCROLLBACK } from "@/lib/terminalFont";
 import { ColorPalette } from "../../bindings/elka-desktop/backend/internal/services/settings";
 
 export interface AppearanceSettings {
@@ -12,6 +13,8 @@ export interface AppearanceSettings {
     terminalCursorStyle: "block" | "underline" | "bar";
     terminalFontFamily: string;
     terminalFontSize: number;
+    /** Scrollback lines kept per terminal. Every line costs three words per column of live heap. */
+    terminalScrollback: number;
     /** Empty string keeps the split pane frame tied to the app theme. */
     splitPaneBorderColor: string;
     /** Left menu background. Empty string keeps the colour derived from the app palette. */
@@ -30,13 +33,14 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
     appBackgroundColor: "#09090b",
     appForegroundColor: "#fafafa",
     appAccentColor: "#e4e4e7",
-    appFontFamily: "Geist Variable",
+    appFontFamily: DEFAULT_APP_FONT_FAMILY,
     terminalBackgroundColor: "#09090b",
     terminalForegroundColor: "#fafafa",
     terminalCursorColor: "#fafafa",
     terminalCursorStyle: "block",
     terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
     terminalFontSize: 14,
+    terminalScrollback: DEFAULT_TERMINAL_SCROLLBACK,
     splitPaneBorderColor: "",
     sidebarColor: "",
     inputColor: "",

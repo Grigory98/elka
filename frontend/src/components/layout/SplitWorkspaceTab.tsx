@@ -7,8 +7,11 @@ import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/Context
 import {
     SplitWorkspace,
     TERMINAL_SESSION_DRAG_TYPE,
+    TerminalSession,
+    paneIDs,
     splitWorkspaceTabID,
 } from "@/store/sessionStore";
+import { hideTabTooltip, scheduleTabTooltip, sshAddressText, sshAddressesText } from "@/lib/tabTooltip";
 import { useState } from "react";
 
 interface SplitWorkspaceTabProps {
@@ -19,6 +22,8 @@ interface SplitWorkspaceTabProps {
     onCreate: (title: string) => void;
     onRename: (title: string) => void;
     onDropSession: (sessionID: string, workspaceID: string) => void;
+    /** The tabs a workspace stands for carry their address in the config; the hint needs it. */
+    sessions: TerminalSession[];
     nextWorkspaceNumber: number;
     dropEdge: "before" | "after" | null;
     isDropTarget: boolean;
@@ -32,6 +37,7 @@ export function SplitWorkspaceTab({
     onCreate,
     onRename,
     onDropSession,
+    sessions,
     nextWorkspaceNumber,
     dropEdge,
     isDropTarget,
@@ -40,6 +46,12 @@ export function SplitWorkspaceTab({
     const [isSessionDropTarget, setIsSessionDropTarget] = useState(false);
     const [isRenameOpen, setIsRenameOpen] = useState(false);
     const tabID = splitWorkspaceTabID(workspace.id);
+
+    // Built on hover, not on every render: the hint is a shared element outside React, so nothing
+    // here re-renders when it appears.
+    const addressText = () => sshAddressesText(paneIDs(workspace.layout)
+        .map((sessionID) => sessions.find((session) => session.id === sessionID))
+        .map((session) => session && sshAddressText(session.config.host, session.config.port)));
 
     return (
         <>
@@ -51,6 +63,8 @@ export function SplitWorkspaceTab({
                     aria-selected={isActive}
                     data-top-tab-id={tabID}
                     data-workspace-id={workspace.id}
+                    onPointerEnter={(event) => scheduleTabTooltip(event.currentTarget, addressText())}
+                    onPointerLeave={hideTabTooltip}
                     onClick={onClick}
                     onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {

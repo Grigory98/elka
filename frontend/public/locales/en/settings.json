@@ -86,5 +86,7 @@
   "sidebar_toggle_desc": "Show the sidebar toggle in the top right corner. When off, the sidebar stays open.",
   "server_metrics_title": "Server metrics",
   "server_metrics_desc": "Load, load average, I/O wait and memory of the active tab",
-  "server_metrics_color": "Server metrics"
+  "server_metrics_color": "Server metrics",
+  "terminal_scrollback_label": "Terminal history",
+  "terminal_scrollback_desc": "Lines kept per terminal and scrolled back with the wheel. Every line costs memory in proportion to the window width, so a long build log is worth a smaller number."
 }
