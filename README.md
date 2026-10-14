@@ -12,11 +12,7 @@
 
 Elka — SSH-клиент, в котором всё хранится в зашифрованном хранилище прямо на вашей машине. Написан на Go и React, интерфейс нативный — без Electron.
 
-<p align="center">
-  <img src="images/SplitScreen-ing.png" alt="Split screen" height="320" align="middle"/>
-  &nbsp;
-  <img src="images/NewSession-ing.png" alt="New session" height="320" align="middle"/>
-</p>
+<p align="center"><img src="images/SplitScreen-ing.png" alt="Split screen" width="48%" align="middle"/>&nbsp;<img src="images/NewSession-ing.png" alt="New session" width="48%" align="middle"/></p>
 
 ## Что умеет приложение
 
