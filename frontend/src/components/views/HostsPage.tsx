@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, FolderPlus, FolderTree, Plus, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { HostCard } from "@/components/views/HostCard";
+import { CARD_HEIGHT, HostCard, LIST_ROW_HEIGHT } from "@/components/views/HostCard";
+import { VirtualizedList } from "@/components/views/VirtualizedList";
 import { HostModal } from "@/components/views/HostModal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { useHosts, useSaveHost, useDeleteHost } from "@/hooks/useHosts";
@@ -18,6 +19,17 @@ import { HostViewPicker } from "@/components/layout/HostViewPicker";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { handleAppError } from "@/lib/error";
+
+/**
+ * Vertical pitch of one card row: the card itself, plus the gap the grid puts under it.
+ *
+ * This is the number the virtual list divides by, so it has to include the gap — a card measured
+ * without it would make the list drift a sixteenth of a pixel per row and be visibly out by the
+ * time the last row came into view. The card height itself lives with the card, in HostCard, where
+ * it is also applied as a style so the two cannot drift apart.
+ */
+const CARD_GRID_GAP = 16;
+const CARD_PITCH = CARD_HEIGHT + CARD_GRID_GAP;
 
 export function HostsPage() {
     const {t} = useTranslation(["hosts", "common"]);
@@ -40,20 +52,26 @@ export function HostsPage() {
     const [hostToDelete, setHostToDelete] = useState<Host | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [expandedTreeGroups, setExpandedTreeGroups] = useState<Set<string>>(new Set());
+    // What the virtual list currently has on screen, for the "1-40 of 400" line below it. Only the
+    // flat views report it: a tree shows a slice per open group, and there is no single range to name.
+    const [visibleRange, setVisibleRange] = useState<{from: number; to: number}>({from: 0, to: 0});
+    const setReportedRange = useCallback((from: number, to: number) => {
+        setVisibleRange((current) => (current.from === from && current.to === to ? current : {from, to}));
+    }, []);
 
     const handleCreateNew = () => {
         setEditingHost(null);
         setIsModalOpen(true);
     };
 
-    const handleEdit = (host: Host) => {
+    const handleEdit = useCallback((host: Host) => {
         setEditingHost(host);
         setIsModalOpen(true);
-    };
+    }, []);
 
-    const handleDeletePrompt = (host: Host) => {
+    const handleDeletePrompt = useCallback((host: Host) => {
         setHostToDelete(host);
-    };
+    }, []);
 
     const handleConfirmDelete = () => {
         if (hostToDelete) deleteMutation.mutate(hostToDelete.id);
@@ -68,7 +86,7 @@ export function HostsPage() {
         saveGroupMutation.mutate(group, {onSuccess: () => setIsGroupModalOpen(false)});
     };
 
-    const handleConnect = (host: Host) => {
+    const handleConnect = useCallback((host: Host) => {
         try {
             const auth = resolveHostAuthentication(host, keys || [], credentials || [], groups || []);
             addSession({
@@ -82,7 +100,7 @@ export function HostsPage() {
         } catch (error) {
             handleAppError(error);
         }
-    };
+    }, [keys, credentials, groups, hosts, addSession]);
 
     const filteredHosts = useMemo(() => {
         const query = searchQuery.trim().toLocaleLowerCase();
@@ -96,6 +114,8 @@ export function HostsPage() {
             )
         );
     }, [hosts, searchQuery, selectedHostGroup, showHostGroups]);
+
+    const matchedHostCount = filteredHosts?.length || 0;
 
     const treeGroups = useMemo(() => {
         const grouped = new Map<string, Host[]>();
@@ -196,13 +216,13 @@ export function HostsPage() {
             )}
 
             {displayedViewMode === "cards" && (
-                <div
-                    className="grid w-full gap-4"
-                    style={{gridTemplateColumns: "repeat(auto-fit, minmax(20rem, 1fr))"}}
-                >
-                    {filteredHosts?.map((host) => (
+                <VirtualizedList
+                    key="list"
+                    items={filteredHosts || []}
+                    itemHeight={CARD_PITCH}
+                    display="grid"
+                    renderItem={(host) => (
                         <HostCard
-                            key={host.id}
                             host={host}
                             showGroup={showHostGroups}
                             viewMode="cards"
@@ -210,14 +230,17 @@ export function HostsPage() {
                             onEdit={handleEdit}
                             onDelete={handleDeletePrompt}
                         />
-                    ))}
-                </div>
+                    )}
+                    onRangeChange={setReportedRange}
+                />
             )}
             {displayedViewMode === "list" && (
-                <div className="flex w-full flex-col">
-                    {filteredHosts?.map((host) => (
+                <VirtualizedList
+                    key="list"
+                    items={filteredHosts || []}
+                    itemHeight={LIST_ROW_HEIGHT}
+                    renderItem={(host) => (
                         <HostCard
-                            key={host.id}
                             host={host}
                             showGroup={showHostGroups}
                             viewMode="list"
@@ -225,8 +248,9 @@ export function HostsPage() {
                             onEdit={handleEdit}
                             onDelete={handleDeletePrompt}
                         />
-                    ))}
-                </div>
+                    )}
+                    onRangeChange={setReportedRange}
+                />
             )}
             {displayedViewMode === "tree" && (
                 <div className="flex w-full flex-col gap-4">
@@ -250,22 +274,40 @@ export function HostsPage() {
                                 <span>{groupName || t("ungrouped_group", {ns: "hosts"})}</span>
                                 <span className="text-xs text-muted-foreground">{groupHosts.length}</span>
                             </button>
-                            {expandedTreeGroups.has(groupName) && <div className="ml-4 border-l border-border pl-3">
-                                {groupHosts.map((host) => (
-                                    <HostCard
-                                        key={host.id}
-                                        host={host}
-                                        showGroup={false}
-                                        viewMode="tree"
-                                        onConnect={handleConnect}
-                                        onEdit={handleEdit}
-                                        onDelete={handleDeletePrompt}
+                            {expandedTreeGroups.has(groupName) && (
+                                <div className="ml-4 border-l border-border pl-3">
+                                    {/* A group can hold hundreds of hosts, so opening it has to stay as
+                                        cheap as the flat list rather than mounting all of them. */}
+                                    <VirtualizedList
+                                        items={groupHosts}
+                                        itemHeight={LIST_ROW_HEIGHT}
+                                        renderItem={(host) => (
+                                            <HostCard
+                                                host={host}
+                                                showGroup={false}
+                                                viewMode="tree"
+                                                onConnect={handleConnect}
+                                                onEdit={handleEdit}
+                                                onDelete={handleDeletePrompt}
+                                            />
+                                        )}
                                     />
-                                ))}
-                            </div>}
+                                </div>
+                            )}
                         </section>
                     ))}
                 </div>
+            )}
+
+            {displayedViewMode !== "tree" && matchedHostCount > 0 && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                    {t("showing_range", {
+                        ns: "hosts",
+                        from: visibleRange.from + 1,
+                        to: Math.min(visibleRange.to, matchedHostCount),
+                        total: matchedHostCount,
+                    })}
+                </p>
             )}
 
             {!isLoading && hosts && hosts.length > 0 && filteredHosts?.length === 0 && (

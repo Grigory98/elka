@@ -54,5 +54,6 @@
   "none_use_password": "None",
   "save_host": "Save Host",
   "delete_title": "Delete Host?",
-  "delete_desc": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+  "delete_desc": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+  "showing_range": "Showing {{from}}–{{to}} of {{total}}"
 }
