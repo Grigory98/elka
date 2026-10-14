@@ -27,7 +27,6 @@ import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES, appearanceToPalette, paletteToAppearance } from "@/lib/appearance";
 import { TERMINAL_FONT_FAMILIES } from "@/lib/terminalFont";
 import { MAX_SCROLLBACK } from "@/lib/terminalTheme";
-import type { TerminalRenderer } from "@/lib/terminalTheme";
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
@@ -384,7 +383,6 @@ export function SettingsPage() {
             terminalFontFamily: appearance.terminalFontFamily,
             terminalFontSize: appearance.terminalFontSize,
             terminalScrollback: appearance.terminalScrollback,
-            terminalRenderer: appearance.terminalRenderer,
             splitPaneBorder: appearance.splitPaneBorderColor,
             splitPaneHeaderColor: appearance.splitPaneHeaderColor,
             serverMetricsColor: appearance.serverMetricsColor,
@@ -699,17 +697,6 @@ export function SettingsPage() {
                                 />
                             </SettingsRow>
                             <p className="px-3 text-xs text-muted-foreground">{t("terminal_scrollback_desc")}</p>
-                            <SettingsRow label={t("terminal_renderer_label")}>
-                                <Select value={appearanceDraft.terminalRenderer}
-                                        onValueChange={(value) => updateAppearance({terminalRenderer: value as TerminalRenderer})}>
-                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="webgl">{t("terminal_renderer_webgl")}</SelectItem>
-                                        <SelectItem value="dom">{t("terminal_renderer_dom")}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </SettingsRow>
-                            <p className="px-3 text-xs text-muted-foreground">{t("terminal_renderer_desc")}</p>
                         </section>
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-border pt-4">

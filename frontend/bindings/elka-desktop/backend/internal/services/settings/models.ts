@@ -23,7 +23,6 @@ export class AppSettings {
     "terminalFontFamily"?: string;
     "terminalFontSize"?: number;
     "terminalScrollback"?: number;
-    "terminalRenderer"?: string;
     "splitPaneBorder"?: string;
     "splitPaneHeaderColor"?: string;
     "serverMetricsColor"?: string;

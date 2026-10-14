@@ -7,7 +7,7 @@ import type {
 } from "react";
 import type { IDisposable, Terminal as XtermTerminal } from "@xterm/xterm";
 import { Events, Clipboard } from "@wailsio/runtime";
-import { createTerminalOptions, normalizeScrollback, usesWebGL } from "@/lib/terminalTheme";
+import { createTerminalOptions, normalizeScrollback } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
 import { registerTerminalInput } from "@/lib/terminalInput";
@@ -30,26 +30,61 @@ import { useUIStore } from "@/store/uiStore";
  * it out keeps the work until the moment it pays for itself. The stylesheet rides along with the code
  * so the layout does not reflow when it arrives.
  *
- * The WebGL renderer is a separate chunk for a second reason: a session that never asks for it should
- * not download it either.
+ * The renderer is a separate chunk so that a session which never opens — a vault sitting on the lock
+ * screen, a window left on the host list — does not download it either.
  */
-async function loadTerminalModules(useWebGL: boolean) {
+async function loadTerminalModules() {
     const [xterm, fit, unicode, webgl] = await Promise.all([
         import("@xterm/xterm"),
         import("@xterm/addon-fit"),
         import("@xterm/addon-unicode11"),
-        useWebGL ? import("@xterm/addon-webgl") : Promise.resolve(null),
+        import("@xterm/addon-webgl"),
     ]);
     await import("@xterm/xterm/css/xterm.css");
     return {
         Terminal: xterm.Terminal,
         FitAddon: fit.FitAddon,
         Unicode11Addon: unicode.Unicode11Addon,
-        WebglAddon: webgl ? webgl.WebglAddon : null,
+        WebglAddon: webgl.WebglAddon,
     };
 }
 
 type TerminalModules = Awaited<ReturnType<typeof loadTerminalModules>>;
+
+/**
+ * Whether this machine's WebGL is only a software rasteriser.
+ *
+ * A virtual machine, a remote desktop session without GPU passthrough, or Mesa's llvmpipe will hand
+ * out a perfectly valid WebGL context that draws every glyph on the CPU. The accelerated renderer is
+ * what keeps scrolling a long history flat, but on a software rasteriser it is slower and heavier
+ * than the built in one, and there is no setting to undo that any more — so it is decided here,
+ * once per session, from what the machine reports about itself. The probe canvas is thrown away
+ * immediately; nothing is rendered into it.
+ */
+function isSoftwareWebGL(cache: {current: boolean | null}): boolean {
+    if (cache.current !== null) return cache.current;
+    let software = false;
+    try {
+        const probe = document.createElement("canvas");
+        const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+        if (!gl) {
+            software = true;
+        } else {
+            const info = gl.getExtension("WEBGL_debug_renderer_info");
+            const name = info ? String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)) : "";
+            software = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(name);
+            if (software) {
+                console.info("WebGL is running in software here, using the built in terminal renderer");
+            }
+            gl.getExtension("WEBGL_lose_context")?.loseContext();
+        }
+    } catch {
+        // A browser that will not answer the question gets the renderer that always works.
+        software = false;
+    }
+    cache.current = software;
+    return software;
+}
 
 type ConnectionState = "connecting" | "ready" | "failed";
 
@@ -135,6 +170,8 @@ export function TerminalInstance({
     const unparsedRef = useRef(0);
     const underPressureRef = useRef(false);
     const rendererInstalledRef = useRef(false);
+    // What the machine said about its own WebGL, asked at most once per session.
+    const softwareRendererRef = useRef<boolean | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
     // HTML5 drags set this locally; a drag that starts in the tab bar writes the store instead, because
     // the pointer never crosses the pane as an HTML5 drag event. Both end up in the same highlight.
@@ -164,10 +201,6 @@ export function TerminalInstance({
     // The renderer classes only exist once the split chunk has arrived, and the fit that installs the
     // renderer is scheduled separately from the load that brings them in.
     const webglClassRef = useRef<NonNullable<TerminalModules["WebglAddon"]> | null>(null);
-    const webglFailedRef = useRef(false);
-    // A session opened on the built in renderer has no WebGL classes to hand out, so a switch to the
-    // accelerated one has to fetch them before the renderer can be replaced.
-    const loadWebGLRef = useRef<() => Promise<void>>(async () => {});
 
     /**
      * Hands output to xterm and watches how far behind the parser is running.
@@ -200,31 +233,6 @@ export function TerminalInstance({
             settled();
             console.warn("terminal write rejected:", error);
         }
-    };
-
-    /**
-     * Swaps the renderer without reopening the terminal.
-     *
-     * Handing the addon back is what puts the DOM renderer in place again — the addon restores it and
-     * repaints on dispose — so switching either way is the same one call, and the session keeps its
-     * history and its cursor.
-     */
-    const applyRenderer = (wantWebGL: boolean, terminal: XtermTerminal) => {
-        if (wantWebGL) {
-            if (webglRef.current || webglFailedRef.current) return;
-            void loadWebGLRef.current().then(() => {
-                if (webglRef.current || webglFailedRef.current || !terminalRef.current) return;
-                installRendererRef.current(terminal);
-                fitAndResizeRef.current(true);
-            });
-            return;
-        }
-        const addon = webglRef.current;
-        if (!addon) return;
-        webglRef.current = null;
-        rendererInstalledRef.current = false;
-        addon.dispose();
-        terminal.refresh(0, terminal.rows - 1);
     };
 
     fitAndResizeRef.current = (forceResize = false) => {
@@ -362,24 +370,13 @@ export function TerminalInstance({
          * what keeps the web content process flat while the scrollback is scrolled. A machine or a
          * webview without a usable WebGL context keeps the DOM renderer rather than a blank screen.
          */
-        // Fetches the renderer on its own, for a session that started on the built in one and was
-        // switched over afterwards.
-        loadWebGLRef.current = async () => {
-            if (webglClassRef.current) return;
-            try {
-                const mod = await import("@xterm/addon-webgl");
-                webglClassRef.current = mod.WebglAddon;
-            } catch (error) {
-                webglFailedRef.current = true;
-                console.warn("WebGL renderer unavailable, keeping the DOM renderer:", error);
-            }
-        };
-
         installRendererRef.current = (term: XtermTerminal) => {
             const WebglAddon = webglClassRef.current;
-            // No WebGL was loaded, or the user asked for the built in renderer: either way the DOM
-            // renderer xterm opened with is what draws.
             if (!WebglAddon) return;
+            // The renderer is the one choice this build does not put in settings, so the machine gets
+            // to make it: a context that only exists in software is the one case where the built in
+            // renderer is the better of the two.
+            if (isSoftwareWebGL(softwareRendererRef)) return;
             try {
                 const addon = new WebglAddon();
                 // loadAddon, not activate: it registers the addon with the terminal so that disposing
@@ -396,7 +393,6 @@ export function TerminalInstance({
                 webglRef.current = addon;
             } catch (error) {
                 // No WebGL here: the DOM renderer stays, and the terminal works as it always has.
-                webglFailedRef.current = true;
                 console.warn("WebGL renderer unavailable, keeping the DOM renderer:", error);
             }
         };
@@ -411,7 +407,7 @@ export function TerminalInstance({
             // The font and the code are fetched together: neither is worth blocking the other for, and
             // the terminal cannot be measured before both have arrived.
             const [modules] = await Promise.all([
-                loadTerminalModules(usesWebGL(appearanceRef.current)),
+                loadTerminalModules(),
                 ensureTerminalFontLoaded(current.terminalFontFamily, current.terminalFontSize),
             ]);
             if (cancelled || terminalRef.current) return;
@@ -508,9 +504,7 @@ export function TerminalInstance({
             // The renderer is owned by the terminal now, which disposes its addons on the way out.
             webglRef.current = null;
             webglClassRef.current = null;
-            webglFailedRef.current = false;
             rendererInstalledRef.current = false;
-            loadWebGLRef.current = async () => {};
             terminalRef.current?.dispose();
             terminalRef.current = null;
             fitAddonRef.current = null;
@@ -558,8 +552,6 @@ export function TerminalInstance({
         appearance.terminalScrollback,
     ]);
 
-    // The renderer is the one part of the terminal that can be swapped in place, so a change here
-    // takes effect without losing the history or the cursor.
     useEffect(() => {
         const terminal = terminalRef.current;
         if (!terminal) return;
@@ -568,15 +560,12 @@ export function TerminalInstance({
         const apply = async () => {
             // A session that has not been created yet picks the new renderer up on its own.
             if (cancelled || !terminalRef.current) return;
-            const wantWebGL = usesWebGL(appearance);
-            if (wantWebGL === !!webglRef.current) return;
-            applyRenderer(wantWebGL, terminal);
         };
         void apply();
         return () => {
             cancelled = true;
         };
-    }, [appearance.terminalRenderer]);
+    }, []);
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshData, (event) => {

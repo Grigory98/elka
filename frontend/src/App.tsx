@@ -13,7 +13,6 @@ import { useSessionStore } from "@/store/sessionStore.ts";
 import { useUIStore } from "@/store/uiStore.ts";
 import { applyAppAppearance, DEFAULT_APPEARANCE } from "@/lib/appearance";
 import { DEFAULT_TERMINAL_SCROLLBACK } from "@/lib/terminalFont";
-import { resolveTerminalRenderer } from "@/lib/terminalTheme";
 import { ensureAppFontReady, DEFAULT_APP_FONT_FAMILY } from "@/lib/fontLoader";
 import { preloadTerminalFace } from "@/lib/terminalFont";
 import { dismissSplash } from "@/lib/splash";
@@ -55,7 +54,6 @@ export default function App() {
                     terminalFontFamily: settings.terminalFontFamily || DEFAULT_APPEARANCE.terminalFontFamily,
                     terminalFontSize: settings.terminalFontSize || DEFAULT_APPEARANCE.terminalFontSize,
                     terminalScrollback: settings.terminalScrollback || DEFAULT_TERMINAL_SCROLLBACK,
-                    terminalRenderer: resolveTerminalRenderer(settings.terminalRenderer),
                     splitPaneBorderColor: settings.splitPaneBorder || DEFAULT_APPEARANCE.splitPaneBorderColor,
                     splitPaneHeaderColor: settings.splitPaneHeaderColor || DEFAULT_APPEARANCE.splitPaneHeaderColor,
                     serverMetricsColor: settings.serverMetricsColor || DEFAULT_APPEARANCE.serverMetricsColor,

@@ -54,7 +54,6 @@ type AppSettings struct {
 	TerminalFontFamily    string         `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize      int            `json:"terminalFontSize,omitempty"`
 	TerminalScrollback    int            `json:"terminalScrollback,omitempty"`
-	TerminalRenderer      string         `json:"terminalRenderer,omitempty"`
 	SplitPaneBorder       string         `json:"splitPaneBorder,omitempty"`
 	SplitPaneHeaderColor  string         `json:"splitPaneHeaderColor,omitempty"`
 	ServerMetricsColor    string         `json:"serverMetricsColor,omitempty"`
@@ -78,22 +77,6 @@ const (
 	// multi hundred megabyte buffer.
 	MaxTerminalScrollback = 200000
 )
-
-// Terminal renderers. The accelerated one keeps scrolling through a long history cheap, and is the
-// more expensive one to open: it draws into two canvases the size of the terminal at device
-// resolution, which on a Retina display is tens of megabytes the built in renderer never allocates.
-const (
-	DefaultTerminalRenderer = "webgl"
-	DomTerminalRenderer     = "dom"
-)
-
-// NormalizeTerminalRenderer keeps a stored or hand-edited value on the closed set the terminal knows.
-func NormalizeTerminalRenderer(renderer string) string {
-	if renderer == DomTerminalRenderer {
-		return DomTerminalRenderer
-	}
-	return DefaultTerminalRenderer
-}
 
 // NormalizeTerminalScrollback keeps a stored or typed value inside the supported range. A zero means
 // "not set" in a settings file written before the field existed, so it falls back to the default
@@ -149,7 +132,6 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		TerminalFontFamily:   "Cascadia Code",
 		TerminalFontSize:     14,
 		TerminalScrollback:   DefaultTerminalScrollback,
-		TerminalRenderer:     DefaultTerminalRenderer,
 		GroupViewModeVersion: 1,
 		VaultDirectory:       s.appDir,
 	}
@@ -171,10 +153,6 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 	// history at all" instead of "the default amount of history".
 	if settings.TerminalScrollback != DefaultTerminalScrollback {
 		settings.TerminalScrollback = NormalizeTerminalScrollback(settings.TerminalScrollback)
-	}
-	// A file written before the field existed leaves it empty, which must read as the default.
-	if settings.TerminalRenderer != DefaultTerminalRenderer {
-		settings.TerminalRenderer = NormalizeTerminalRenderer(settings.TerminalRenderer)
 	}
 	if settings.GroupViewModeVersion < 1 {
 		settings.GroupViewMode = "tree"

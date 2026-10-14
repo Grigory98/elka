@@ -88,9 +88,5 @@
   "server_metrics_desc": "Load, load average, I/O wait and memory of the active tab",
   "server_metrics_color": "Server metrics",
   "terminal_scrollback_label": "Terminal history",
-  "terminal_scrollback_desc": "Lines kept per terminal and scrolled back with the wheel. Every line costs memory in proportion to the window width, so a long build log is worth a smaller number.",
-  "terminal_renderer_label": "Terminal renderer",
-  "terminal_renderer_webgl": "Hardware",
-  "terminal_renderer_dom": "Built in",
-  "terminal_renderer_desc": "Hardware keeps scrolling through a long history cheap, but draws into two canvases the size of the terminal, which on a Retina screen costs tens of megabytes. The built in renderer is lighter to open and rebuilds the visible rows on every scroll."
+  "terminal_scrollback_desc": "Lines kept per terminal and scrolled back with the wheel. Every line costs memory in proportion to the window width, so a long build log is worth a smaller number."
 }

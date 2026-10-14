@@ -22,28 +22,6 @@ export function normalizeScrollback(scrollback: number | undefined | null): numb
     return Math.min(rounded, MAX_SCROLLBACK);
 }
 
-/**
- * Which renderer draws the terminal.
- *
- * The accelerated renderer keeps scrolling through a long history flat, because a scroll repaints the
- * whole viewport and the DOM renderer answers that by building a fresh set of elements for every
- * visible row. It is also the more expensive one to open: it draws into two canvases the size of the
- * terminal at device resolution, which on a Retina display is tens of megabytes that the built in
- * renderer does not need. The choice is the user's, so it is a setting.
- */
-export type TerminalRenderer = "webgl" | "dom";
-
-export const DEFAULT_TERMINAL_RENDERER: TerminalRenderer = "webgl";
-
-/** A value written by an older build, or by hand, has to fall back to the default. */
-export function resolveTerminalRenderer(renderer: string | undefined | null): TerminalRenderer {
-    return renderer === "dom" ? "dom" : DEFAULT_TERMINAL_RENDERER;
-}
-
-export function usesWebGL(appearance: Pick<AppearanceSettings, "terminalRenderer">) {
-    return resolveTerminalRenderer(appearance.terminalRenderer) === "webgl";
-}
-
 export function createTerminalOptions(appearance: AppearanceSettings = DEFAULT_APPEARANCE): ITerminalOptions {
     return {
         fontFamily: terminalFontStack(appearance.terminalFontFamily),
