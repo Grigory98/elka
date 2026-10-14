@@ -332,11 +332,27 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             const defaultTitle = defaultWorkspaceTitle || `Split workspace ${state.workspaces.length + 1}`;
             targetWorkspace = {id: workspaceID, title: defaultTitle, layout: null, activeSessionId: null};
             workspaces = [...workspaces, targetWorkspace];
-            // Тот же порядок, что и у createSplitWorkspace: новое пространство — сразу за вкладкой.
             const createdTabID = splitWorkspaceTabID(workspaceID);
-            const sourceIndex = topTabOrder.indexOf(terminalSessionTabID(id));
+            // Разделённый экран встаёт на место открытой вкладки, а не на место нажатой.
+            //
+            // В разделенный экран попадает активная сессия, и именно её вкладка исчезает из трея, так
+            // что место, которое занимает новое пространство, — это её место. Если считать от нажатой
+            // вкладки, пространство встаёт правее открытой, и прокрутка трея уезжает из-под курсора.
+            // Сессия, уже лежащая в другом разделенном экране, своей вкладки не имеет — тогда якорь
+            // это вкладка её экрана.
+            const activeSessionTabID = state.activeSessionId ? terminalSessionTabID(state.activeSessionId) : "";
+            const activeWorkspaceTabID = state.activeWorkspaceID ? splitWorkspaceTabID(state.activeWorkspaceID) : "";
+            const clickedTabID = terminalSessionTabID(id);
+            const anchorTabID = activeSessionTabID && activeSessionTabID !== clickedTabID && topTabOrder.includes(activeSessionTabID)
+                ? activeSessionTabID
+                : topTabOrder.includes(clickedTabID)
+                    ? clickedTabID
+                    : topTabOrder.includes(activeWorkspaceTabID)
+                        ? activeWorkspaceTabID
+                        : undefined;
+            const anchorIndex = anchorTabID ? topTabOrder.indexOf(anchorTabID) : -1;
             topTabOrder = [...topTabOrder];
-            topTabOrder.splice(sourceIndex >= 0 ? sourceIndex + 1 : topTabOrder.length, 0, createdTabID);
+            topTabOrder.splice(anchorIndex >= 0 ? anchorIndex + 1 : topTabOrder.length, 0, createdTabID);
             createdWorkspace = true;
         }
 
