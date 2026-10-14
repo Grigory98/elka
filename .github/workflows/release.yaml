@@ -4,6 +4,13 @@ on:
     tags:
       - 'v*'
 
+# The tag is the version, and it is the only place one exists: vpk is handed
+# `${{ env.VERSION }}` by all three packaging jobs and nothing else ever set it, so
+# each installer was being packed with an empty version. The leading `v` is
+# stripped where it is used, because vpk wants semver.
+env:
+  VERSION: ${{ github.ref_name }}
+
 # Each platform packs its own installers with vpk, because that is the only step in this repository
 # that can produce a macOS .pkg, an AppImage or an NSIS installer. Only the installers are published:
 # vpk also writes *.nupkg (the full package and its delta) and releases.<channel>.json (the channel
@@ -40,7 +47,7 @@ jobs:
 
           vpk pack \
             --packId "Elka" \
-            --packVersion "${{ env.VERSION }}" \
+            --packVersion "${VERSION#v}" \
             --packDir "bin" \
             --mainExe "elka.exe" \
             --packTitle "Elka" \
@@ -101,7 +108,7 @@ jobs:
 
           vpk pack \
             --packId "Elka" \
-            --packVersion "${{ env.VERSION }}" \
+            --packVersion "${VERSION#v}" \
             --packDir "bin" \
             --mainExe "elka" \
             --packTitle "Elka" \
@@ -153,7 +160,7 @@ jobs:
 
           vpk pack \
             --packId "Elka" \
-            --packVersion "${{ env.VERSION }}" \
+            --packVersion "${VERSION#v}" \
             --packDir "$APP_BUNDLE" \
             --mainExe "elka" \
             --packTitle "Elka" \
