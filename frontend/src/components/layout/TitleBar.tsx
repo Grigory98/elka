@@ -321,6 +321,7 @@ export function TitleBar() {
                                 onCreate={(title) => createSplitWorkspace(title, splitWorkspaceTabID(workspace.id))}
                                 onRename={(title) => renameSplitWorkspace(workspace.id, title)}
                                 onDropSession={addSessionToSplit}
+                                sessions={sessions}
                                 nextWorkspaceNumber={workspaces.length + 1}
                             />
                         );

@@ -110,7 +110,7 @@ interface SessionState {
     clearSessions: () => void;
 }
 
-function paneIDs(layout: TerminalSplitLayout | null): string[] {
+export function paneIDs(layout: TerminalSplitLayout | null): string[] {
     if (!layout) return [];
     if (layout.type === "pane") return [layout.sessionId];
     return [...paneIDs(layout.first), ...paneIDs(layout.second)];

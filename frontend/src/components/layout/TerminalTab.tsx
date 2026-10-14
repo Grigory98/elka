@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
+import { hideTabTooltip, scheduleTabTooltip, sshAddressText } from "@/lib/tabTooltip";
 
 const tabStyles = cva(
     "wails-no-drag group my-[var(--tab-margin)] flex h-[var(--tab-height)] min-w-30 max-w-50 cursor-pointer items-center " +
@@ -70,6 +71,10 @@ export function TerminalTab({session, isActive, onClick, onClose, onDuplicate, o
         <ContextMenuPrimitive.Root>
             <ContextMenuPrimitive.Trigger asChild>
                 <div onClick={onClick}
+                     // The hint is not a child of this tab and not state either: hovering writes into a
+                     // single shared element, so nothing here re-renders when it appears.
+                     onPointerEnter={(event) => scheduleTabTooltip(event.currentTarget, sshAddressText(session.config.host, session.config.port))}
+                     onPointerLeave={hideTabTooltip}
                      data-top-tab-id={terminalSessionTabID(session.id)}
                      data-session-id={session.id}
                      tabIndex={0}

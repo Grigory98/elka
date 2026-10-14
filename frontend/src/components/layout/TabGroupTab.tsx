@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { NameDialog } from "@/components/layout/NameDialog";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
+import { hideTabTooltip, scheduleTabTooltip, sshAddressText, sshAddressesText } from "@/lib/tabTooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
     TERMINAL_SESSION_DRAG_TYPE,
@@ -55,6 +56,10 @@ export function TabGroupTab({
         : group.activeSessionId || group.sessionIds[0];
     const selectedSession = sessions.find((session) => session.id === selectedSessionID);
 
+    // Built on hover, not on every render, for the same reason as the split tab.
+    const addressText = () => sshAddressesText(memberSessions
+        .map((session) => sshAddressText(session.config.host, session.config.port)));
+
     return (
         <>
             <ContextMenuPrimitive.Root>
@@ -65,6 +70,8 @@ export function TabGroupTab({
                     aria-selected={isActive}
                     data-top-tab-id={groupID}
                     data-group-id={group.id}
+                    onPointerEnter={(event) => scheduleTabTooltip(event.currentTarget, addressText())}
+                    onPointerLeave={hideTabTooltip}
                     onClick={() => selectedSessionID && onSelect(selectedSessionID)}
                     onKeyDown={(event) => {
                         if ((event.key === "Enter" || event.key === " ") && selectedSessionID) {
