@@ -53,6 +53,8 @@ type AppSettings struct {
 	TerminalCursorStyle   string         `json:"terminalCursorStyle,omitempty"`
 	TerminalFontFamily    string         `json:"terminalFontFamily,omitempty"`
 	TerminalFontSize      int            `json:"terminalFontSize,omitempty"`
+	TerminalScrollback    int            `json:"terminalScrollback,omitempty"`
+	TerminalRenderer      string         `json:"terminalRenderer,omitempty"`
 	SplitPaneBorder       string         `json:"splitPaneBorder,omitempty"`
 	SplitPaneHeaderColor  string         `json:"splitPaneHeaderColor,omitempty"`
 	ServerMetricsColor    string         `json:"serverMetricsColor,omitempty"`
@@ -64,6 +66,46 @@ type AppSettings struct {
 	VaultDirectory        string         `json:"vaultDirectory"`
 	PendingVaultDirectory string         `json:"pendingVaultDirectory,omitempty"`
 	PendingVaultAction    string         `json:"pendingVaultAction,omitempty"`
+}
+
+// Terminal history limits. Every scrollback line costs the terminal three words per column of live
+// memory in the webview, so the ceiling has to be a real number rather than "whatever was typed".
+const (
+	// DefaultTerminalScrollback is what a session gets when the settings file says nothing. A thousand
+	// lines is xterm's own floor and covers a normal shell session without holding a build log.
+	DefaultTerminalScrollback = 1000
+	// MaxTerminalScrollback caps what may be asked for, so a mistyped value cannot turn into a
+	// multi hundred megabyte buffer.
+	MaxTerminalScrollback = 200000
+)
+
+// Terminal renderers. The accelerated one keeps scrolling through a long history cheap, and is the
+// more expensive one to open: it draws into two canvases the size of the terminal at device
+// resolution, which on a Retina display is tens of megabytes the built in renderer never allocates.
+const (
+	DefaultTerminalRenderer = "webgl"
+	DomTerminalRenderer     = "dom"
+)
+
+// NormalizeTerminalRenderer keeps a stored or hand-edited value on the closed set the terminal knows.
+func NormalizeTerminalRenderer(renderer string) string {
+	if renderer == DomTerminalRenderer {
+		return DomTerminalRenderer
+	}
+	return DefaultTerminalRenderer
+}
+
+// NormalizeTerminalScrollback keeps a stored or typed value inside the supported range. A zero means
+// "not set" in a settings file written before the field existed, so it falls back to the default
+// rather than silently disabling the history.
+func NormalizeTerminalScrollback(value int) int {
+	if value <= 0 {
+		return DefaultTerminalScrollback
+	}
+	if value > MaxTerminalScrollback {
+		return MaxTerminalScrollback
+	}
+	return value
 }
 
 type SettingsService struct {
@@ -106,6 +148,8 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 		TerminalCursorStyle:  "block",
 		TerminalFontFamily:   "Cascadia Code",
 		TerminalFontSize:     14,
+		TerminalScrollback:   DefaultTerminalScrollback,
+		TerminalRenderer:     DefaultTerminalRenderer,
 		GroupViewModeVersion: 1,
 		VaultDirectory:       s.appDir,
 	}
@@ -122,6 +166,15 @@ func (s *SettingsService) GetSettings() (AppSettings, error) {
 	err = json.Unmarshal(data, &settings)
 	if err != nil {
 		return settings, err
+	}
+	// A file written before the field existed leaves it at zero, which would otherwise read as "no
+	// history at all" instead of "the default amount of history".
+	if settings.TerminalScrollback != DefaultTerminalScrollback {
+		settings.TerminalScrollback = NormalizeTerminalScrollback(settings.TerminalScrollback)
+	}
+	// A file written before the field existed leaves it empty, which must read as the default.
+	if settings.TerminalRenderer != DefaultTerminalRenderer {
+		settings.TerminalRenderer = NormalizeTerminalRenderer(settings.TerminalRenderer)
 	}
 	if settings.GroupViewModeVersion < 1 {
 		settings.GroupViewMode = "tree"

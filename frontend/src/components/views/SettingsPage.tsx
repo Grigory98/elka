@@ -26,6 +26,8 @@ import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
 import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES, appearanceToPalette, paletteToAppearance } from "@/lib/appearance";
 import { TERMINAL_FONT_FAMILIES } from "@/lib/terminalFont";
+import { MAX_SCROLLBACK } from "@/lib/terminalTheme";
+import type { TerminalRenderer } from "@/lib/terminalTheme";
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { HOSTS_QUERY_KEY } from "@/hooks/useHosts";
 import { GROUPS_QUERY_KEY } from "@/hooks/useGroups";
@@ -33,6 +35,27 @@ import { UpdateSettingsCard } from "@/components/views/UpdateSettingsCard";
 import { NameDialog } from "@/components/layout/NameDialog";
 
 type HostTransferFormat = "tabby" | "mobaxterm" | "securecrt";
+
+/**
+ * The history sizes the slider offers.
+ *
+ * A slider over raw line counts is unusable: the interesting part of the range sits below a thousand
+ * and everything above it is a five digit number. These steps put the cheap end within reach of the
+ * thumb and still cover a long build log at the far end. Anything typed or imported is clamped to the
+ * same ceiling the terminal itself uses.
+ */
+const SCROLLBACK_STEPS = [1000, 2000, 5000, 10000, 20000, 50000, 100000, MAX_SCROLLBACK];
+
+/** Where a stored history size sits on the slider, so a value from a file or an import is shown. */
+function scrollbackStepIndex(scrollback: number) {
+    const exact = SCROLLBACK_STEPS.indexOf(scrollback);
+    if (exact >= 0) return exact;
+    // A value between two steps snaps up to the next one rather than silently reading as something else.
+    for (let i = SCROLLBACK_STEPS.length - 1; i >= 0; i--) {
+        if (scrollback >= SCROLLBACK_STEPS[i]) return i;
+    }
+    return 0;
+}
 
 // The derived colour is read from the CSS variable that applyAppAppearance already set, so the swatch
 // always matches what is actually painted. Anything translucent is composited over the app background.
@@ -204,6 +227,8 @@ export function SettingsPage() {
 
     useEffect(() => setAppearanceDraft(appearance), [appearance]);
 
+    const scrollbackStep = scrollbackStepIndex(appearanceDraft.terminalScrollback);
+
     useEffect(() => {
         SettingsService.GetSettings()
             .then((settings) => {
@@ -358,6 +383,8 @@ export function SettingsPage() {
             terminalCursorStyle: appearance.terminalCursorStyle,
             terminalFontFamily: appearance.terminalFontFamily,
             terminalFontSize: appearance.terminalFontSize,
+            terminalScrollback: appearance.terminalScrollback,
+            terminalRenderer: appearance.terminalRenderer,
             splitPaneBorder: appearance.splitPaneBorderColor,
             splitPaneHeaderColor: appearance.splitPaneHeaderColor,
             serverMetricsColor: appearance.serverMetricsColor,
@@ -656,6 +683,33 @@ export function SettingsPage() {
                                     className="h-8 w-32 accent-primary"
                                 />
                             </SettingsRow>
+                            <SettingsRow label={t("terminal_scrollback_label")}>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                    {appearanceDraft.terminalScrollback.toLocaleString()}
+                                </span>
+                                <input
+                                    aria-label={t("terminal_scrollback_label")}
+                                    type="range"
+                                    min={0}
+                                    max={SCROLLBACK_STEPS.length - 1}
+                                    step={1}
+                                    value={scrollbackStep}
+                                    onChange={(event) => updateAppearance({terminalScrollback: SCROLLBACK_STEPS[Number(event.target.value)]})}
+                                    className="h-8 w-32 accent-primary"
+                                />
+                            </SettingsRow>
+                            <p className="px-3 text-xs text-muted-foreground">{t("terminal_scrollback_desc")}</p>
+                            <SettingsRow label={t("terminal_renderer_label")}>
+                                <Select value={appearanceDraft.terminalRenderer}
+                                        onValueChange={(value) => updateAppearance({terminalRenderer: value as TerminalRenderer})}>
+                                    <SelectTrigger className="w-36"><SelectValue/></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="webgl">{t("terminal_renderer_webgl")}</SelectItem>
+                                        <SelectItem value="dom">{t("terminal_renderer_dom")}</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </SettingsRow>
+                            <p className="px-3 text-xs text-muted-foreground">{t("terminal_renderer_desc")}</p>
                         </section>
                     </div>
                     <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
