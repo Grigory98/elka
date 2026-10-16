@@ -28,9 +28,13 @@ type SSHEmitter interface {
 }
 
 type SSHConnectionConfig struct {
-	ID                   string              `json:"id"`
-	Host                 string              `json:"host"`
-	Port                 int                 `json:"port"`
+	ID   string `json:"id"`
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	// Attempt names one dial of one session. A reconnect reuses the session ID, and the teardown of
+	// the previous dial can reach the service after the new one has already answered, so this is what
+	// tells them apart. See SshService.Disconnect.
+	Attempt              string              `json:"attempt,omitempty"`
 	Username             string              `json:"username"`
 	Password             string              `json:"password,omitempty"`
 	PrivateKey           string              `json:"privateKey,omitempty"`
@@ -84,6 +88,9 @@ type activeSession struct {
 	session     *ssh.Session
 	stdin       io.WriteCloser
 	forwarders  []io.Closer
+	// attempt — какой именно дозвон это соединение. Переподключение пользуется тем же ID сессии,
+	// поэтому различать соединения приходится здесь, а не по ID.
+	attempt string
 	// metricsChannel непустой только пока вкладка с этой сессией на экране.
 	metricsChannel *ssh.Session
 	// config переживает сессию ради отдельного соединения под SFTP. В нём остаются креды, но они и
@@ -197,16 +204,23 @@ func (s *SshService) Connect(config *SSHConnectionConfig) error {
 	}
 
 	s.mu.Lock()
+	// A session ID is reused by every reconnect of the same tab, so whatever is registered under it is
+	// the previous dial and nothing else will ever close it. It goes here rather than into the void:
+	// left behind it kept its shell running on the server and its reader goroutine alive, and its
+	// eventual exit was reported as if it were the session the user is looking at.
+	previous := s.sessions[config.ID]
 	currentSession := &activeSession{
 		client:      client,
 		jumpClients: jumpClients,
 		session:     session,
 		stdin:       stdin,
 		forwarders:  forwarders,
+		attempt:     config.Attempt,
 		config:      config,
 	}
 	s.sessions[config.ID] = currentSession
 	s.mu.Unlock()
+	closeActiveSession(previous)
 
 	go s.streamOutput(config.ID, stdout, currentSession)
 
@@ -738,22 +752,48 @@ func resolveSFTPPath(client *sftp.Client, requested string) (string, error) {
 
 // Disconnect tears the session down on request from the UI. It deliberately does not emit the closed
 // event: that event means the session ended on its own (see cleanupSession) and the UI reacts to it
-// by dropping the tab, which would close a tab the user asked to reconnect instead.
-func (s *SshService) Disconnect(sessionID string) {
+// by marking the tab, which would close a tab the user asked to reconnect instead.
+//
+// attempt names the dial that is asking. The two calls travel over the same HTTP bridge as everything
+// else and are therefore served in whatever order they arrive: a teardown issued for the dial before a
+// reconnect can reach the service after the new dial has already answered, and closing whatever sits
+// under that ID then kills the session the user is watching. An empty attempt means "whatever it is",
+// which is what a caller that never dialed — closing a tab, emptying the vault — has to say.
+func (s *SshService) Disconnect(sessionID string, attempt string) {
 	s.mu.Lock()
 	active, exists := s.sessions[sessionID]
+	if exists && attempt != "" && active.attempt != attempt {
+		exists = false
+	}
 	if exists {
 		delete(s.sessions, sessionID)
 	}
 	s.mu.Unlock()
 
 	if exists {
-		closeForwarders(active.forwarders)
-		_ = active.session.Close()
-		closeSFTPConnection(active)
-		_ = active.client.Close()
-		closeJumpClients(active.jumpClients)
+		closeActiveSession(active)
 	}
+}
+
+// closeActiveSession закрывает соединение целиком. Сессия, которой уже нет, закрывать нечего.
+func closeActiveSession(active *activeSession) {
+	if active == nil {
+		return
+	}
+	if active.session != nil {
+		_ = active.session.Close()
+	}
+	// Канал сбора метрик открыт на том же соединении: если он останется висеть, сервер будет крутить
+	// цикл сбора до конца сессии.
+	if active.metricsChannel != nil {
+		_ = active.metricsChannel.Close()
+	}
+	closeForwarders(active.forwarders)
+	closeSFTPConnection(active)
+	if active.client != nil {
+		_ = active.client.Close()
+	}
+	closeJumpClients(active.jumpClients)
 }
 
 func (s *SshService) streamOutput(sessionID string, stdout io.Reader, current *activeSession) {
@@ -814,24 +854,17 @@ func readOutput(stdout io.Reader, buf []byte, dataChan chan []byte) {
 func (s *SshService) cleanupSession(sessionID string, current *activeSession) {
 	s.mu.Lock()
 	active, exists := s.sessions[sessionID]
-	if exists && active == current {
+	// The map has to still point at this dial: a reconnect registers a new one under the same ID, and
+	// reporting the exit of the old one then would mark a live tab as gone.
+	owned := exists && active == current
+	if owned {
 		delete(s.sessions, sessionID)
-		s.mu.Unlock()
-
-		if current.session != nil {
-			_ = current.session.Close()
-		}
-		if current.metricsChannel != nil {
-			_ = current.metricsChannel.Close()
-		}
-		closeForwarders(current.forwarders)
-		closeSFTPConnection(current)
-		if current.client != nil {
-			_ = current.client.Close()
-		}
-		closeJumpClients(current.jumpClients)
-		s.emitter.EmitClosed(sessionID)
-	} else {
-		s.mu.Unlock()
 	}
+	s.mu.Unlock()
+
+	if !owned {
+		return
+	}
+	closeActiveSession(current)
+	s.emitter.EmitClosed(sessionID)
 }

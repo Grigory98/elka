@@ -79,6 +79,12 @@ export class SSHConnectionConfig {
     "id": string;
     "host": string;
     "port": number;
+    /**
+     * Attempt names one dial of one session. A reconnect reuses the session ID, and the teardown of
+     * the previous dial can reach the service after the new one has already answered, so this is what
+     * tells them apart. See SshService.Disconnect.
+     */
+    "attempt"?: string;
     "username": string;
     "password"?: string;
     "privateKey"?: string;

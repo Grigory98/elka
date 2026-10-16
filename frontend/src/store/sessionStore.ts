@@ -27,6 +27,15 @@ export interface TerminalSession {
     /** Bumped on reconnect: it changes the terminal instance key, which redials the session. */
     reconnectCount: number;
     /**
+     * Why the server ended this session, empty while it is up.
+     *
+     * A session that ends on its own — the shell exits, the server drops an idle connection, the
+     * network goes away — keeps its tab instead of being deleted from under the cursor. The tab then
+     * says what happened and offers a reconnect, which is the only way to tell that apart from the
+     * user having closed it.
+     */
+    closedReason?: string;
+    /**
      * A password typed at the prompt that opens when the server refuses the stored credentials.
      *
      * It is kept beside the config instead of inside it on purpose: the terminal instance redials
@@ -113,6 +122,7 @@ interface SessionState {
     duplicateSession: (id: string) => void;
     reconnectSession: (id: string) => void;
     rememberSessionPassword: (id: string, password: string) => void;
+    markSessionClosed: (id: string, reason: string) => void;
     closeOtherSessions: (id: string) => void;
     removeSession: (id: string) => void;
     setActiveSession: (id: string) => void;
@@ -237,6 +247,55 @@ function cleanTabOrderForGroupChanges(
     const removedGroupTabIDs = new Set(previousGroups.filter((group) => !nextIDs.has(group.id)).map((group) => terminalTabGroupID(group.id)));
     const removedSessionTabIDs = new Set(removedSessionIDs.map(terminalSessionTabID));
     return order.filter((id) => !removedGroupTabIDs.has(id) && !removedSessionTabIDs.has(id));
+}
+
+/**
+ * Состояние после закрытия сессии: сама сессия, её вкладка в группах и в разделённых экранах, и
+ * активная вкладка, если закрыта была она.
+ */
+function withoutSession(state: SessionState, id: string): Partial<SessionState> {
+    const newSessions = state.sessions.filter((session) => session.id !== id);
+    const group = state.tabGroups.find((item) => item.sessionIds.includes(id));
+    const groupFallbackID = group?.sessionIds.find((sessionID) => sessionID !== id) || null;
+    const workspaces = removeSessionsFromWorkspaces(state.workspaces, [id]);
+    const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
+    const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
+    const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
+    let activeWorkspaceID = state.activeWorkspaceID;
+    let activeSessionId = state.activeSessionId;
+    if (activeSessionId === id) {
+        if (groupFallbackID) activeSessionId = groupFallbackID;
+        else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
+        else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
+    }
+
+    // Closing the last standalone tab must not leave an empty background behind. Every remaining
+    // session sits in a split screen that was not active, so we show it: the same place we fall
+    // back to the host list when all terminals are closed.
+    if (!activeSessionId && newSessions.length > 0) {
+        const fallbackWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID && paneIDs(workspace.layout).length > 0)
+            || workspaces.find((workspace) => paneIDs(workspace.layout).length > 0);
+        if (fallbackWorkspace) {
+            const fallbackPaneIDs = paneIDs(fallbackWorkspace.layout);
+            activeWorkspaceID = fallbackWorkspace.id;
+            activeSessionId = fallbackPaneIDs.includes(fallbackWorkspace.activeSessionId || "")
+                ? fallbackWorkspace.activeSessionId
+                : fallbackPaneIDs[0];
+        }
+    }
+
+    if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
+
+    const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [id]);
+
+    return {
+        sessions: newSessions,
+        activeSessionId,
+        activeWorkspaceID,
+        workspaces,
+        tabGroups,
+        topTabOrder,
+    };
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -587,53 +646,30 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             topTabOrder: [terminalSessionTabID(id)],
         });
         useUIStore.getState().setActiveView(ViewType.Terminal);
-        toClose.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
+        toClose.forEach((session) => SshService.Disconnect(session.id, "").catch(console.error));
     },
 
-    removeSession: (id) => set((state) => {
-        const newSessions = state.sessions.filter((session) => session.id !== id);
-        const group = state.tabGroups.find((item) => item.sessionIds.includes(id));
-        const groupFallbackID = group?.sessionIds.find((sessionID) => sessionID !== id) || null;
-        const workspaces = removeSessionsFromWorkspaces(state.workspaces, [id]);
-        const tabGroups = removeSessionsFromGroups(state.tabGroups, [id]);
-        const activeWorkspace = workspaces.find((workspace) => workspace.id === state.activeWorkspaceID);
-        const activeWorkspaceIDs = paneIDs(activeWorkspace?.layout || null);
-        let activeWorkspaceID = state.activeWorkspaceID;
-        let activeSessionId = state.activeSessionId;
-        if (activeSessionId === id) {
-            if (groupFallbackID) activeSessionId = groupFallbackID;
-            else if (activeWorkspaceIDs.length > 0) activeSessionId = activeWorkspaceIDs[0];
-            else activeSessionId = newSessions.find((session) => !workspaces.some((workspace) => paneIDs(workspace.layout).includes(session.id)))?.id || null;
+    removeSession: (id) => {
+        // Закрытие вкладки обязано уносить соединение с собой: терминала, который снял бы его при
+        // размонтировании, у закрытой вкладки уже нет, и сессия оставалась жить на сервере молча.
+        if (get().sessions.some((session) => session.id === id)) {
+            void SshService.Disconnect(id, "").catch(console.error);
         }
+        set(withoutSession(get(), id));
+    },
 
-        // Closing the last standalone tab must not leave an empty background behind. Every remaining
-        // session sits in a split screen that was not active, so we show it: the same place we fall
-        // back to the host list when all terminals are closed.
-        if (!activeSessionId && newSessions.length > 0) {
-            const fallbackWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID && paneIDs(workspace.layout).length > 0)
-                || workspaces.find((workspace) => paneIDs(workspace.layout).length > 0);
-            if (fallbackWorkspace) {
-                const fallbackPaneIDs = paneIDs(fallbackWorkspace.layout);
-                activeWorkspaceID = fallbackWorkspace.id;
-                activeSessionId = fallbackPaneIDs.includes(fallbackWorkspace.activeSessionId || "")
-                    ? fallbackWorkspace.activeSessionId
-                    : fallbackPaneIDs[0];
-            }
-        }
+    markSessionClosed: (id, reason) => {
+        // Событие от сервиса может прийти по уже закрытой вкладке: тогда в сторе её уже нет, и
+        // отметка была бы вообще ни о чём.
+        if (!get().sessions.some((session) => session.id === id)) return;
 
-        if (newSessions.length === 0) useUIStore.getState().setActiveView(ViewType.Hosts);
+        set((state) => ({
+            sessions: state.sessions.map((session) => session.id === id
+                ? {...session, closedReason: reason}
+                : session),
+        }));
+    },
 
-        const topTabOrder = cleanTabOrderForGroupChanges(state.topTabOrder, state.tabGroups, tabGroups, [id]);
-
-        return {
-            sessions: newSessions,
-            activeSessionId,
-            activeWorkspaceID,
-            workspaces,
-            tabGroups,
-            topTabOrder,
-        };
-    }),
 
     // The typed password belongs to the session, not to the host record: the credential in the vault
     // is left exactly as it was, and only this tab remembers what the server accepted.
@@ -655,7 +691,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         get().setActiveSession(id);
         set((state) => ({
             sessions: state.sessions.map((session) => session.id === id
-                ? {...session, reconnectCount: session.reconnectCount + 1}
+                // Новый дозвон снимает отметку о том, что сервер оборвал прошлый.
+                ? {...session, reconnectCount: session.reconnectCount + 1, closedReason: undefined}
                 : session),
         }));
     },
@@ -674,7 +711,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     clearSessions: () => {
         const {sessions} = get();
-        sessions.forEach((session) => SshService.Disconnect(session.id).catch(console.error));
+        sessions.forEach((session) => SshService.Disconnect(session.id, "").catch(console.error));
         useUIStore.getState().setActiveView(ViewType.Hosts);
         set({
             sessions: [], activeSessionId: null, workspaces: [], activeWorkspaceID: null, tabGroups: [],

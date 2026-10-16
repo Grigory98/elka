@@ -21,8 +21,8 @@ export function StopMetrics(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2960653110, sessionID);
 }
 
-export function Disconnect(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(1867844523, sessionID);
+export function Disconnect(sessionID: string, attempt: string): $CancellablePromise<void> {
+    return $Call.ByID(1867844523, sessionID, attempt);
 }
 
 export function DownloadSFTPFile(sessionID: string, remotePath: string, suggestedFilename: string, dialogTitle: string): $CancellablePromise<boolean> {

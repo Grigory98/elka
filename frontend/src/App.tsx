@@ -19,10 +19,10 @@ import { dismissSplash } from "@/lib/splash";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
-    const {removeSession} = useSessionStore();
+    const {markSessionClosed} = useSessionStore();
     const {setShowHostGroups, setShowSidebarToggle, setServerMetrics, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);
-    const {i18n} = useTranslation();
+    const {i18n, t} = useTranslation();
 
     // The colour variables are applied at once, but the family is only named once its faces are in
     // the document: pointing the whole window at a family that has not been fetched yet would repaint
@@ -90,14 +90,18 @@ export default function App() {
 
     useEffect(() => {
         const unsubscribe = Events.On(AppEvent.SshClosed, (event) => {
-            // setTimeout(() => {
-            //     removeSession(event.data.id);
-            // }, 500);
-            removeSession(event.data.id);
+            // Сессия, которую оборвал сервер, не удаляется: вкладка остаётся с причиной и кнопкой
+            // переподключения. Удаление здесь означало, что окно молча теряет вкладку вместе со всей
+            // её историей, и отличить это от закрытия пользователем было нечем.
+            const sessionID = event.data?.id;
+            if (!sessionID) return;
+
+            console.info("SSH session ended on the server:", sessionID);
+            markSessionClosed(sessionID, t("session_ended", {ns: "terminal"}));
         });
 
         return () => unsubscribe();
-    }, [removeSession]);
+    }, [markSessionClosed, t]);
 
 
     return (

@@ -50,5 +50,6 @@
   "ungroup_tabs": "Ungroup tabs",
   "auth_password_title": "Password required",
   "auth_password_desc": "The server at {{target}} refused the login \"{{username}}\". Enter the password for this session.",
-  "auth_password_connect": "Connect"
+  "auth_password_connect": "Connect",
+  "session_ended": "The server ended this session."
 }

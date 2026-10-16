@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"elka-desktop/backend/internal/apperror"
 
@@ -94,6 +95,84 @@ func TestConnectReportsARejectedLoginSeparately(t *testing.T) {
 	}
 	if !strings.Contains(appError.Message, config.Username) {
 		t.Fatalf("the login has to be named in the failure: %q", appError.Message)
+	}
+}
+
+// A reconnect reuses the session ID, and the teardown of the previous dial travels over the same
+// bridge as the new dial. When it lands late it must not take the session that is already up with it:
+// that is the difference between a tab that reconnects and a tab that goes dark.
+func TestLateDisconnectLeavesTheNewDialAlone(t *testing.T) {
+	server := newFakeSSHServer(t, 1)
+	service := NewSshService(noopSSHEmitter{}, nil)
+
+	first := server.connectionConfig()
+	first.ID = "session-1"
+	first.Attempt = "attempt-1"
+	if err := service.Connect(first); err != nil {
+		t.Fatalf("expected the first dial to connect: %v", err)
+	}
+	firstSession := service.sessions[first.ID]
+
+	second := server.connectionConfig()
+	second.ID = first.ID
+	second.Attempt = "attempt-2"
+	if err := service.Connect(second); err != nil {
+		t.Fatalf("expected the second dial to connect: %v", err)
+	}
+
+	// The teardown of the dial that has already been replaced, arriving after its successor answered.
+	service.Disconnect(second.ID, first.Attempt)
+
+	current, exists := service.sessions[second.ID]
+	if !exists {
+		t.Fatal("the reconnect was closed by the teardown meant for its predecessor")
+	}
+	if current.attempt != second.Attempt {
+		t.Fatalf("expected the new dial to own the session, got %q", current.attempt)
+	}
+	if current == firstSession {
+		t.Fatal("expected the previous dial to be replaced by the new one")
+	}
+
+	// An empty attempt is what a tab close and a vault wipe send, and it has to reach whatever is there.
+	service.Disconnect(second.ID, "")
+	if _, exists = service.sessions[second.ID]; exists {
+		t.Fatal("an unconditional teardown has to close the session")
+	}
+}
+
+// A dial replaces the previous one under the same ID, so the session it replaced has to be closed:
+// left behind, its shell keeps running on the server and its reader keeps the goroutine alive.
+func TestReconnectClosesTheDialItReplaces(t *testing.T) {
+	server := newFakeSSHServer(t, 1)
+	service := NewSshService(noopSSHEmitter{}, nil)
+
+	first := server.connectionConfig()
+	first.ID = "session-1"
+	first.Attempt = "attempt-1"
+	if err := service.Connect(first); err != nil {
+		t.Fatalf("expected the first dial to connect: %v", err)
+	}
+	replaced := service.sessions[first.ID]
+
+	second := server.connectionConfig()
+	second.ID = first.ID
+	second.Attempt = "attempt-2"
+	if err := service.Connect(second); err != nil {
+		t.Fatalf("expected the second dial to connect: %v", err)
+	}
+
+	// Wait returns the moment the connection is gone, and only then: a dial left open keeps the
+	// server waiting, so the timeout is what tells the two apart.
+	closed := make(chan error, 1)
+	go func() { closed <- replaced.client.Wait() }()
+	select {
+	case err := <-closed:
+		if err == nil {
+			t.Fatal("expected the replaced dial to report why it closed")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected the replaced dial to be closed")
 	}
 }
 
@@ -427,7 +506,7 @@ func TestDisconnectClosesSFTPConnection(t *testing.T) {
 		t.Fatal("expected a separate connection to be kept for SFTP")
 	}
 
-	service.Disconnect(config.ID)
+	service.Disconnect(config.ID, config.Attempt)
 	if active.sftp != nil || active.sftpConn != nil {
 		t.Fatal("expected Disconnect to close the SFTP client and its connection")
 	}

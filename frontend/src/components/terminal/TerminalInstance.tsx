@@ -17,10 +17,11 @@ import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
 import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/backend/internal/services/ssh";
 import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
+import { Button } from "@/components/ui/button";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
 import { AuthPasswordDialog } from "@/components/terminal/AuthPasswordDialog";
 import { AppEvent } from "@/lib/events.ts";
-import { Columns2, CopyPlus, FolderOpen, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
+import { Columns2, CopyPlus, FolderOpen, LoaderCircle, PanelTopClose, PlugZap, RefreshCw, X } from "lucide-react";
 import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement, useSessionStore } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 
@@ -99,6 +100,10 @@ function isSoftwareWebGL(cache: {current: boolean | null}): boolean {
 
 type ConnectionState = "connecting" | "ready" | "failed";
 
+// Счётчик имён дозвонов. Он общий на окно, потому что имя должно быть уникальным внутри сессии, а
+// не внутри вкладки: разборка приходит от прошлого дозвона той же сессии.
+let attemptCounter = 0;
+
 interface TerminalInstanceProps {
     sessionId: string;
     isActive: boolean;
@@ -116,6 +121,8 @@ interface TerminalInstanceProps {
     onCloseOthers?: () => void;
     onDropSession?: (draggedSessionID: string, targetSessionID: string, placement: SplitPlacement) => void;
     config: SSHConnectionConfig;
+    /** Why the server ended this session. Empty while the session is up. */
+    closedReason?: string;
 }
 
 // Split panes are rounded on every corner, wherever they sit in the layout.
@@ -163,6 +170,7 @@ export function TerminalInstance({
     onCloseOthers,
     onDropSession,
     config,
+    closedReason,
 }: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
     const appearance = useUIStore((state) => state.appearance);
@@ -173,6 +181,10 @@ export function TerminalInstance({
     const fitAddonRef = useRef<InstanceType<TerminalModules["FitAddon"]> | null>(null);
     const webglRef = useRef<InstanceType<NonNullable<TerminalModules["WebglAddon"]>> | null>(null);
     const hasConnectedRef = useRef(false);
+    // Каким дозвоном открыта эта сессия. Переподключение берёт тот же ID, и разборка предыдущего
+    // дозвона может прийти на сервис позже нового, поэтому снимать соединение надо с тем же именем,
+    // которым оно было открыто, а не с ID сессии.
+    const attemptRef = useRef("");
     const isReadyRef = useRef(false);
     const hasFailedRef = useRef(false);
     const lastSizeRef = useRef({rows: 0, cols: 0});
@@ -323,9 +335,20 @@ export function TerminalInstance({
      * session is offered the password the user actually types. The original failure rides along to be
      * printed if the prompt is dismissed.
      */
+    // Сессия, которую оборвал сервер, больше ничего не принимает: отметка снимает готовность, иначе
+    // ввод и ресайз продолжали бы уходить в закрытый канал и сыпать ошибками поверх истории.
+    useEffect(() => {
+        if (closedReason) isReadyRef.current = false;
+    }, [closedReason]);
+
     const connectWith = (nextConfig: SSHConnectionConfig) => {
+        // Каждый дозвон получает своё имя: без него разборка предыдущего дозвона, дошедшая до сервиса
+        // после нового, закрыла бы сессию, которая только что открылась.
+        attemptRef.current = `${nextConfig.id}:${++attemptCounter}`;
+        const dialing = new SSHConnectionConfig({...nextConfig, attempt: attemptRef.current});
+
         setConnectionState("connecting");
-        return SshService.Connect(nextConfig)
+        return SshService.Connect(dialing)
             .then(() => {
                 isReadyRef.current = true;
                 hasFailedRef.current = false;
@@ -574,7 +597,7 @@ export function TerminalInstance({
             fitAddonRef.current = null;
             unparsedRef.current = 0;
             underPressureRef.current = false;
-            SshService.Disconnect(sessionId).catch(() => {
+            SshService.Disconnect(sessionId, attemptRef.current).catch(() => {
             });
         };
     }, [sessionId, config]);
@@ -847,6 +870,19 @@ export function TerminalInstance({
                         <div className="max-w-[80%] truncate text-xs opacity-70">
                             {t("connecting_to_host", {host: config.host})}
                         </div>
+                    </div>
+                )}
+                {closedReason && !isConnecting && (
+                    /* Сессия, которую оборвал сервер, держит вкладку на месте: без этого окно теряло
+                       её вместе со всей историей и молча переключалось на соседнюю. */
+                    <div role="status"
+                         className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/60 px-8 text-center"
+                         style={{color: appearance.terminalForegroundColor}}>
+                        <PlugZap className="size-5 opacity-70"/>
+                        <p className="max-w-[80%] text-xs opacity-80">{closedReason}</p>
+                        <Button variant="outline" size="sm" onClick={onReconnect}>
+                            <RefreshCw className="size-4"/>{t("reconnect")}
+                        </Button>
                     </div>
                 )}
             </div>

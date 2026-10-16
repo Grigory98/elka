@@ -124,8 +124,9 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
     const activeWorkspace = workspaces.find((workspace) => workspace.id === activeWorkspaceID);
     const serverMetricsEnabled = useUIStore((state) => state.serverMetrics);
     // Метрики показываются только для одиночной вкладки: у панелей разделённого экрана своя рамка и
-    // своя точка фокуса, и «сервер» там не один.
-    const metricsSessionID = activeWorkspaceID ? null : activeSessionId;
+    // своя точка фокуса, и «сервер» там не один. Сессия, которую сервер уже оборвал, канала не заведёт.
+    const activeSession = sessions.find((session) => session.id === activeSessionId);
+    const metricsSessionID = activeWorkspaceID || activeSession?.closedReason ? null : activeSessionId;
     const metricsReconnectCount = sessions.find((session) => session.id === metricsSessionID)?.reconnectCount ?? 0;
     useServerMetrics({
         sessionID: metricsSessionID,
@@ -207,6 +208,7 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
                         key={`${session.id}:${session.reconnectCount}`}
                         sessionId={session.id}
                         config={session.config}
+                        closedReason={session.closedReason}
                         isActive={session.id === activeSessionId}
                         isVisible={isVisible && !!pane}
                         isSplitPane={splitWorkspaceActive && !!pane}
