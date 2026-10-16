@@ -108,6 +108,33 @@ export const APP_COLOR_PALETTES = {
 } as const;
 
 /**
+ * The colours the interface derives from the app background until the user pins one of their own.
+ *
+ * A pinned colour was chosen against the background it was picked on, so carrying it over to another
+ * theme leaves a sidebar painted in a colour that belongs to the palette the user just left.
+ */
+export const THEME_DERIVED_COLORS = [
+    "sidebarColor",
+    "serverMetricsColor",
+    "inputColor",
+    "ringColor",
+    "splitPaneHeaderColor",
+    "splitPaneBorderColor",
+] as const;
+
+/**
+ * A stock theme paints six colours and derives the rest, so applying one also clears the pinned
+ * overrides: switching from a dark theme with a custom sidebar to the light one has to bring the
+ * sidebar back to the light palette instead of keeping the dark tone.
+ */
+export function builtinPaletteAppearance(
+    palette: Partial<AppearanceSettings>,
+): Partial<AppearanceSettings> {
+    const derived = Object.fromEntries(THEME_DERIVED_COLORS.map((field) => [field, ""]));
+    return {...palette, ...derived};
+}
+
+/**
  * Families offered for the interface itself. The terminal has its own, monospace only list in
  * `terminalFont.ts`, and Source Code Pro appears in both because a monospaced interface is a valid
  * choice.

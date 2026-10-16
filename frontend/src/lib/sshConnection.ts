@@ -1,5 +1,6 @@
 import { CredentialKind, Host, HostGroup, JumpHopMode, JumpHostHop, SavedCredential, SavedKey } from "../../bindings/elka-desktop/backend/internal/services/blob";
 import { SSHJumpHostConfig, SSHPortForward } from "../../bindings/elka-desktop/backend/internal/services/ssh";
+import { credentialParts } from "@/lib/credentials";
 
 export function resolveHostAuthentication(
     host: Host,
@@ -45,6 +46,52 @@ export function resolveHostAuthentication(
     };
 }
 
+interface HostAuthentication {
+    username: string;
+    password: string;
+    privateKey: string;
+    privateKeyPassphrase: string;
+}
+
+/** A saved credential on its own, without a host record around it: the credentials a jump hop picks. */
+function resolveCredentialAuthentication(credential: SavedCredential): HostAuthentication {
+    const parts = credentialParts(credential);
+    return {
+        username: credential.username || "",
+        password: parts.password || "",
+        privateKey: parts.privateKey || "",
+        privateKeyPassphrase: parts.passphrase || "",
+    };
+}
+
+/** The part of the authentication the server actually checks. */
+function authenticationSecret(auth: HostAuthentication) {
+    return auth.password || auth.privateKey;
+}
+
+/**
+ * Credentials chosen for one hop win over the ones the hop would have used on its own, and they
+ * fill in a blank login but never overwrite the one already spelled out on the host.
+ */
+function withCredential(auth: HostAuthentication, credential: SavedCredential | undefined): HostAuthentication {
+    if (!credential) return auth;
+    const selected = resolveCredentialAuthentication(credential);
+    return {
+        username: auth.username || selected.username,
+        password: selected.password || auth.password,
+        privateKey: selected.privateKey || auth.privateKey,
+        privateKeyPassphrase: selected.privateKeyPassphrase || auth.privateKeyPassphrase,
+    };
+}
+
+/**
+ * A hop saved before the mode existed carries none of it, so only an explicitly manual hop is
+ * treated as an address typed by hand; everything else still points at a saved host.
+ */
+function isManualHop(hop: JumpHostHop) {
+    return hop.mode === JumpHopMode.JumpHopManual;
+}
+
 export function resolveJumpHosts(
     host: Host,
     hosts: Host[] = [],
@@ -60,20 +107,31 @@ export function resolveJumpHosts(
     const currentHostAuth = resolveHostAuthentication(host, keys, credentials, groups);
 
     return hops.map((hop) => {
-        const jumpHost = hop.mode === JumpHopMode.JumpHopSavedHost
-            ? hosts.find((item) => item.id === hop.hostId)
-            : undefined;
-        if (hop.mode === JumpHopMode.JumpHopSavedHost && !jumpHost) {
+        const manual = isManualHop(hop);
+        const jumpHost = manual
+            ? undefined
+            : hosts.find((item) => item.id === hop.hostId);
+        if (!manual && !jumpHost) {
             throw new Error(`Saved jump host ${hop.hostId || ""} was not found`);
         }
 
-        const auth = jumpHost
+        const selectedCredential = credentials.find((credential) => credential.id === hop.credentialId);
+        // A jump host with nothing of its own is common: it is there to route the traffic, and the
+        // group it sits in, or this host, holds the login. Falling back to this host's credentials
+        // is what keeps such a chain connectable instead of failing on a hop with no auth method.
+        const own = jumpHost
             ? resolveHostAuthentication(jumpHost, keys, credentials, groups)
             : currentHostAuth;
+        const resolved = withCredential(own, selectedCredential);
+        const auth = authenticationSecret(resolved)
+            ? resolved
+            : withCredential(currentHostAuth, selectedCredential);
+
         return new SSHJumpHostConfig({
             host: jumpHost?.host || hop.host,
             port: jumpHost?.port || hop.port,
-            username: auth.username,
+            // An empty login never authenticates, so the one this host connects with fills the gap.
+            username: auth.username || currentHostAuth.username,
             password: auth.password,
             privateKey: auth.privateKey,
             privateKeyPassphrase: auth.privateKeyPassphrase,

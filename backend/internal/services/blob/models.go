@@ -57,10 +57,14 @@ type Host struct {
 }
 
 type JumpHostHop struct {
-	Mode   JumpHopMode `json:"mode"`
-	HostID string      `json:"hostId,omitempty"`
-	Host   string      `json:"host,omitempty"`
-	Port   int         `json:"port,omitempty"`
+	Mode JumpHopMode `json:"mode"`
+	// HostID is the saved host this hop dials through. Empty for a manually entered server.
+	HostID string `json:"hostId,omitempty"`
+	// CredentialID overrides what the hop authenticates with. Empty keeps the saved host's own
+	// credentials, the ones its group inherits, or this host's credentials, in that order.
+	CredentialID string `json:"credentialId,omitempty"`
+	Host         string `json:"host,omitempty"`
+	Port         int    `json:"port,omitempty"`
 }
 
 type PortForward struct {

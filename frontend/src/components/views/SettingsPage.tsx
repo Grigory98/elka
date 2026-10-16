@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
-import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES, appearanceToPalette, paletteToAppearance } from "@/lib/appearance";
+import { APP_COLOR_PALETTES, AppearanceSettings, DEFAULT_APPEARANCE, FONT_FAMILIES, appearanceToPalette, builtinPaletteAppearance, paletteToAppearance } from "@/lib/appearance";
 import { TERMINAL_FONT_FAMILIES } from "@/lib/terminalFont";
 import { MAX_SCROLLBACK } from "@/lib/terminalTheme";
 import { HostTransferService } from "../../../bindings/elka-desktop/backend/internal/services/blob";
@@ -438,10 +438,14 @@ export function SettingsPage() {
         }
     };
 
-    /** A built-in theme only paints six colours, so it is applied as a partial update. */
+    /**
+     * A built-in theme paints six colours, so it is applied as a partial update, and the colours
+     * that follow the palette are released: they were picked against the background of the theme
+     * before it, and keeping them left the sidebar in a colour that no longer belonged to anything.
+     */
     const applyPalette = (colors: Partial<AppearanceSettings>) => {
         setIsCustomPalette(false);
-        updateAppearance(colors);
+        updateAppearance(builtinPaletteAppearance(colors));
     };
 
     /** A saved theme is a full snapshot, so it replaces the whole appearance. */

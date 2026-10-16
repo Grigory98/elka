@@ -10,6 +10,7 @@ import { Events, Clipboard } from "@wailsio/runtime";
 import { createTerminalOptions, normalizeScrollback } from "@/lib/terminalTheme";
 import { ensureTerminalFontLoaded } from "@/lib/terminalFont";
 import { parseAppError } from "@/lib/error";
+import { ErrorCode } from "@/lib/errorCodes";
 import { registerTerminalInput } from "@/lib/terminalInput";
 import { attachSessionDragImage } from "@/lib/sessionDrag";
 import { cn, decodeBase64ToUint8Array } from "@/lib/utils";
@@ -17,9 +18,10 @@ import { SSHConnectionConfig, SshService } from "../../../bindings/elka-desktop/
 import { useTranslation } from "react-i18next";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { ContextMenuAction, ContextMenuPanel } from "@/components/layout/ContextMenuAction";
+import { AuthPasswordDialog } from "@/components/terminal/AuthPasswordDialog";
 import { AppEvent } from "@/lib/events.ts";
 import { Columns2, CopyPlus, FolderOpen, LoaderCircle, PanelTopClose, RefreshCw, X } from "lucide-react";
-import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement } from "@/store/sessionStore";
+import { SplitPlacement, TERMINAL_SESSION_DRAG_TYPE, paneDropPlacement, useSessionStore } from "@/store/sessionStore";
 import { useUIStore } from "@/store/uiStore";
 
 /**
@@ -182,6 +184,15 @@ export function TerminalInstance({
     // What the machine said about its own WebGL, asked at most once per session.
     const softwareRendererRef = useRef<boolean | null>(null);
     const [connectionState, setConnectionState] = useState<ConnectionState>("connecting");
+    // Set when the server turned the stored credentials away and the password can be typed in. The
+    // error is kept with it: dismissing the prompt has to say in the terminal why the session is dead.
+    const [authPrompt, setAuthPrompt] = useState<{username: string; target: string; error: unknown} | null>(null);
+    const [isRetryingAuth, setIsRetryingAuth] = useState(false);
+    // A password typed at the prompt, kept by the session so a reconnect starts from what the server
+    // accepted rather than from the credentials it already turned down.
+    const acceptedPassword = useSessionStore(
+        (state) => state.sessions.find((session) => session.id === sessionId)?.acceptedPassword);
+    const rememberSessionPassword = useSessionStore((state) => state.rememberSessionPassword);
     // HTML5 drags set this locally; a drag that starts in the tab bar writes the store instead, because
     // the pointer never crosses the pane as an HTML5 drag event. Both end up in the same highlight.
     const [dropPlacement, setDropPlacement] = useState<SplitPlacement | null>(null);
@@ -301,6 +312,58 @@ export function TerminalInstance({
         console.log(appError)
         const translated = t("error_message", { message: appError.message, error: appError.detailsString })
         terminalRef.current.write(`\r\n\x1b[31m${translated}\x1b[0m\r\n`)
+    };
+
+    /**
+     * Opens the session, and decides what a refusal of the login means.
+     *
+     * Everything but a rejected login is printed into the terminal and stops there. A rejected one is
+     * asked about instead: the credentials that were sent may have been inherited from a group, copied
+     * from a jump host or simply be out of date, and none of that can be seen from this side, so the
+     * session is offered the password the user actually types. The original failure rides along to be
+     * printed if the prompt is dismissed.
+     */
+    const connectWith = (nextConfig: SSHConnectionConfig) => {
+        setConnectionState("connecting");
+        return SshService.Connect(nextConfig)
+            .then(() => {
+                isReadyRef.current = true;
+                hasFailedRef.current = false;
+                setAuthPrompt(null);
+                setConnectionState("ready");
+            })
+            .catch((error) => {
+                hasFailedRef.current = true;
+                setConnectionState("failed");
+
+                if (parseAppError(error).code === ErrorCode.SSH_AUTHENTICATION_FAILED) {
+                    setAuthPrompt({
+                        username: nextConfig.username,
+                        target: `${nextConfig.host}:${nextConfig.port}`,
+                        error,
+                    });
+                    return;
+                }
+                // Anything else explains itself in the terminal, and leaving the prompt over it would
+                // only hide the explanation behind a field for a password that is not the problem.
+                setAuthPrompt(null);
+                printErrorToTerminal(error);
+            });
+    };
+
+    const retryWithPassword = (password: string) => {
+        setIsRetryingAuth(true);
+        // A password the server accepted belongs to this session from now on: reconnecting or
+        // duplicating the tab reuses it instead of walking into the same refusal again.
+        rememberSessionPassword(sessionId, password);
+        void connectWith(new SSHConnectionConfig({...config, password}))
+            .finally(() => setIsRetryingAuth(false));
+    };
+
+    const dismissAuthPrompt = () => {
+        const refused = authPrompt;
+        setAuthPrompt(null);
+        if (refused) printErrorToTerminal(refused.error);
     };
 
     const handleDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
@@ -480,17 +543,9 @@ export function TerminalInstance({
 
             if (!hasConnectedRef.current) {
                 hasConnectedRef.current = true;
-                SshService.Connect(config)
-                    .then(() => {
-                        isReadyRef.current = true;
-                        setConnectionState("ready");
-                    })
-                    .catch((err) => {
-                        // The error is printed into the terminal, so the overlay has to give way to it.
-                        hasFailedRef.current = true;
-                        setConnectionState("failed");
-                        printErrorToTerminal(err);
-                    });
+                void connectWith(acceptedPassword
+                    ? new SSHConnectionConfig({...config, password: acceptedPassword})
+                    : config);
             }
 
             fitAndResizeRef.current(true);
@@ -804,6 +859,14 @@ export function TerminalInstance({
                     style={{borderColor: isActive ? "var(--split-pane-border-active)" : "var(--split-pane-border)"}}
                 />
             )}
+            <AuthPasswordDialog
+                open={!!authPrompt}
+                username={authPrompt?.username || ""}
+                target={authPrompt?.target || ""}
+                isConnecting={isRetryingAuth}
+                onCancel={dismissAuthPrompt}
+                onSubmit={retryWithPassword}
+            />
         </div>
     );
 }

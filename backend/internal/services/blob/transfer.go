@@ -251,6 +251,7 @@ func (s *HostTransferService) saveImportedHosts(parsed []parsedHostTransfer, gro
 				}
 				hop.HostID = replacement
 			}
+			hop.CredentialID = ""
 			filteredHops = append(filteredHops, hop)
 		}
 		if item.TabbyJumpHost != "" && len(filteredHops) == 0 {

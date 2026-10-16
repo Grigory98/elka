@@ -32,5 +32,6 @@
   "Auth.Admin.Username.TooLong": "Admin username exceeds maximum length.",
   "Auth.Admin.Password.Required": "Admin password is required.",
   "Auth.Admin.Password.TooLong": "Admin password exceeds maximum length.",
-  "Auth.Admin.Id.Required": "Admin ID is required."
+  "Auth.Admin.Id.Required": "Admin ID is required.",
+  "SSH_AUTHENTICATION_FAILED": "The server refused these credentials."
 }

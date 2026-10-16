@@ -9,7 +9,10 @@ const (
 	CodeVaultLocked        = ErrorCode("VAULT_LOCKED")
 	CodeNetworkFailed      = ErrorCode("NETWORK_FAILED")
 	CodeSSHConnectionError = ErrorCode("SSH_CONNECTION_FAILED")
-	CodeSSHSessionNotFound = ErrorCode("SSH_SESSION_NOT_FOUND")
+	// CodeSSHAuthenticationFailed separates "the server refused the login" from every other
+	// connection failure: it is the one case a user can answer with a password of their own.
+	CodeSSHAuthenticationFailed = ErrorCode("SSH_AUTHENTICATION_FAILED")
+	CodeSSHSessionNotFound      = ErrorCode("SSH_SESSION_NOT_FOUND")
 
 	CodeInternalError = ErrorCode("INTERNAL_ERROR")
 	CodeUnknownError  = ErrorCode("UNKNOWN_ERROR")

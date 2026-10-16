@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils"
 type SearchableSelectOption = {
   value: string
   label: string
+  /** Fields matched by the search but not shown in the row: an address, a port, a group name. */
+  searchTerms?: string[]
 }
 
 function SearchableSelect({
@@ -39,8 +41,12 @@ function SearchableSelect({
   const filteredOptions = React.useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     if (!normalizedQuery) return options
+    // Hosts are searched by more than their name: a jump host is remembered by its address or by the
+    // group it lives in, and neither fits into the label without making the row unreadable.
     return options.filter((option) =>
-      option.label.toLocaleLowerCase().includes(normalizedQuery)
+      [option.label, ...(option.searchTerms ?? [])].some((field) =>
+        field.toLocaleLowerCase().includes(normalizedQuery)
+      )
     )
   }, [options, query])
 

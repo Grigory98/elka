@@ -123,7 +123,15 @@ func NewSshService(emitter SSHEmitter, app *application.App) *SshService {
 func (s *SshService) Connect(config *SSHConnectionConfig) error {
 	client, jumpClients, err := connectSSH(config)
 	if err != nil {
-		return apperror.SSHConnectionFailed(fmt.Sprintf("failed to connect to %s", net.JoinHostPort(config.Host, strconv.Itoa(config.Port))), err)
+		// The login is part of the failure: a server refuses a wrong user exactly the way it refuses
+		// a wrong password, and the message from the handshake cannot tell the two apart.
+		message := fmt.Sprintf("failed to connect to %s as %q", net.JoinHostPort(config.Host, strconv.Itoa(config.Port)), config.Username)
+
+		var authFailure *targetAuthError
+		if errors.As(err, &authFailure) {
+			return apperror.SSHAuthenticationFailed(message, authFailure.err)
+		}
+		return apperror.SSHConnectionFailed(message, err)
 	}
 	forwarders := make([]io.Closer, 0, len(config.PortForwards))
 	for _, forwardConfig := range config.PortForwards {
@@ -205,6 +213,27 @@ func (s *SshService) Connect(config *SSHConnectionConfig) error {
 	return nil
 }
 
+/**
+ * targetAuthError marks a refusal by the target host itself.
+ *
+ * A jump hop that fails to log in is a configuration problem the user has to fix in the host form,
+ * while a target that refuses the login can still be reached by typing the password in, so the two
+ * are kept apart for as long as the error travels back to the interface.
+ */
+type targetAuthError struct {
+	err error
+}
+
+func (e *targetAuthError) Error() string { return e.err.Error() }
+
+func (e *targetAuthError) Unwrap() error { return e.err }
+
+// x/crypto has no sentinel for a rejected login and builds the message by hand when the server
+// leaves the client with nothing it is willing to answer with.
+func isAuthenticationFailure(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "unable to authenticate")
+}
+
 func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error) {
 	clientConfig, err := newClientConfig(config.Username, config.Password, config.PrivateKey, config.PrivateKeyPassphrase)
 	if err != nil {
@@ -217,6 +246,9 @@ func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error)
 	}
 	if len(hops) == 0 {
 		client, err := ssh.Dial("tcp", targetAddress, clientConfig)
+		if isAuthenticationFailure(err) {
+			return nil, nil, &targetAuthError{err: err}
+		}
 		return client, nil, err
 	}
 
@@ -227,12 +259,12 @@ func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error)
 			closeJumpClients(jumpClients)
 			return nil, nil, fmt.Errorf("invalid jump host address at step %d", index+1)
 		}
+		jumpAddress := net.JoinHostPort(jump.Host, strconv.Itoa(jump.Port))
 		jumpConfig, configErr := newClientConfig(jump.Username, jump.Password, jump.PrivateKey, jump.PrivateKeyPassphrase)
 		if configErr != nil {
 			closeJumpClients(jumpClients)
-			return nil, nil, apperror.DecryptionFailed(configErr)
+			return nil, nil, fmt.Errorf("jump host %s at step %d: %w", jumpAddress, index+1, configErr)
 		}
-		jumpAddress := net.JoinHostPort(jump.Host, strconv.Itoa(jump.Port))
 		if routeClient == nil {
 			routeClient, err = ssh.Dial("tcp", jumpAddress, jumpConfig)
 			if err != nil {
@@ -267,6 +299,9 @@ func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error)
 	if err != nil {
 		_ = connection.Close()
 		closeJumpClients(jumpClients)
+		if isAuthenticationFailure(err) {
+			return nil, nil, &targetAuthError{err: err}
+		}
 		return nil, nil, err
 	}
 	return ssh.NewClient(clientConnection, channels, requests), jumpClients, nil
@@ -305,7 +340,7 @@ func newClientConfig(username, password, privateKey, passphrase string) (*ssh.Cl
 		}))
 	}
 	if len(authMethods) == 0 {
-		return nil, fmt.Errorf("no authentication method available: provide a password or a private key")
+		return nil, fmt.Errorf("no password and no private key to authenticate with")
 	}
 	return &ssh.ClientConfig{
 		User: username,

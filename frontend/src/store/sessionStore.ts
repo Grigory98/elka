@@ -26,6 +26,14 @@ export interface TerminalSession {
     config: SSHConnectionConfig;
     /** Bumped on reconnect: it changes the terminal instance key, which redials the session. */
     reconnectCount: number;
+    /**
+     * A password typed at the prompt that opens when the server refuses the stored credentials.
+     *
+     * It is kept beside the config instead of inside it on purpose: the terminal instance redials
+     * whenever the config object changes, and a session that is already up must not be torn down by
+     * remembering how it got there. Reconnect and a duplicated tab both read it back from here.
+     */
+    acceptedPassword?: string;
 }
 
 export interface CreateSessionParams {
@@ -104,6 +112,7 @@ interface SessionState {
     ungroupTabs: (groupID: string) => void;
     duplicateSession: (id: string) => void;
     reconnectSession: (id: string) => void;
+    rememberSessionPassword: (id: string, password: string) => void;
     closeOtherSessions: (id: string) => void;
     removeSession: (id: string) => void;
     setActiveSession: (id: string) => void;
@@ -275,7 +284,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             host: session.config.host,
             port: session.config.port,
             username: session.config.username,
-            password: session.config.password,
+            password: session.acceptedPassword || session.config.password,
             privateKey: session.config.privateKey,
             privateKeyPassphrase: session.config.privateKeyPassphrase,
             jumpHost: session.config.jumpHost || undefined,
@@ -625,6 +634,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             topTabOrder,
         };
     }),
+
+    // The typed password belongs to the session, not to the host record: the credential in the vault
+    // is left exactly as it was, and only this tab remembers what the server accepted.
+    rememberSessionPassword: (id, password) => {
+        if (!get().sessions.some((session) => session.id === id)) return;
+
+        set((state) => ({
+            sessions: state.sessions.map((session) => session.id === id
+                ? {...session, acceptedPassword: password}
+                : session),
+        }));
+    },
 
     // Reconnect reuses the mount/cleanup cycle of the terminal: the current session is closed and a
     // new one is opened inside the same tab, which also retries a session that failed to connect.

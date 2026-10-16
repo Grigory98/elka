@@ -1,7 +1,7 @@
 import { useState, useEffect, SyntheticEvent } from "react";
 import {useTranslation} from "react-i18next";
 import {ArrowDown, ArrowLeftRight, ArrowUp, Folder, Plus, Trash2} from "lucide-react";
-import {Host, ItemType, JumpHopMode, JumpHostHop, PortForward, PortForwardMode} from "../../../bindings/elka-desktop/backend/internal/services/blob";
+import {Host, ItemType, JumpHopMode, JumpHostHop, PortForward, PortForwardMode, SavedCredential} from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
@@ -22,6 +22,15 @@ import {useGroups} from "@/hooks/useGroups";
 import {useHosts} from "@/hooks/useHosts";
 
 const NO_GROUP_VALUE = "none";
+const NO_JUMP_HOST_VALUE = "none";
+
+/** Only an explicitly manual hop is an address typed by hand. */
+const isManualHop = (hop: JumpHostHop) => hop.mode === JumpHopMode.JumpHopManual;
+
+/** A hop is only saved once it names a saved host, or an address and a port it can be reached at. */
+const hopIsComplete = (hop: JumpHostHop) => isManualHop(hop)
+    ? !!hop.host?.trim() && (hop.port || 0) > 0 && (hop.port || 0) <= 65535
+    : !!hop.hostId;
 
 interface HostModalProps {
     isOpen: boolean;
@@ -62,16 +71,60 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
     const selectedCredential = credentials?.find((credential) => credential.id === (formData.credentialId || selectedGroup?.credentialId));
     const groupCredential = credentials?.find((credential) => credential.id === selectedGroup?.credentialId);
     const isGroupCredentialOverridden = !!groupCredential && !!formData.credentialId;
-    const groupCredentialSummary = groupCredential
-        ? [
-            groupCredential.username && `${t("username", {ns: "common"})}: ${groupCredential.username}`,
-            credentialParts(groupCredential).password && t("password_kind", {ns: "credentials"}),
-            credentialParts(groupCredential).passphrase && t("passphrase_kind", {ns: "credentials"}),
-            credentialParts(groupCredential).privateKey && t("private_key_kind", {ns: "credentials"}),
-        ].filter(Boolean).join(" · ")
-        : "";
+
+    /** Everything a saved credential holds, as the short list the group card prints. */
+    const credentialDetails = (credential: SavedCredential) => [
+        credential.username && `${t("username", {ns: "common"})}: ${credential.username}`,
+        credentialParts(credential).password && t("password_kind", {ns: "credentials"}),
+        credentialParts(credential).passphrase && t("passphrase_kind", {ns: "credentials"}),
+        credentialParts(credential).privateKey && t("private_key_kind", {ns: "credentials"}),
+    ].filter(Boolean).join(" · ");
+
+    const groupCredentialSummary = groupCredential ? credentialDetails(groupCredential) : "";
     const legacyPasswordCredential = credentials?.find((credential) => credential.id === formData.passwordCredentialId);
     const inheritedUsername = legacyPasswordCredential?.username || selectedCredential?.username;
+
+    /**
+     * What the hop will actually authenticate with, spelled out where the hop is chosen.
+     *
+     * The chain resolves credentials in a fixed order and the form is the only place a user can see
+     * it: credentials picked for the hop first, then the saved host's own, then the ones its group
+     * inherits, and finally this host's credentials when the jump host has none of its own.
+     */
+    const jumpHopCredentialsHint = (hop: JumpHostHop) => {
+        const selected = credentials?.find((credential) => credential.id === hop.credentialId);
+        if (selected) {
+            return [selected.name, credentialDetails(selected)].filter(Boolean).join(" · ");
+        }
+
+        if (isManualHop(hop)) {
+            return t("jump_credentials_same_as_host", {ns: "hosts"});
+        }
+        // Nothing is known about a hop until the host behind it is picked.
+        if (!hop.hostId) return "";
+
+        const jumpHost = jumpHosts.find((host) => host.id === hop.hostId);
+        if (!jumpHost) {
+            return t("jump_credentials_fallback", {ns: "hosts"});
+        }
+        if (jumpHost.password || jumpHost.keyId || jumpHost.credentialId || jumpHost.passwordCredentialId ||
+            jumpHost.passphraseCredentialId || jumpHost.privateKeyCredentialId) {
+            return t("jump_credentials_from_jump_host", {ns: "hosts"});
+        }
+
+        const jumpHostGroup = groups?.find((group) =>
+            group.name.trim().toLocaleLowerCase() === jumpHost.group?.trim().toLocaleLowerCase());
+        const groupCredential = credentials?.find((credential) => credential.id === jumpHostGroup?.credentialId);
+        if (groupCredential) {
+            const details = credentialDetails(groupCredential);
+            return t("jump_credentials_from_group", {
+                ns: "hosts",
+                name: jumpHostGroup?.name,
+                credential: details ? ` · ${details}` : "",
+            });
+        }
+        return t("jump_credentials_fallback", {ns: "hosts"});
+    };
 
     useEffect(() => {
         if (isOpen) {
@@ -81,7 +134,18 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
                     : initialData.jumpHostId
                         ? [new JumpHostHop({mode: JumpHopMode.JumpHopSavedHost, hostId: initialData.jumpHostId})]
                         : [];
-                setFormData({...initialData, jumpHops});
+                // A hop written before the mode existed carries none of it, and the connection reads
+                // that as a server address typed by hand, which is empty. The saved host it points at
+                // is what the hop was, so the mode is filled in before it reaches the form.
+                setFormData({
+                    ...initialData,
+                    jumpHops: jumpHops.map((hop) =>
+                        hop.mode ? hop : new JumpHostHop({
+                            ...hop,
+                            mode: hop.hostId ? JumpHopMode.JumpHopSavedHost : JumpHopMode.JumpHopManual,
+                        })
+                    ),
+                });
             } else {
                 setFormData(DEFAULT_HOST);
             }
@@ -91,9 +155,7 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
     const handleSubmit = (e: SyntheticEvent<HTMLFormElement>) => {
         e.preventDefault();
 
-        const jumpHops = (formData.jumpHops || []).filter((hop) => hop.mode === JumpHopMode.JumpHopSavedHost
-            ? !!hop.hostId
-            : !!hop.host?.trim() && (hop.port || 0) > 0 && (hop.port || 0) <= 65535);
+        const jumpHops = (formData.jumpHops || []).filter(hopIsComplete);
 
         const finalHost = new Host({
             ...formData,
@@ -121,9 +183,7 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
     const isEditing = !!initialData;
 
     const jumpHops = formData.jumpHops || [];
-    const hasIncompleteJumpHop = jumpHops.some((hop) => hop.mode === JumpHopMode.JumpHopSavedHost
-        ? !hop.hostId
-        : !hop.host?.trim() || (hop.port || 0) < 1 || (hop.port || 0) > 65535);
+    const hasIncompleteJumpHop = jumpHops.some((hop) => !hopIsComplete(hop));
 
     const updateJumpHop = (index: number, update: Partial<JumpHostHop>) => {
         setFormData({
@@ -317,7 +377,7 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
                                         <SelectItem value={JumpHopMode.JumpHopManual}>{t("jump_manual_host", {ns: "hosts"})}</SelectItem>
                                     </SelectContent>
                                 </Select>
-                                {hop.mode === JumpHopMode.JumpHopManual ? (
+                                {isManualHop(hop) ? (
                                     <div className="grid grid-cols-4 gap-3">
                                         <div className="col-span-3 grid gap-1">
                                             <Label>{t("jump_server_address", {ns: "hosts"})}</Label>
@@ -329,16 +389,44 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
                                         </div>
                                     </div>
                                 ) : (
-                                    <Select value={hop.hostId || "none"} onValueChange={(hostId) => updateJumpHop(index, {hostId: hostId === "none" ? "" : hostId})}>
-                                        <SelectTrigger><SelectValue placeholder={t("select_jump_host", {ns: "hosts"})}/></SelectTrigger>
+                                    <SearchableSelect
+                                        value={hop.hostId || NO_JUMP_HOST_VALUE}
+                                        onValueChange={(hostId) => updateJumpHop(index, {hostId: hostId === NO_JUMP_HOST_VALUE ? "" : hostId})}
+                                        options={[
+                                            {value: NO_JUMP_HOST_VALUE, label: t("select_jump_host", {ns: "hosts"})},
+                                            ...jumpHosts.map((host) => ({
+                                                value: host.id,
+                                                label: host.name || `${host.username}@${host.host}:${host.port}`,
+                                                // A jump host is picked by whatever the user remembers it
+                                                // by, and that is rarely the name shown in the list.
+                                                searchTerms: [host.name, host.host, `${host.host}:${host.port}`, host.username, host.group || ""],
+                                            })),
+                                        ]}
+                                        placeholder={t("select_jump_host", {ns: "hosts"})}
+                                        searchPlaceholder={t("search_jump_host", {ns: "hosts"})}
+                                        emptyLabel={t("no_jump_hosts_found", {ns: "hosts"})}
+                                    />
+                                )}
+                                <div className="grid gap-1">
+                                    <Label>{t("jump_credentials_label", {ns: "hosts"})}</Label>
+                                    <Select
+                                        value={hop.credentialId || "none"}
+                                        onValueChange={(value) => updateJumpHop(index, {credentialId: value === "none" ? undefined : value})}
+                                    >
+                                        <SelectTrigger><SelectValue/></SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="none">{t("select_jump_host", {ns: "hosts"})}</SelectItem>
-                                            {jumpHosts.map((host) => (
-                                                <SelectItem key={host.id} value={host.id}>{host.name || `${host.username}@${host.host}:${host.port}`}</SelectItem>
+                                            <SelectItem value="none">
+                                                {isManualHop(hop)
+                                                    ? t("jump_credentials_same_as_host", {ns: "hosts"})
+                                                    : t("jump_credentials_from_jump_host", {ns: "hosts"})}
+                                            </SelectItem>
+                                            {credentials?.map((credential) => (
+                                                <SelectItem key={credential.id} value={credential.id}>{credential.name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                )}
+                                    <p className="text-xs text-muted-foreground">{jumpHopCredentialsHint(hop)}</p>
+                                </div>
                             </div>
                         ))}
                         {hasIncompleteJumpHop && <p className="text-xs text-destructive">{t("complete_jump_hops", {ns: "hosts"})}</p>}

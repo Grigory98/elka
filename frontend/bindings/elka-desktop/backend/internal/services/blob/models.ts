@@ -165,6 +165,7 @@ export enum JumpHopMode {
 export class JumpHostHop {
     "mode": JumpHopMode;
     "hostId"?: string;
+    "credentialId"?: string;
     "host"?: string;
     "port"?: number;
 

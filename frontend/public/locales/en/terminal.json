@@ -47,5 +47,8 @@
   "split_workspace_default_title": "Split workspace {{number}}",
   "split_workspace_title": "Split workspace",
   "tab_group_default_name": "New group",
-  "ungroup_tabs": "Ungroup tabs"
+  "ungroup_tabs": "Ungroup tabs",
+  "auth_password_title": "Password required",
+  "auth_password_desc": "The server at {{target}} refused the login \"{{username}}\". Enter the password for this session.",
+  "auth_password_connect": "Connect"
 }

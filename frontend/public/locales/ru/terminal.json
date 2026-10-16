@@ -47,5 +47,8 @@
   "split_workspace_default_title": "Разделённый экран {{number}}",
   "split_workspace_title": "Разделённый экран",
   "tab_group_default_name": "Новая группа",
-  "ungroup_tabs": "Разгруппировать вкладки"
+  "ungroup_tabs": "Разгруппировать вкладки",
+  "auth_password_title": "Требуется пароль",
+  "auth_password_desc": "Сервер {{target}} отклонил вход «{{username}}». Введите пароль для этой сессии.",
+  "auth_password_connect": "Подключиться"
 }

@@ -8,8 +8,11 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"testing"
+
+	"elka-desktop/backend/internal/apperror"
 
 	"github.com/pkg/sftp"
 	gossh "golang.org/x/crypto/ssh"
@@ -59,6 +62,38 @@ func TestStartPortForwardRejectsInvalidConfiguration(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected unsupported forwarding mode to be rejected")
+	}
+}
+
+// A server that refuses the login is the one failure the interface can answer with a password of its
+// own, so it has to arrive as its own error code instead of being folded into "could not connect".
+func TestConnectReportsARejectedLoginSeparately(t *testing.T) {
+	server := newFakeSSHServer(t, 1)
+	server.config.PasswordCallback = func(gossh.ConnMetadata, []byte) (*gossh.Permissions, error) {
+		return nil, errors.New("wrong password")
+	}
+	config := server.connectionConfig()
+
+	if _, _, err := connectSSH(config); err == nil {
+		t.Fatal("expected the refused password to fail the connection")
+	} else {
+		var authFailure *targetAuthError
+		if !errors.As(err, &authFailure) {
+			t.Fatalf("a refused login must be marked as one: %v", err)
+		}
+	}
+
+	service := NewSshService(noopSSHEmitter{}, nil)
+	err := service.Connect(config)
+	var appError *apperror.AppError
+	if !errors.As(err, &appError) {
+		t.Fatalf("expected an app error, got %v", err)
+	}
+	if appError.Code != apperror.CodeSSHAuthenticationFailed {
+		t.Fatalf("expected the authentication code, got %s", appError.Code)
+	}
+	if !strings.Contains(appError.Message, config.Username) {
+		t.Fatalf("the login has to be named in the failure: %q", appError.Message)
 	}
 }
 

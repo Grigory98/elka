@@ -166,6 +166,14 @@ func (s *CredentialService) Delete(ctx context.Context, id string) error {
 			host.CredentialID = ""
 			changed = true
 		}
+		for index, hop := range host.JumpHops {
+			if hop.CredentialID != id {
+				continue
+			}
+			// The hop keeps working, it just falls back to the credentials it would have used anyway.
+			host.JumpHops[index].CredentialID = ""
+			changed = true
+		}
 		if changed {
 			if _, err = saveItem(ctx, s.q, s.v, host.ID, host); err != nil {
 				return err

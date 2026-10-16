@@ -99,6 +99,23 @@ func SSHConnectionFailed(msg string, err error) *AppError {
 	}
 }
 
+// SSHAuthenticationFailed reports a server that refused the login. It carries its own code because it
+// is the only connection failure the user can do something about without changing the configuration:
+// the credentials are wrong, and a password can still be typed in.
+func SSHAuthenticationFailed(msg string, err error) *AppError {
+	errorString := msg
+	if err != nil {
+		errorString = err.Error()
+	}
+
+	return &AppError{
+		Code:        CodeSSHAuthenticationFailed,
+		Message:     msg,
+		Err:         err,
+		ErrorString: errorString,
+	}
+}
+
 func SSHSessionNotFound() *AppError {
 	message := "session not found"
 

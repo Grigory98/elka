@@ -32,5 +32,6 @@
   "Auth.Admin.Username.TooLong": "Имя пользователя администратора превышает допустимую длину.",
   "Auth.Admin.Password.Required": "Пароль администратора обязателен.",
   "Auth.Admin.Password.TooLong": "Пароль администратора превышает допустимую длину.",
-  "Auth.Admin.Id.Required": "ID администратора обязателен."
+  "Auth.Admin.Id.Required": "ID администратора обязателен.",
+  "SSH_AUTHENTICATION_FAILED": "Сервер отклонил эти учётные данные."
 }
