@@ -63,5 +63,10 @@
   "save_host": "Сохранить хост",
   "delete_title": "Удалить хост?",
   "delete_desc": "Вы уверены, что хотите удалить \"{{name}}\"? Это действие нельзя отменить.",
-  "showing_range": "Показано {{from}}–{{to}} из {{total}}"
+  "showing_range": "Показано {{from}}–{{to}} из {{total}}",
+  "delete_jump_used_title": "Также используется как джамп хост",
+  "delete_jump_used_desc": "Эти шаги будут отвязаны, и хосты начнут подключаться к своим целям напрямую.",
+  "delete_jump_unlinked_one": "Отвязан как джамп хост от {{count}} хоста.",
+  "delete_jump_unlinked_few": "Отвязан как джамп хост от {{count}} хостов.",
+  "delete_jump_unlinked_many": "Отвязан как джамп хост от {{count}} хостов."
 }

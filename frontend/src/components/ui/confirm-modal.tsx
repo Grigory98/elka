@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -19,6 +20,8 @@ interface ConfirmModalProps {
     description: string;
     confirmText?: string;
     isDestructive?: boolean;
+    /** Что ещё произойдёт вместе с удалением: список затрагиваемых хостов, предупреждение. */
+    children?: ReactNode;
 }
 
 export function ConfirmModal({
@@ -29,6 +32,7 @@ export function ConfirmModal({
     description,
     confirmText = undefined,
     isDestructive = true,
+    children,
 }: ConfirmModalProps) {
     const {t} = useTranslation("common");
 
@@ -43,6 +47,7 @@ export function ConfirmModal({
                     <AlertDialogTitle>{title}</AlertDialogTitle>
                     <AlertDialogDescription>{description}</AlertDialogDescription>
                 </AlertDialogHeader>
+                {children && <div className="grid gap-2">{children}</div>}
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={onClose}>{t("cancel")}</AlertDialogCancel>
                     <AlertDialogAction

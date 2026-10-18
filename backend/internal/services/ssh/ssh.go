@@ -289,36 +289,95 @@ func connectSSH(config *SSHConnectionConfig) (*ssh.Client, []*ssh.Client, error)
 			continue
 		}
 
-		connection, dialErr := routeClient.Dial("tcp", jumpAddress)
+		connection, dialErr := dialThroughTunnel(routeClient, jumpAddress, timeout)
 		if dialErr != nil {
 			closeJumpClients(jumpClients)
 			return nil, nil, fmt.Errorf("tunnel to jump host %s: %w", jumpAddress, dialErr)
 		}
-		clientConnection, channels, requests, handshakeErr := ssh.NewClientConn(connection, jumpAddress, jumpConfig)
+		client, handshakeErr := handshakeThroughTunnel(connection, jumpAddress, jumpConfig, timeout)
 		if handshakeErr != nil {
-			_ = connection.Close()
 			closeJumpClients(jumpClients)
 			return nil, nil, fmt.Errorf("authenticate to jump host %s: %w", jumpAddress, handshakeErr)
 		}
-		routeClient = ssh.NewClient(clientConnection, channels, requests)
+		routeClient = client
 		jumpClients = append(jumpClients, routeClient)
 	}
 
-	connection, err := routeClient.Dial("tcp", targetAddress)
+	connection, err := dialThroughTunnel(routeClient, targetAddress, timeout)
 	if err != nil {
 		closeJumpClients(jumpClients)
 		return nil, nil, fmt.Errorf("tunnel to target %s: %w", targetAddress, err)
 	}
-	clientConnection, channels, requests, err := ssh.NewClientConn(connection, targetAddress, clientConfig)
-	if err != nil {
-		_ = connection.Close()
+	targetClient, handshakeErr := handshakeThroughTunnel(connection, targetAddress, clientConfig, timeout)
+	if handshakeErr != nil {
 		closeJumpClients(jumpClients)
-		if isAuthenticationFailure(err) {
-			return nil, nil, &targetAuthError{err: err}
+		if isAuthenticationFailure(handshakeErr) {
+			return nil, nil, &targetAuthError{err: handshakeErr}
 		}
-		return nil, nil, err
+		return nil, nil, handshakeErr
 	}
-	return ssh.NewClient(clientConnection, channels, requests), jumpClients, nil
+	return targetClient, jumpClients, nil
+}
+
+// dialThroughTunnel открывает соединение через уже поднятый туннель под тем же сроком, что и прямой
+// набор.
+//
+// У ssh.Dial время берётся из ClientConfig, а Dial по туннелю своего не знает: цель, которая приняла
+// соединение от бастиона, но так и не ответила, держала бы подключение открытым навсегда, и вкладка
+// висела бы на «Подключение…» без единого шанса дойти до конца.
+func dialThroughTunnel(route *ssh.Client, address string, limit time.Duration) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+
+	return route.DialContext(ctx, "tcp", address)
+}
+
+// connectionTimeoutError — срок, на который не уложился дозвон.
+type connectionTimeoutError struct {
+	address string
+	limit   time.Duration
+}
+
+func (e *connectionTimeoutError) Error() string {
+	return fmt.Sprintf("%s did not answer within %s", e.address, e.limit)
+}
+
+func (e *connectionTimeoutError) Timeout() bool   { return true }
+func (e *connectionTimeoutError) Temporary() bool { return true }
+
+// handshakeThroughTunnel завершает хендшейк под тем же сроком, что и прямой набор.
+//
+// Дедлайн на соединение поставить нельзя: пересланный канал direct-tcpip его не поддерживает вовсе
+// и отвечает на SetDeadline ошибкой. Поэтому хендшейк идёт в отдельной горутине, а по истечении срока
+// соединение закрывается — это выбивает согласование из ожидания.
+func handshakeThroughTunnel(connection net.Conn, address string, config *ssh.ClientConfig, limit time.Duration) (*ssh.Client, error) {
+	type handshake struct {
+		connection ssh.Conn
+		channels   <-chan ssh.NewChannel
+		requests   <-chan *ssh.Request
+		err        error
+	}
+
+	settled := make(chan handshake, 1)
+	go func() {
+		clientConnection, channels, requests, err := ssh.NewClientConn(connection, address, config)
+		settled <- handshake{connection: clientConnection, channels: channels, requests: requests, err: err}
+	}()
+
+	select {
+	case result := <-settled:
+		if result.err != nil {
+			_ = connection.Close()
+			return nil, result.err
+		}
+		return ssh.NewClient(result.connection, result.channels, result.requests), nil
+
+	case <-time.After(limit):
+		_ = connection.Close()
+		// Дожидаемся конца хендшейка, чтобы он не остался висеть поверх закрытого соединения.
+		<-settled
+		return nil, &connectionTimeoutError{address: address, limit: limit}
+	}
 }
 
 func closeJumpClients(clients []*ssh.Client) {
@@ -865,6 +924,9 @@ func (s *SshService) cleanupSession(sessionID string, current *activeSession) {
 	if !owned {
 		return
 	}
-	closeActiveSession(current)
+	// The event goes out before the teardown, not after it. Closing an SFTP transfer in flight waits
+	// for the transfer to finish, and the interface was left looking at a live tab for as long as a
+	// large download took, showing nothing about a session that was already gone.
 	s.emitter.EmitClosed(sessionID)
+	closeActiveSession(current)
 }

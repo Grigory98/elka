@@ -13,13 +13,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { GroupModal } from "@/components/views/GroupModal";
 import { HostModal } from "@/components/views/HostModal";
+import { DeleteHostDialog } from "@/components/views/DeleteHostDialog";
 import { useGroups, useDeleteGroup, useSaveGroup } from "@/hooks/useGroups";
 import { useKeys } from "@/hooks/useKeys";
 import { useCredentials } from "@/hooks/useCredentials";
 import { useDeleteHost, useHosts, useSaveHost } from "@/hooks/useHosts";
 import { useSessionStore } from "@/store/sessionStore";
+import { toast } from "sonner";
 import { Host, HostGroup } from "../../../bindings/elka-desktop/backend/internal/services/blob";
-import { resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
+import { jumpHostDependents, resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
 import { HostViewPicker } from "@/components/layout/HostViewPicker";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
@@ -150,7 +152,17 @@ export function GroupsPage() {
     };
 
     const handleConfirmDeleteHost = () => {
-        if (hostToDelete) deleteHostMutation.mutate(hostToDelete.id);
+        if (!hostToDelete) return;
+        // Список цепочек снимается до удаления: после него в хранилище этих хостов может не быть,
+        // а сказать, что шаги отвязаны, нужно по факту.
+        const dependents = jumpHostDependents(hostToDelete.id, hosts || []);
+        deleteHostMutation.mutate(hostToDelete.id, {
+            onSuccess: () => {
+                if (dependents.length > 0) {
+                    toast.success(t("delete_jump_unlinked", {ns: "hosts", count: dependents.length}));
+                }
+            },
+        });
         setHostToDelete(null);
     };
 
@@ -399,14 +411,11 @@ export function GroupsPage() {
                 initialData={editingHost}
                 isSaving={saveHostMutation.isPending}
             />
-            <ConfirmModal
-                isOpen={!!hostToDelete}
+            <DeleteHostDialog
+                host={hostToDelete}
+                hosts={hosts || []}
                 onClose={() => setHostToDelete(null)}
                 onConfirm={handleConfirmDeleteHost}
-                title={t("delete_title", {ns: "hosts"})}
-                description={t("delete_desc", {ns: "hosts", name: hostToDelete?.name || hostToDelete?.host})}
-                confirmText={t("delete", {ns: "common"})}
-                isDestructive
             />
             <ConfirmModal
                 isOpen={!!groupToDelete}

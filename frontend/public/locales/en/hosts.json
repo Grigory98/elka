@@ -63,5 +63,9 @@
   "save_host": "Save Host",
   "delete_title": "Delete Host?",
   "delete_desc": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
-  "showing_range": "Showing {{from}}–{{to}} of {{total}}"
+  "showing_range": "Showing {{from}}–{{to}} of {{total}}",
+  "delete_jump_used_title": "Also used as a jump host",
+  "delete_jump_used_desc": "Those hops will be unlinked, and the hosts will connect to their target directly.",
+  "delete_jump_unlinked_one": "Unlinked as a jump host from {{count}} host.",
+  "delete_jump_unlinked_other": "Unlinked as a jump host from {{count}} hosts."
 }

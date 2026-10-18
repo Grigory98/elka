@@ -85,11 +85,24 @@ function withCredential(auth: HostAuthentication, credential: SavedCredential | 
 }
 
 /**
- * A hop saved before the mode existed carries none of it, so only an explicitly manual hop is
- * treated as an address typed by hand; everything else still points at a saved host.
+ * Only an explicitly manual hop is an address typed by hand.
  */
 function isManualHop(hop: JumpHostHop) {
     return hop.mode === JumpHopMode.JumpHopManual;
+}
+
+/**
+ * Хосты, в цепочках которых стоит этот хост шагом.
+ *
+ * Нужен перед удалением: без него цепочка молча укорачивается, и вкладка начинает идти напрямую к
+ * цели — то есть в обход джампа, или падает, если маршрута нет.
+ */
+export function jumpHostDependents(hostID: string, hosts: Host[] = []): Host[] {
+    if (!hostID) return [];
+    return hosts.filter((host) => host.id !== hostID && (
+        host.jumpHostId === hostID ||
+        (host.jumpHops || []).some((hop) => !isManualHop(hop) && hop.hostId === hostID)
+    ));
 }
 
 export function resolveJumpHosts(

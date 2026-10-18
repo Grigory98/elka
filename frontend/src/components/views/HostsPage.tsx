@@ -6,15 +6,16 @@ import { Input } from "@/components/ui/input";
 import { CARD_HEIGHT, HostCard, LIST_ROW_HEIGHT } from "@/components/views/HostCard";
 import { VirtualizedList } from "@/components/views/VirtualizedList";
 import { HostModal } from "@/components/views/HostModal";
-import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { DeleteHostDialog } from "@/components/views/DeleteHostDialog";
 import { useHosts, useSaveHost, useDeleteHost } from "@/hooks/useHosts";
 import { useKeys } from "@/hooks/useKeys";
 import { useCredentials } from "@/hooks/useCredentials";
 import { useGroups, useSaveGroup } from "@/hooks/useGroups";
 import { useSessionStore } from "@/store/sessionStore";
+import { toast } from "sonner";
 import { Host, HostGroup } from "../../../bindings/elka-desktop/backend/internal/services/blob";
 import { GroupModal } from "@/components/views/GroupModal";
-import { resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
+import { jumpHostDependents, resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
 import { HostViewPicker } from "@/components/layout/HostViewPicker";
 import { HostViewMode, useUIStore } from "@/store/uiStore";
 import { saveHostViewPreference } from "@/lib/viewSettings";
@@ -74,7 +75,17 @@ export function HostsPage() {
     }, []);
 
     const handleConfirmDelete = () => {
-        if (hostToDelete) deleteMutation.mutate(hostToDelete.id);
+        if (!hostToDelete) return;
+        // Список цепочек, в которых хост стоит шагом, снимается здесь: после удаления хостов в
+        // хранилище уже нет, а сообщить о том, что шаги отвязаны, нужно по факту.
+        const dependents = jumpHostDependents(hostToDelete.id, hosts || []);
+        deleteMutation.mutate(hostToDelete.id, {
+            onSuccess: () => {
+                if (dependents.length > 0) {
+                    toast.success(t("delete_jump_unlinked", {count: dependents.length}));
+                }
+            },
+        });
         setHostToDelete(null);
     };
 
@@ -330,14 +341,11 @@ export function HostsPage() {
                 isSaving={saveGroupMutation.isPending}
             />
 
-            <ConfirmModal
-                isOpen={!!hostToDelete}
+            <DeleteHostDialog
+                host={hostToDelete}
+                hosts={hosts || []}
                 onClose={() => setHostToDelete(null)}
                 onConfirm={handleConfirmDelete}
-                title={t("delete_title")}
-                description={t("delete_desc", {name: hostToDelete?.name || hostToDelete?.host})}
-                confirmText={t("delete", {ns: "common"})}
-                isDestructive={true}
             />
         </div>
     );

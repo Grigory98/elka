@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/binary"
@@ -8,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -176,6 +178,181 @@ func TestReconnectClosesTheDialItReplaces(t *testing.T) {
 	}
 }
 
+// Дозвон через туннель обязан укладываться в срок, как и прямой: у ssh.Dial он берётся из ClientConfig,
+// а у Dial по туннелю своего нет. Бастион, который до цели не доходит, иначе держал бы вкладку на
+// «Подключение…» навсегда.
+func TestTunnelDialGivesUpWhenTheHopNeverAnswers(t *testing.T) {
+	hop := newFakeSSHServer(t, 1)
+	hop.blackholeForwards = true
+	client := dialFakeServer(t, hop.connectionConfig())
+	t.Cleanup(func() { _ = client.Close() })
+
+	started := time.Now()
+	connection, err := dialThroughTunnel(client, "127.0.0.1:22", 250*time.Millisecond)
+	if err == nil {
+		_ = connection.Close()
+		t.Fatal("expected the dial to give up when the hop never answers")
+	}
+	if elapsed := time.Since(started); elapsed > 5*time.Second {
+		t.Fatalf("expected the dial to give up in time, it took %s", elapsed)
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected the deadline to end the dial, got %v", err)
+	}
+}
+
+// Следующий шаг после пересылки — хендшейк, и он тоже должен быть ограничен: цель, которая поздоровалась
+// и замолчала, это тот же самый обрыв на шаг позже.
+func TestTunnelHandshakeIsBounded(t *testing.T) {
+	hop := newFakeSSHServer(t, 1)
+	client := dialFakeServer(t, hop.connectionConfig())
+	t.Cleanup(func() { _ = client.Close() })
+
+	stalling := newStallingSSHServer(t)
+	connection, err := dialThroughTunnel(client, stalling.address, time.Second)
+	if err != nil {
+		t.Fatalf("expected the forwarded connection to open: %v", err)
+	}
+
+	config, err := newClientConfig("tester", testSFTPPassword, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = handshakeThroughTunnel(connection, stalling.address, config, 250*time.Millisecond); err == nil {
+		t.Fatal("expected the stalling handshake to give up")
+	} else if !isTimeout(err) {
+		t.Fatalf("expected the handshake to end on the deadline, got %v", err)
+	}
+}
+
+// Ограничение хендшейка не остаётся на живом соединении: вкладка после него работает, и пауза длиннее
+// срока не должна ничего обрывать.
+func TestTunnelHandshakeLeavesNoDeadlineBehind(t *testing.T) {
+	hop := newFakeSSHServer(t, 1)
+	client := dialFakeServer(t, hop.connectionConfig())
+	t.Cleanup(func() { _ = client.Close() })
+
+	target := newFakeSSHServer(t, 1).connectionConfig()
+	connection, err := dialThroughTunnel(client, net.JoinHostPort(target.Host, strconv.Itoa(target.Port)), time.Second)
+	if err != nil {
+		t.Fatalf("expected the forwarded connection to open: %v", err)
+	}
+
+	config, err := newClientConfig("tester", testSFTPPassword, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	forwarded, err := handshakeThroughTunnel(connection, net.JoinHostPort(target.Host, strconv.Itoa(target.Port)), config, 200*time.Millisecond)
+	if err != nil {
+		t.Fatalf("expected the handshake to finish: %v", err)
+	}
+	t.Cleanup(func() { _ = forwarded.Close() })
+
+	// Пауза длиннее срока хендшейка: с оставшимся дедлайном соединение оборвалось бы на ней.
+	time.Sleep(600 * time.Millisecond)
+
+	session, err := forwarded.NewSession()
+	if err != nil {
+		t.Fatalf("expected the forwarded session to open after a pause longer than the handshake limit: %v", err)
+	}
+	_ = session.Close()
+}
+
+func isTimeout(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return netErr.Timeout()
+	}
+	return errors.Is(err, context.DeadlineExceeded)
+}
+
+// forwardChannel пересылает канал direct-tcpip в обычный TCP-сокет, как это делает sshd за джамп-хостом.
+func forwardChannel(newChannel gossh.NewChannel) {
+	var request struct {
+		DestinationAddress string
+		DestinationPort    uint32
+		OriginAddress      string
+		OriginPort         uint32
+	}
+	if err := gossh.Unmarshal(newChannel.ExtraData(), &request); err != nil {
+		_ = newChannel.Reject(gossh.ConnectionFailed, "bad forwarding request")
+		return
+	}
+	target := net.JoinHostPort(request.DestinationAddress, strconv.Itoa(int(request.DestinationPort)))
+	upstream, err := net.Dial("tcp", target)
+	if err != nil {
+		_ = newChannel.Reject(gossh.ConnectionFailed, err.Error())
+		return
+	}
+	channel, requests, err := newChannel.Accept()
+	if err != nil {
+		_ = upstream.Close()
+		return
+	}
+	go gossh.DiscardRequests(requests)
+	go func() {
+		defer func() {
+			_ = channel.Close()
+			_ = upstream.Close()
+		}()
+		go func() { _, _ = io.Copy(upstream, channel) }()
+		_, _ = io.Copy(channel, upstream)
+	}()
+}
+
+// dialFakeServer открывает клиентское соединение с фейковым сервером и проверяет, что оно поднялось.
+func dialFakeServer(t *testing.T, config *SSHConnectionConfig) *gossh.Client {
+	t.Helper()
+
+	client, jumps, err := connectSSH(config)
+	if err != nil {
+		t.Fatalf("expected the connection to the fake server to open: %v", err)
+	}
+	t.Cleanup(func() { closeJumpClients(jumps) })
+	return client
+}
+
+// stallingSSHServer принимает соединение, читает баннер клиента и замолкает: так ведёт себя цель,
+// которая отвечает не полностью.
+type stallingSSHServer struct {
+	host    string
+	port    int
+	address string
+}
+
+func newStallingSSHServer(t *testing.T) *stallingSSHServer {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	go func() {
+		for {
+			connection, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				return
+			}
+			// Читаем баннер и молчим: клиент ждёт серверный, которого не будет.
+			go func() {
+				buffer := make([]byte, 512)
+				_, _ = connection.Read(buffer)
+				select {}
+			}()
+		}
+	}()
+
+	address := listener.Addr().(*net.TCPAddr)
+	return &stallingSSHServer{
+		host:    address.IP.String(),
+		port:    address.Port,
+		address: net.JoinHostPort(address.IP.String(), strconv.Itoa(address.Port)),
+	}
+}
+
 const testSFTPPassword = "hunter2"
 
 // fakeSSHServer держит sessionsPerConnection сессий на соединение, как sshd с MaxSessions. Всё, что
@@ -185,6 +362,10 @@ type fakeSSHServer struct {
 	listener              net.Listener
 	config                *gossh.ServerConfig
 	sessionsPerConnection int
+
+	// blackholeForwards — режим, в котором сервер принимает соединение, но на пересылку
+	// direct-tcpip не отвечает никогда: так ведёт себя бастион, который до цели не доходит.
+	blackholeForwards bool
 
 	mu                      sync.Mutex
 	connections             int
@@ -237,6 +418,13 @@ func (f *fakeSSHServer) connectionConfig() *SSHConnectionConfig {
 	}
 }
 
+// sinkForwards читает режим чёрной дыры под тем же замком, что и счётчики.
+func (f *fakeSSHServer) sinkForwards() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.blackholeForwards
+}
+
 // stats возвращает число принятых соединений и число отклонённых каналов сессии.
 func (f *fakeSSHServer) stats() (connections, rejected int) {
 	f.mu.Lock()
@@ -269,6 +457,14 @@ func (f *fakeSSHServer) handleConnection(connection net.Conn) {
 
 	opened := 0
 	for newChannel := range channels {
+		// Пересылка — то, чем джамп-хост занимается на самом деле: канал direct-tcpip на цель.
+		if newChannel.ChannelType() == "direct-tcpip" {
+			if f.sinkForwards() {
+				continue
+			}
+			go forwardChannel(newChannel)
+			continue
+		}
 		if newChannel.ChannelType() != "session" {
 			_ = newChannel.Reject(gossh.UnknownChannelType, "only session channels are supported")
 			continue

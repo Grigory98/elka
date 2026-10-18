@@ -126,3 +126,49 @@ func TestHostDeleteUnlinksItFromJumpHops(t *testing.T) {
 		t.Fatalf("deleted host is still referenced by a jump hop: %#v", hosts[0].JumpHops)
 	}
 }
+
+// Путь удаления без вопроса пользователю — импорт, перенос хранилища, скрипт: цепочка всё равно не
+// должна остаться ссылаться на несуществующий хост, иначе подключение падает на ровном месте.
+func TestHostDeleteUnlinksLegacyJumpHostField(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if err = migration.RunMigrations(db); err != nil {
+		t.Fatal(err)
+	}
+
+	queries := dbgen.New(db)
+	v := vault.New()
+	v.Unlock(make([]byte, 32), make([]byte, 32))
+	t.Cleanup(v.Lock)
+
+	ctx := context.Background()
+	hostService := NewHostService(queries, v)
+
+	if _, err = hostService.Save(ctx, Host{ID: "bastion", Name: "Bastion", Host: "10.0.0.1", Port: 22}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = hostService.Save(ctx, Host{
+		ID:         "target",
+		Name:       "Target",
+		Host:       "10.0.0.2",
+		Port:       22,
+		JumpHostID: "bastion",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = hostService.Delete(ctx, "bastion"); err != nil {
+		t.Fatal(err)
+	}
+
+	hosts, err := hostService.GetAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hosts) != 1 || hosts[0].JumpHostID != "" {
+		t.Fatalf("deleted host is still referenced as a jump host: %#v", hosts)
+	}
+}
