@@ -5,6 +5,7 @@ import {Host, ItemType, JumpHopMode, JumpHostHop, PortForward, PortForwardMode, 
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
+import {Switch} from "@/components/ui/switch";
 import {Label} from "@/components/ui/label";
 import {
     Select,
@@ -531,14 +532,14 @@ export function HostModal({isOpen, onClose, onSave, initialData, isSaving}: Host
                         />
                     </div>
 
-                    <label className="order-7 flex cursor-pointer items-center gap-2 text-sm">
-                        <input
-                            type="checkbox"
-                            checked={formData.usePasswordAsPassphrase || false}
-                            onChange={(e) => setFormData({...formData, usePasswordAsPassphrase: e.target.checked})}
-                            className="size-4 accent-primary"
-                        />
+                    <label htmlFor="use-password-as-passphrase"
+                           className="order-7 flex cursor-pointer items-center justify-between gap-3 text-sm">
                         {t("use_password_as_passphrase", {ns: "credentials"})}
+                        <Switch
+                            id="use-password-as-passphrase"
+                            checked={formData.usePasswordAsPassphrase || false}
+                            onCheckedChange={(checked) => setFormData({...formData, usePasswordAsPassphrase: checked})}
+                        />
                     </label>
 
                     <div className="order-2 grid gap-2">

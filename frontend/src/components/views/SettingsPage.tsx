@@ -6,6 +6,7 @@ import { User, Lock, Trash2, Globe, FolderOpen, Download, Upload, LoaderCircle, 
 import { Button } from "@/components/ui/button";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { SettingsCard } from "@/components/ui/settings-card";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { useAuthStore } from "@/store/authStore";
@@ -581,57 +582,55 @@ export function SettingsPage() {
 
                     <div className="my-2 h-px w-full bg-border"/>
 
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                    <label htmlFor="show_host_groups-switch" className="flex cursor-pointer items-center justify-between gap-4">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground">{t("show_host_groups_title")}</span>
                             <span className="text-xs text-muted-foreground">{t("show_host_groups_desc")}</span>
                         </div>
-                        <input
-                            type="checkbox"
+                        {/* Строка целиком щёлкается: label ссылается на тумблер, а кнопка помечена как
+                            переключатель, поэтому и Enter с пробелом работают. */}
+                        <Switch
+                            id="show_host_groups-switch"
                             checked={showHostGroups}
-                            onChange={(event) => void changeShowHostGroups(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
+                            onCheckedChange={(checked) => void changeShowHostGroups(checked)}
                         />
                     </label>
 
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                    <label htmlFor="restore_sessions-switch" className="flex cursor-pointer items-center justify-between gap-4">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground">{t("restore_sessions_title")}</span>
                             <span className="text-xs text-muted-foreground">{t("restore_sessions_desc")}</span>
                         </div>
-                        <input
-                            type="checkbox"
+                        <Switch
+                            id="restore_sessions-switch"
                             checked={restoreSessions}
-                            onChange={(event) => setRestoreSessions(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
+                            onCheckedChange={setRestoreSessions}
                         />
                     </label>
 
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                    <label htmlFor="server_metrics-switch" className="flex cursor-pointer items-center justify-between gap-4">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground">{t("server_metrics_title")}</span>
                             <span className="text-xs text-muted-foreground">{t("server_metrics_desc")}</span>
                         </div>
-                        <input
-                            type="checkbox"
+                        <Switch
+                            id="server_metrics-switch"
                             checked={serverMetrics}
-                            onChange={(event) => void changeServerMetrics(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
+                            onCheckedChange={(checked) => void changeServerMetrics(checked)}
                         />
                     </label>
 
                     <div className="my-2 h-px w-full bg-border"/>
 
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                    <label htmlFor="sidebar_toggle-switch" className="flex cursor-pointer items-center justify-between gap-4">
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-foreground">{t("sidebar_toggle_title")}</span>
                             <span className="text-xs text-muted-foreground">{t("sidebar_toggle_desc")}</span>
                         </div>
-                        <input
-                            type="checkbox"
+                        <Switch
+                            id="sidebar_toggle-switch"
                             checked={showSidebarToggle}
-                            onChange={(event) => void changeShowSidebarToggle(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
+                            onCheckedChange={(checked) => void changeShowSidebarToggle(checked)}
                         />
                     </label>
                 </SettingsCard>
