@@ -10,7 +10,7 @@
   "wipe_data_title": "Стереть данные",
   "wipe_data_desc": "Безвозвратно удалить локальную базу данных и отключиться.",
   "wipe_btn": "Уничтожить хранилище",
-  "preferences_title": "Предпочтения",
+  "preferences_title": "Общие",
   "language_label": "Язык",
   "select_language": "Выберите язык",
   "vault_location_title": "Расположение хранилища",

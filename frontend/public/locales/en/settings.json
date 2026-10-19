@@ -10,7 +10,7 @@
   "wipe_data_title": "Wipe Data",
   "wipe_data_desc": "Permanently delete local database and disconnect.",
   "wipe_btn": "Wipe Vault",
-  "preferences_title": "Preferences",
+  "preferences_title": "General",
   "language_label": "Language",
   "select_language": "Select Language",
   "vault_location_title": "Vault storage location",

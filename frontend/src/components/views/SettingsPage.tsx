@@ -530,46 +530,110 @@ export function SettingsPage() {
                     </div>
                 </SettingsCard>
 
-                <SettingsCard title={t("host_transfer_title")} description={t("host_transfer_desc")}>
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div className="grid min-w-52 flex-1 gap-2">
-                            <label className="text-sm font-medium text-foreground" htmlFor="host-import-format">{t("host_import_format")}</label>
-                            <Select value={importFormat} onValueChange={(value) => setImportFormat(value as HostTransferFormat)}>
-                                <SelectTrigger id="host-import-format"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
-                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
-                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
-                                </SelectContent>
-                            </Select>
+                <SettingsCard title={t("preferences_title")}>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div
+                                className="flex size-10 shrink-0 items-center justify-center
+                                           rounded-lg bg-primary/10 text-primary">
+                                <Globe className="size-5"/>
+                            </div>
+                            <span className="text-sm font-medium text-foreground">
+                                {t("language_label")}
+                            </span>
                         </div>
-                        <Button variant="outline" disabled={!!transferAction} onClick={() => void transferHosts("import")}>
-                            {transferAction === "import" ? <LoaderCircle className="size-4 animate-spin"/> : <Upload className="size-4"/>}
-                            {t("host_import_button")}
-                        </Button>
+                        <Select value={i18n.resolvedLanguage} onValueChange={changeLanguage}>
+                            <SelectTrigger className="w-45">
+                                <SelectValue placeholder={t("select_language")}/>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="en">English</SelectItem>
+                                <SelectItem value="ru">Русский</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="my-2 h-px w-full bg-border"/>
 
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                        <div className="grid min-w-52 flex-1 gap-2">
-                            <label className="text-sm font-medium text-foreground" htmlFor="host-export-format">{t("host_export_format")}</label>
-                            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as HostTransferFormat)}>
-                                <SelectTrigger id="host-export-format"><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
-                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
-                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button disabled={!!transferAction} onClick={() => void transferHosts("export")}>
-                            {transferAction === "export" ? <LoaderCircle className="size-4 animate-spin"/> : <Download className="size-4"/>}
-                            {t("host_export_button")}
-                        </Button>
+                    <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-medium text-foreground">{t("host_view_mode_label")}</span>
+                        <Select value={hostViewMode} onValueChange={(value) => void saveViewMode("hostViewMode", value as HostViewMode)}>
+                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
+                                <SelectItem value="list">{t("view_list")}</SelectItem>
+                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
-                    <p className="text-xs text-muted-foreground">{t("host_transfer_secrets_note")}</p>
-                    {transferStatus && <p role="status" className="text-sm text-success">{transferStatus}</p>}
+
+                    <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-medium text-foreground">{t("group_view_mode_label")}</span>
+                        <Select value={groupViewMode} onValueChange={(value) => void saveViewMode("groupViewMode", value as HostViewMode)}>
+                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
+                                <SelectItem value="list">{t("view_list")}</SelectItem>
+                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="my-2 h-px w-full bg-border"/>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("show_host_groups_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("show_host_groups_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={showHostGroups}
+                            onChange={(event) => void changeShowHostGroups(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("restore_sessions_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("restore_sessions_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={restoreSessions}
+                            onChange={(event) => setRestoreSessions(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("server_metrics_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("server_metrics_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={serverMetrics}
+                            onChange={(event) => void changeServerMetrics(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
+
+                    <div className="my-2 h-px w-full bg-border"/>
+
+                    <label className="flex cursor-pointer items-center justify-between gap-4">
+                        <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground">{t("sidebar_toggle_title")}</span>
+                            <span className="text-xs text-muted-foreground">{t("sidebar_toggle_desc")}</span>
+                        </div>
+                        <input
+                            type="checkbox"
+                            checked={showSidebarToggle}
+                            onChange={(event) => void changeShowSidebarToggle(event.target.checked)}
+                            className="size-4 shrink-0 accent-primary"
+                        />
+                    </label>
                 </SettingsCard>
 
                 <SettingsCard title={t("appearance_title")} description={t("appearance_desc")}>
@@ -719,110 +783,46 @@ export function SettingsPage() {
 
                 <UpdateSettingsCard/>
 
-                <SettingsCard title={t("preferences_title")}>
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div
-                                className="flex size-10 shrink-0 items-center justify-center
-                                           rounded-lg bg-primary/10 text-primary">
-                                <Globe className="size-5"/>
-                            </div>
-                            <span className="text-sm font-medium text-foreground">
-                                {t("language_label")}
-                            </span>
+                <SettingsCard title={t("host_transfer_title")} description={t("host_transfer_desc")}>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="grid min-w-52 flex-1 gap-2">
+                            <label className="text-sm font-medium text-foreground" htmlFor="host-import-format">{t("host_import_format")}</label>
+                            <Select value={importFormat} onValueChange={(value) => setImportFormat(value as HostTransferFormat)}>
+                                <SelectTrigger id="host-import-format"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
+                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
+                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                        <Select value={i18n.resolvedLanguage} onValueChange={changeLanguage}>
-                            <SelectTrigger className="w-45">
-                                <SelectValue placeholder={t("select_language")}/>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="en">English</SelectItem>
-                                <SelectItem value="ru">Русский</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Button variant="outline" disabled={!!transferAction} onClick={() => void transferHosts("import")}>
+                            {transferAction === "import" ? <LoaderCircle className="size-4 animate-spin"/> : <Upload className="size-4"/>}
+                            {t("host_import_button")}
+                        </Button>
                     </div>
 
                     <div className="my-2 h-px w-full bg-border"/>
 
-                    <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm font-medium text-foreground">{t("host_view_mode_label")}</span>
-                        <Select value={hostViewMode} onValueChange={(value) => void saveViewMode("hostViewMode", value as HostViewMode)}>
-                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
-                                <SelectItem value="list">{t("view_list")}</SelectItem>
-                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                        <div className="grid min-w-52 flex-1 gap-2">
+                            <label className="text-sm font-medium text-foreground" htmlFor="host-export-format">{t("host_export_format")}</label>
+                            <Select value={exportFormat} onValueChange={(value) => setExportFormat(value as HostTransferFormat)}>
+                                <SelectTrigger id="host-export-format"><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="tabby">{t("host_format_tabby")}</SelectItem>
+                                    <SelectItem value="mobaxterm">{t("host_format_mobaxterm")}</SelectItem>
+                                    <SelectItem value="securecrt">{t("host_format_securecrt")}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button disabled={!!transferAction} onClick={() => void transferHosts("export")}>
+                            {transferAction === "export" ? <LoaderCircle className="size-4 animate-spin"/> : <Download className="size-4"/>}
+                            {t("host_export_button")}
+                        </Button>
                     </div>
-
-                    <div className="flex items-center justify-between gap-4">
-                        <span className="text-sm font-medium text-foreground">{t("group_view_mode_label")}</span>
-                        <Select value={groupViewMode} onValueChange={(value) => void saveViewMode("groupViewMode", value as HostViewMode)}>
-                            <SelectTrigger className="w-45"><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="tree">{t("view_tree")}</SelectItem>
-                                <SelectItem value="list">{t("view_list")}</SelectItem>
-                                <SelectItem value="cards">{t("view_cards")}</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="my-2 h-px w-full bg-border"/>
-
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">{t("show_host_groups_title")}</span>
-                            <span className="text-xs text-muted-foreground">{t("show_host_groups_desc")}</span>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={showHostGroups}
-                            onChange={(event) => void changeShowHostGroups(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
-                        />
-                    </label>
-
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">{t("restore_sessions_title")}</span>
-                            <span className="text-xs text-muted-foreground">{t("restore_sessions_desc")}</span>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={restoreSessions}
-                            onChange={(event) => setRestoreSessions(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
-                        />
-                    </label>
-
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">{t("server_metrics_title")}</span>
-                            <span className="text-xs text-muted-foreground">{t("server_metrics_desc")}</span>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={serverMetrics}
-                            onChange={(event) => void changeServerMetrics(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
-                        />
-                    </label>
-
-                    <div className="my-2 h-px w-full bg-border"/>
-
-                    <label className="flex cursor-pointer items-center justify-between gap-4">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-medium text-foreground">{t("sidebar_toggle_title")}</span>
-                            <span className="text-xs text-muted-foreground">{t("sidebar_toggle_desc")}</span>
-                        </div>
-                        <input
-                            type="checkbox"
-                            checked={showSidebarToggle}
-                            onChange={(event) => void changeShowSidebarToggle(event.target.checked)}
-                            className="size-4 shrink-0 accent-primary"
-                        />
-                    </label>
+                    <p className="text-xs text-muted-foreground">{t("host_transfer_secrets_note")}</p>
+                    {transferStatus && <p role="status" className="text-sm text-success">{transferStatus}</p>}
                 </SettingsCard>
 
                 <SettingsCard title={t("security_title")} description={t("security_desc")}>
