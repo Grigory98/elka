@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { getInitialAppearance, resolveAppFontFamily } from "@/lib/appearance";
 import type { AppearanceSettings } from "@/lib/appearance";
 import { resolveTerminalFontFamily } from "@/lib/terminalFont";
+import { isSessionRestoreEnabled, setSessionRestoreEnabled } from "@/lib/sessionSnapshot";
 import type { SplitPlacement } from "@/store/sessionStore";
 
 export enum ViewType {
@@ -32,6 +33,14 @@ interface UIState {
     showHostGroups: boolean;
     showSidebarToggle: boolean;
     serverMetrics: boolean;
+    /**
+     * Поднимать ли вкладки прошлого запуска.
+     *
+     * Флаг живёт рядом со снимком, который он охраняет: включение без снимка и снимок без флага —
+     * одно и то же поле, и держать их в разных местах значило бы получить вкладки, о которых
+     * пользователь не просил, или настройку, которая ничего не делает.
+     */
+    restoreSessions: boolean;
     selectedHostGroup: string | null;
     hostViewMode: HostViewMode;
     groupViewMode: HostViewMode;
@@ -41,6 +50,7 @@ interface UIState {
     setShowHostGroups: (show: boolean) => void;
     setShowSidebarToggle: (show: boolean) => void;
     setServerMetrics: (enabled: boolean) => void;
+    setRestoreSessions: (enabled: boolean) => void;
     setSelectedHostGroup: (group: string | null) => void;
     setHostViewMode: (mode: HostViewMode) => void;
     setGroupViewMode: (mode: HostViewMode) => void;
@@ -56,6 +66,7 @@ export const useUIStore = create<UIState>((set) => ({
     showHostGroups: true,
     showSidebarToggle: true,
     serverMetrics: true,
+    restoreSessions: isSessionRestoreEnabled(),
     selectedHostGroup: null,
     hostViewMode: "cards",
     groupViewMode: "tree",
@@ -65,6 +76,10 @@ export const useUIStore = create<UIState>((set) => ({
     setShowHostGroups: (show) => set({showHostGroups: show}),
     // Without the toggle button the sidebar has to stay visible, otherwise there is no way to bring it back.
     setServerMetrics: (enabled) => set({serverMetrics: enabled}),
+    setRestoreSessions: (enabled) => {
+        setSessionRestoreEnabled(enabled);
+        set({restoreSessions: enabled});
+    },
     setShowSidebarToggle: (show) => set((state) => ({
         showSidebarToggle: show,
         isSidebarVisible: show ? state.isSidebarVisible : true,

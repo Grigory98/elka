@@ -20,5 +20,8 @@
   "unlocking": "Разблокировка...",
   "creating": "Создание...",
   "continue": "Продолжить",
-  "none": "Нет"
+  "none": "Нет",
+  "sessions_restored_one": "Восстановлена {{count}} вкладка.",
+  "sessions_restored_few": "Восстановлено {{count}} вкладки.",
+  "sessions_restored_many": "Восстановлено {{count}} вкладок."
 }

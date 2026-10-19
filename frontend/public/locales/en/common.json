@@ -20,5 +20,7 @@
   "unlocking": "Unlocking...",
   "creating": "Creating...",
   "continue": "Continue",
-  "none": "None"
+  "none": "None",
+  "sessions_restored_one": "Restored {{count}} tab.",
+  "sessions_restored_other": "Restored {{count}} tabs."
 }

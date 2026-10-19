@@ -130,6 +130,7 @@ export function GroupsPage() {
         try {
             const auth = resolveHostAuthentication(host, keys || [], credentials || [], groups || []);
             addSession({
+                hostID: host.id,
                 host: host.host,
                 port: host.port,
                 ...auth,

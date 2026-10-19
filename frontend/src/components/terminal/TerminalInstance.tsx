@@ -123,6 +123,16 @@ interface TerminalInstanceProps {
     config: SSHConnectionConfig;
     /** Why the server ended this session. Empty while the session is up. */
     closedReason?: string;
+    /** Отложить первый дозвон: подъём вкладок идёт волнами, чтобы не упереться в лимит sshd. */
+    connectDelayMs?: number;
+    /**
+     * Вкладка поднята из снимка и до неё ещё не обращались.
+     *
+     * Пока это так, терминал не создаётся вовсе и соединение не набирается: и то и другое — заметная
+     * память на каждую вкладку, а поднимать двадцать соединений при запуске незачем. Переключение
+     * флага и есть момент, когда вкладку открыли: по нему эффект создания терминала перезапускается.
+     */
+    waitsForActivation?: boolean;
 }
 
 // Split panes are rounded on every corner, wherever they sit in the layout.
@@ -171,6 +181,8 @@ export function TerminalInstance({
     onDropSession,
     config,
     closedReason,
+    connectDelayMs,
+    waitsForActivation = false,
 }: TerminalInstanceProps) {
     const {t} = useTranslation("terminal");
     const appearance = useUIStore((state) => state.appearance);
@@ -313,6 +325,14 @@ export function TerminalInstance({
             }
         });
     };
+
+    // Момент, когда поднятую вкладку открыли. Флаг снимается один раз, и его смена перезапускает
+    // эффект, создающий терминал.
+    useEffect(() => {
+        if (waitsForActivation && isVisible) {
+            useSessionStore.getState().markSessionOpened(sessionId);
+        }
+    }, [waitsForActivation, isVisible, sessionId]);
 
     const printErrorToTerminal = (error: unknown) => {
         if (!terminalRef.current) return;
@@ -498,6 +518,10 @@ export function TerminalInstance({
         // stop lining up. Nothing in xterm waits for a font, so opening is deferred until the face is
         // really in use, and output that arrives meanwhile is buffered below.
         const start = async () => {
+            // Поднятая из снимка вкладка не создаёт ничего: ни терминала, ни соединения, пока до неё
+            // не дойдёт очередь. Снимок снимается эффектом выше, его смена перезапускает и этот тоже.
+            if (waitsForActivation) return;
+
             const current = appearanceRef.current;
             // The font and the code are fetched together: neither is worth blocking the other for, and
             // the terminal cannot be measured before both have arrived.
@@ -565,7 +589,14 @@ export function TerminalInstance({
             unregisterInput = registerTerminalInput(sessionId, sendInput);
 
             if (!hasConnectedRef.current) {
+                const openAfter = connectDelayMs || 0;
+                if (openAfter > 0) await new Promise((resolve) => setTimeout(resolve, openAfter));
+                // Флаг ставится после ожидания, а не до: перезапуск эффекта во время паузы отменил бы
+                // прежнюю попытку, и вкладка осталась бы без дозвона навсегда — следующая попытка
+                // увидела бы занятый флаг.
+                if (cancelled || hasConnectedRef.current) return;
                 hasConnectedRef.current = true;
+
                 void connectWith(acceptedPassword
                     ? new SSHConnectionConfig({...config, password: acceptedPassword})
                     : config);
@@ -597,10 +628,17 @@ export function TerminalInstance({
             fitAddonRef.current = null;
             unparsedRef.current = 0;
             underPressureRef.current = false;
-            SshService.Disconnect(sessionId, attemptRef.current).catch(() => {
-            });
+            // Разборка нужна только соединению, которое действительно было открыто: перезапуск
+            // эффекта для ещё не тронутой вкладки не должен рвать ничего.
+            if (hasConnectedRef.current) {
+                SshService.Disconnect(sessionId, attemptRef.current).catch(() => {
+                });
+            }
         };
-    }, [sessionId, config]);
+        // Флаг ожидания в зависимостях: он переключается один раз, когда вкладку наконец открыли, и
+        // именно этим перезапускает эффект. Видимости здесь быть не должно: её смена на каждый
+        // переход между вкладками обрывала бы соединение, которое и так живёт в фоне.
+    }, [sessionId, config, waitsForActivation]);
 
     useEffect(() => {
         const terminal = terminalRef.current;

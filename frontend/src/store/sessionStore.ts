@@ -1,5 +1,8 @@
 import { create } from "zustand";
 import { SSHConnectionConfig, SSHJumpHostConfig, SSHPortForward, SshService } from "../../bindings/elka-desktop/backend/internal/services/ssh";
+import { Host, HostGroup, SavedCredential, SavedKey } from "../../bindings/elka-desktop/backend/internal/services/blob";
+import { resolveHostAuthentication, resolveJumpHosts, resolvePortForwards } from "@/lib/sshConnection";
+import type { SessionSnapshot } from "@/lib/sessionSnapshot";
 import { useUIStore, ViewType } from "@/store/uiStore";
 
 export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
@@ -7,6 +10,11 @@ export const TERMINAL_SESSION_DRAG_TYPE = "application/x-elka-session";
 // How many terminals one split workspace can hold. Single source of truth for both the store guard
 // and the disabled state of the tab menu items.
 export const MAX_SPLIT_PANES = 8;
+
+// Пауза между волнами подъёма вкладок. Восемь одновременных хендшейков sshd пропускает всегда,
+// а на двадцати сервер уже начинает отказывать.
+const RESTORE_BATCH_SIZE = 8;
+const RESTORE_STAGGER_MS = 350;
 
 export function terminalSessionTabID(sessionID: string) {
     return `session:${sessionID}`;
@@ -20,9 +28,36 @@ export function terminalTabGroupID(groupID: string) {
     return `group:${groupID}`;
 }
 
+/** Данные хранилища, из которых поднимается сохранённая вкладка. */
+export interface VaultData {
+    hosts: Host[];
+    keys: SavedKey[];
+    credentials: SavedCredential[];
+    groups: HostGroup[];
+}
+
 export interface TerminalSession {
     id: string;
     title: string;
+    /** Хост в хранилище, из которого открыта вкладка. По нему она поднимается после перезапуска. */
+    hostID?: string;
+    /**
+     * На сколько миллисекунд отложить первый дозвон.
+     *
+     * Снимок поднимает сразу все вкладки, а sshd по умолчанию держит не больше десяти
+     * неавторизованных соединений (`MaxStartups 10:30:100`) и дальше отказывает наугад. Восемь
+     * вкладок за раз проходят незаметно, двадцать — уже нет, и часть вкладок падала бы с отказом по
+     * входу вместо того, чтобы просто открыться.
+     */
+    connectDelayMs?: number;
+    /**
+     * Поднятая из снимка вкладка, к которой ещё не обращались.
+     *
+     * Все сохранённые вкладки сразу дозваниваться не должны: это соединение на каждый хост при
+     * запуске, лишняя нагрузка и лимит sshd на неавторизованные соединения. Пока флаг стоит, вкладка
+     * ждёт, пока до неё дойдёт очередь, и поднимается по клику.
+     */
+    restorePending?: boolean;
     config: SSHConnectionConfig;
     /** Bumped on reconnect: it changes the terminal instance key, which redials the session. */
     reconnectCount: number;
@@ -46,6 +81,7 @@ export interface TerminalSession {
 }
 
 export interface CreateSessionParams {
+    hostID?: string;
     host: string;
     port: number;
     username: string;
@@ -97,7 +133,7 @@ export interface TerminalTabGroup {
     activeSessionId: string | null;
 }
 
-interface SessionState {
+export interface SessionState {
     sessions: TerminalSession[];
     activeSessionId: string | null;
     workspaces: SplitWorkspace[];
@@ -123,7 +159,9 @@ interface SessionState {
     reconnectSession: (id: string) => void;
     rememberSessionPassword: (id: string, password: string) => void;
     markSessionClosed: (id: string, reason: string) => void;
+    markSessionOpened: (id: string) => void;
     closeOtherSessions: (id: string) => void;
+    restoreSessions: (snapshot: SessionSnapshot, vault: VaultData) => number;
     removeSession: (id: string) => void;
     setActiveSession: (id: string) => void;
     clearSessions: () => void;
@@ -323,6 +361,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const newSession: TerminalSession = {
             id: newId,
             title: params.title || params.host,
+            hostID: params.hostID,
             config: fullConfig,
             reconnectCount: 0,
         };
@@ -340,6 +379,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         const session = get().sessions.find((item) => item.id === id);
         if (!session) return;
         get().addSession({
+            hostID: session.hostID,
             host: session.config.host,
             port: session.config.port,
             username: session.config.username,
@@ -649,6 +689,83 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         toClose.forEach((session) => SshService.Disconnect(session.id, "").catch(console.error));
     },
 
+    restoreSessions: (snapshot, vault) => {
+        // Поднимаются только те вкладки, чей хост ещё есть в хранилище. Настройки и креды берутся из
+        // него заново: снимок хранит лишь ссылку на хост, иначе после перезапуска приложение
+        // подключалось бы по устаревшей копии адреса и пароля.
+        const known = new Map(vault.hosts.map((host) => [host.id, host]));
+        let restoredIndex = 0;
+        const restorable = snapshot.sessions
+            .map((entry) => {
+                const host = entry.hostID ? known.get(entry.hostID) : undefined;
+                if (!host) return null;
+                restoredIndex++;
+
+                const auth = resolveHostAuthentication(host, vault.keys, vault.credentials, vault.groups);
+                const config = new SSHConnectionConfig({
+                    id: entry.id,
+                    host: host.host,
+                    port: host.port,
+                    username: auth.username,
+                    password: auth.password,
+                    privateKey: auth.privateKey,
+                    privateKeyPassphrase: auth.privateKeyPassphrase,
+                    jumpHosts: resolveJumpHosts(host, vault.hosts, vault.keys, vault.credentials, vault.groups),
+                    portForwards: resolvePortForwards(host),
+                });
+
+                const session: TerminalSession = {
+                    id: entry.id,
+                    title: host.name || host.host,
+                    hostID: host.id,
+                    config,
+                    reconnectCount: 0,
+                    restorePending: true,
+                    connectDelayMs: Math.floor((restoredIndex - 1) / RESTORE_BATCH_SIZE) * RESTORE_STAGGER_MS,
+                };
+                return session;
+            })
+            .filter((session): session is TerminalSession => session !== null);
+
+        const restoredIDs = new Set(restorable.map((session) => session.id));
+        const dropped = snapshot.sessions
+            .map((entry) => entry.id)
+            .filter((id) => !restoredIDs.has(id));
+
+        const remaining = removeSessionsFromWorkspaces(snapshot.workspaces, dropped).filter((workspace) => {
+            // Экран, у которого не осталось панелей, существовал ради них; пустой он был только если
+            // пользователь сам его завёл.
+            const hadPanes = paneIDs(workspace.layout).length > 0;
+            return hadPanes || !paneIDs(snapshot.workspaces.find((item) => item.id === workspace.id)?.layout || null).length;
+        });
+        const tabGroups = removeSessionsFromGroups(snapshot.tabGroups, dropped);
+        const workspaceIDs = new Set(remaining.map((workspace) => workspace.id));
+        const liveTabIDs = new Set([
+            ...restorable.map((session) => terminalSessionTabID(session.id)),
+            ...tabGroups.map((group) => terminalTabGroupID(group.id)),
+            ...remaining.map((workspace) => splitWorkspaceTabID(workspace.id)),
+        ]);
+        const topTabOrder = snapshot.topTabOrder.filter((tabID) => liveTabIDs.has(tabID));
+
+        if (restorable.length === 0) return 0;
+
+        // Вид не переключается: приложение открывается там же, где всегда, — на списке хостов.
+        set({
+            sessions: restorable,
+            topTabOrder,
+            tabGroups,
+            workspaces: remaining,
+            activeSessionId: snapshot.activeSessionId && restoredIDs.has(snapshot.activeSessionId)
+                ? snapshot.activeSessionId
+                : restorable[restorable.length - 1].id,
+            activeWorkspaceID: snapshot.activeWorkspaceID && workspaceIDs.has(snapshot.activeWorkspaceID)
+                ? snapshot.activeWorkspaceID
+                : null,
+        });
+
+        return restorable.length;
+    },
+
     removeSession: (id) => {
         // Закрытие вкладки обязано уносить соединение с собой: терминала, который снял бы его при
         // размонтировании, у закрытой вкладки уже нет, и сессия оставалась жить на сервере молча.
@@ -656,6 +773,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
             void SshService.Disconnect(id, "").catch(console.error);
         }
         set(withoutSession(get(), id));
+    },
+
+    // Вкладка дошла до первого дозвона: ждать своей очереди ей больше не нужно, в том числе после
+    // переподключения и переезда в разделённый экран.
+    markSessionOpened: (id) => {
+        if (!get().sessions.some((session) => session.id === id && session.restorePending)) return;
+
+        set((state) => ({
+            sessions: state.sessions.map((session) => session.id === id && session.restorePending
+                ? {...session, restorePending: false}
+                : session),
+        }));
     },
 
     markSessionClosed: (id, reason) => {

@@ -16,9 +16,11 @@ import { DEFAULT_TERMINAL_SCROLLBACK } from "@/lib/terminalFont";
 import { ensureAppFontReady, DEFAULT_APP_FONT_FAMILY } from "@/lib/fontLoader";
 import { preloadTerminalFace } from "@/lib/terminalFont";
 import { dismissSplash } from "@/lib/splash";
+import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 
 export default function App() {
     const {isUnlocked} = useAuthStore();
+    useSessionPersistence();
     const {markSessionClosed} = useSessionStore();
     const {setShowHostGroups, setShowSidebarToggle, setServerMetrics, setHostViewMode, setGroupViewMode, setAppearance} = useUIStore();
     const appearance = useUIStore((state) => state.appearance);

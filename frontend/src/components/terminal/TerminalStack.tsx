@@ -208,6 +208,8 @@ export function TerminalStack({isVisible}: TerminalStackProps) {
                         key={`${session.id}:${session.reconnectCount}`}
                         sessionId={session.id}
                         config={session.config}
+                        connectDelayMs={session.connectDelayMs}
+                        waitsForActivation={!!session.restorePending}
                         closedReason={session.closedReason}
                         isActive={session.id === activeSessionId}
                         isVisible={isVisible && !!pane}
