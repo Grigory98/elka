@@ -42,6 +42,7 @@
   "sftp_size": "Размер",
   "sftp_title": "SFTP — {{host}}",
   "sftp_upload": "Загрузить файлы",
+  "sftp_upload_dialog_title": "Выберите файлы для загрузки",
   "sftp_uploading": "Отправка {{name}}…",
   "show_group_tabs": "Показать вкладки группы «{{name}}»",
   "split_workspace_default_title": "Разделённый экран {{number}}",

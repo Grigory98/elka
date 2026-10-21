@@ -164,7 +164,16 @@ export enum JumpHopMode {
 
 export class JumpHostHop {
     "mode": JumpHopMode;
+
+    /**
+     * HostID is the saved host this hop dials through. Empty for a manually entered server.
+     */
     "hostId"?: string;
+
+    /**
+     * CredentialID overrides what the hop authenticates with. Empty keeps the saved host's own
+     * credentials, the ones its group inherits, or this host's credentials, in that order.
+     */
     "credentialId"?: string;
     "host"?: string;
     "port"?: number;

@@ -79,6 +79,7 @@ export class SSHConnectionConfig {
     "id": string;
     "host": string;
     "port": number;
+
     /**
      * Attempt names one dial of one session. A reconnect reuses the session ID, and the teardown of
      * the previous dial can reach the service after the new one has already answered, so this is what
@@ -115,18 +116,18 @@ export class SSHConnectionConfig {
      * Creates a new SSHConnectionConfig instance from a string or object.
      */
     static createFrom($$source: any = {}): SSHConnectionConfig {
-        const $$createField7_0 = $$createType3;
-        const $$createField8_0 = $$createType4;
-        const $$createField9_0 = $$createType6;
+        const $$createField8_0 = $$createType3;
+        const $$createField9_0 = $$createType4;
+        const $$createField10_0 = $$createType6;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
         if ("jumpHost" in $$parsedSource) {
-            $$parsedSource["jumpHost"] = $$createField7_0($$parsedSource["jumpHost"]);
+            $$parsedSource["jumpHost"] = $$createField8_0($$parsedSource["jumpHost"]);
         }
         if ("jumpHosts" in $$parsedSource) {
-            $$parsedSource["jumpHosts"] = $$createField8_0($$parsedSource["jumpHosts"]);
+            $$parsedSource["jumpHosts"] = $$createField9_0($$parsedSource["jumpHosts"]);
         }
         if ("portForwards" in $$parsedSource) {
-            $$parsedSource["portForwards"] = $$createField9_0($$parsedSource["portForwards"]);
+            $$parsedSource["portForwards"] = $$createField10_0($$parsedSource["portForwards"]);
         }
         return new SSHConnectionConfig($$parsedSource as Partial<SSHConnectionConfig>);
     }

@@ -13,14 +13,17 @@ export function Connect(config: $models.SSHConnectionConfig | null): $Cancellabl
     return $Call.ByID(3818937017, config);
 }
 
-export function StartMetrics(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(1524912400, sessionID);
-}
-
-export function StopMetrics(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(2960653110, sessionID);
-}
-
+/**
+ * Disconnect tears the session down on request from the UI. It deliberately does not emit the closed
+ * event: that event means the session ended on its own (see cleanupSession) and the UI reacts to it
+ * by marking the tab, which would close a tab the user asked to reconnect instead.
+ * 
+ * attempt names the dial that is asking. The two calls travel over the same HTTP bridge as everything
+ * else and are therefore served in whatever order they arrive: a teardown issued for the dial before a
+ * reconnect can reach the service after the new dial has already answered, and closing whatever sits
+ * under that ID then kills the session the user is watching. An empty attempt means "whatever it is",
+ * which is what a caller that never dialed — closing a tab, emptying the vault — has to say.
+ */
 export function Disconnect(sessionID: string, attempt: string): $CancellablePromise<void> {
     return $Call.ByID(1867844523, sessionID, attempt);
 }
@@ -46,8 +49,35 @@ export function Resize(sessionID: string, rows: number, cols: number): $Cancella
     return $Call.ByID(3504142689, sessionID, rows, cols);
 }
 
-export function UploadSFTPFile(sessionID: string, remotePath: string, data: string): $CancellablePromise<void> {
-    return $Call.ByID(2141887179, sessionID, remotePath, data);
+/**
+ * StartMetrics открывает на уже установленном соединении второй канал и начинает раз в секунду
+ * присылать метрики сервера. Повторный вызов для той же сессии ничего не меняет, чтобы переходы
+ * между вкладками не плодили каналы.
+ * 
+ * Фронтенд зовёт метод сразу после открытия вкладки, когда соединение ещё только набирается, поэтому
+ * отсутствие сессии — не ошибка, а повод подождать: без этого ожидания первый запуск молча терялся, и
+ * метрики появлялись только после переключения настройки.
+ */
+export function StartMetrics(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(1524912400, sessionID);
+}
+
+/**
+ * StopMetrics закрывает канал сбора. Закрытие обрывает цикл на сервере, иначе та команда continue
+ * будет крутиться там до конца сессии.
+ */
+export function StopMetrics(sessionID: string): $CancellablePromise<void> {
+    return $Call.ByID(2960653110, sessionID);
+}
+
+/**
+ * UploadSFTPFiles asks the user for local files and streams them to remoteDirectory. The files are
+ * read in Go instead of being sent from the frontend: a file picked in the webview would have to
+ * cross the IPC bridge as base64, which both costs several copies of the file in memory and runs
+ * into WebView2's request body limit on Windows.
+ */
+export function UploadSFTPFiles(sessionID: string, remoteDirectory: string, dialogTitle: string): $CancellablePromise<number> {
+    return $Call.ByID(2979106728, sessionID, remoteDirectory, dialogTitle);
 }
 
 // Private type creation functions

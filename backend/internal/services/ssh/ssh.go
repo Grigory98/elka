@@ -1,7 +1,6 @@
 package ssh
 
 import (
-	"bytes"
 	"context"
 	"elka-desktop/backend/internal/apperror"
 	"errors"
@@ -10,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -117,7 +117,13 @@ const timeout = 15 * time.Second
 
 const batchRatePerSecond = 60
 
-const sftpProgressInterval = 150 * time.Millisecond
+const (
+	sftpProgressInterval = 150 * time.Millisecond
+	// sftpUploadConcurrency is the number of SFTP WRITE requests kept in flight for one file. The
+	// protocol allows at most 64, but the benefit flattens out earlier while the load on the server
+	// keeps growing, so 32 is a compromise between throughput and politeness.
+	sftpUploadConcurrency = 32
+)
 
 func NewSshService(emitter SSHEmitter, app *application.App) *SshService {
 	return &SshService{
@@ -641,33 +647,160 @@ func (s *SshService) downloadSFTPFile(ctx context.Context, client *sftp.Client, 
 	return true, nil
 }
 
-func (s *SshService) UploadSFTPFile(ctx context.Context, sessionID, remotePath string, data []byte) error {
-	return s.withSFTP(sessionID, func(client *sftp.Client) error {
-		return s.uploadSFTPFile(ctx, client, sessionID, remotePath, data)
+// UploadSFTPFiles asks the user for local files and streams them to remoteDirectory. The files are
+// read in Go instead of being sent from the frontend: a file picked in the webview would have to
+// cross the IPC bridge as base64, which both costs several copies of the file in memory and runs
+// into WebView2's request body limit on Windows.
+func (s *SshService) UploadSFTPFiles(ctx context.Context, sessionID, remoteDirectory, dialogTitle string) (int, error) {
+	if s.app == nil {
+		return 0, fmt.Errorf("file open dialog is unavailable")
+	}
+	if strings.TrimSpace(dialogTitle) == "" {
+		dialogTitle = "Upload files"
+	}
+	localPaths, err := s.app.Dialog.OpenFileWithOptions(&application.OpenFileDialogOptions{
+		Title:                   dialogTitle,
+		CanChooseFiles:          true,
+		AllowsMultipleSelection: true,
+	}).PromptForMultipleSelection()
+	if err != nil {
+		return 0, fmt.Errorf("choose local files: %w", err)
+	}
+	if len(localPaths) == 0 {
+		return 0, nil
+	}
+
+	uploaded := 0
+	err = s.withSFTP(sessionID, func(client *sftp.Client) error {
+		for _, localPath := range localPaths {
+			if err := s.uploadSFTPLocalFile(ctx, client, sessionID, remoteDirectory, localPath); err != nil {
+				return err
+			}
+			uploaded++
+		}
+		return nil
 	})
+	return uploaded, err
 }
 
-func (s *SshService) uploadSFTPFile(ctx context.Context, client *sftp.Client, sessionID, remotePath string, data []byte) error {
-	remotePath, err := resolveSFTPPath(client, remotePath)
+func (s *SshService) uploadSFTPLocalFile(ctx context.Context, client *sftp.Client, sessionID, remoteDirectory, localPath string) error {
+	info, err := os.Stat(localPath)
+	if err != nil {
+		return fmt.Errorf("read local file %s: %w", localPath, err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("read local file %s: it is a directory", localPath)
+	}
+	localFile, err := os.Open(localPath)
+	if err != nil {
+		return fmt.Errorf("open local file %s: %w", localPath, err)
+	}
+	defer localFile.Close()
+
+	remotePath, err := resolveSFTPPath(client, path.Join(remoteDirectory, filepath.Base(localPath)))
 	if err != nil {
 		return fmt.Errorf("resolve remote file: %w", err)
 	}
-	file, err := client.Create(remotePath)
+	// Upload into a sibling temp file and publish it only after every write has been acknowledged.
+	// A dropped connection then leaves the previous version of the file intact instead of a
+	// truncated one. Replacing the file also replaces its mode, so remember the old one.
+	existingMode, preserveMode := os.FileMode(0), false
+	if existing, statErr := client.Stat(remotePath); statErr == nil {
+		existingMode, preserveMode = existing.Mode().Perm(), true
+	}
+	tempPath := remotePath + ".temp-upload"
+	file, err := client.Create(tempPath)
 	if err != nil {
 		return fmt.Errorf("create remote file %s: %w", remotePath, err)
 	}
-	if err = s.copySFTPWithProgress(ctx, sessionID, "upload", path.Base(remotePath), remotePath, bytes.NewReader(data), file, int64(len(data))); err != nil {
+	if err = ctx.Err(); err != nil {
 		_ = file.Close()
+		_ = client.Remove(tempPath)
+		return err
+	}
+
+	s.emitter.EmitSFTPProgress(sessionID, "upload", path.Base(remotePath), remotePath, 0, info.Size())
+	reader := &sftpProgressReader{
+		ctx:        ctx,
+		source:     localFile,
+		emitter:    s.emitter,
+		sessionID:  sessionID,
+		direction:  "upload",
+		name:       path.Base(remotePath),
+		remotePath: remotePath,
+		total:      info.Size(),
+		lastReport: time.Now(),
+	}
+	written, err := file.ReadFromWithConcurrency(reader, sftpUploadConcurrency)
+	if err != nil {
+		_ = file.Close()
+		_ = client.Remove(tempPath)
 		if errors.Is(err, context.Canceled) {
-			_ = client.Remove(remotePath)
 			return err
 		}
 		return fmt.Errorf("write remote file %s: %w", remotePath, err)
 	}
 	if err = file.Close(); err != nil {
+		_ = client.Remove(tempPath)
 		return fmt.Errorf("close remote file %s: %w", remotePath, err)
 	}
+	s.emitter.EmitSFTPProgress(sessionID, "upload", path.Base(remotePath), remotePath, written, info.Size())
+	// Cancellation can arrive after the last chunk was read but before the rename.
+	if err = ctx.Err(); err != nil {
+		_ = client.Remove(tempPath)
+		return err
+	}
+	if preserveMode {
+		// Best effort: some chrooted SFTP accounts may write but not chmod.
+		_ = client.Chmod(tempPath, existingMode)
+	}
+	if err = replaceRemoteFile(client, tempPath, remotePath); err != nil {
+		_ = client.Remove(tempPath)
+		return fmt.Errorf("replace remote file %s: %w", remotePath, err)
+	}
 	return nil
+}
+
+// replaceRemoteFile publishes a fully written temp file. posix-rename@openssh.com replaces the
+// destination atomically; other servers fall back to remove+rename, like Tabby does.
+func replaceRemoteFile(client *sftp.Client, tempPath, remotePath string) error {
+	if err := client.PosixRename(tempPath, remotePath); err == nil {
+		return nil
+	}
+	if err := client.Remove(remotePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return client.Rename(tempPath, remotePath)
+}
+
+// sftpProgressReader reports bytes as they are read from the local file. ReadFromWithConcurrency
+// calls Read from a single goroutine, so no locking is needed here.
+type sftpProgressReader struct {
+	ctx         context.Context
+	source      io.Reader
+	emitter     SSHEmitter
+	sessionID   string
+	direction   string
+	name        string
+	remotePath  string
+	total       int64
+	transferred int64
+	lastReport  time.Time
+}
+
+func (r *sftpProgressReader) Read(buffer []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	read, readErr := r.source.Read(buffer)
+	if read > 0 {
+		r.transferred += int64(read)
+		if time.Since(r.lastReport) >= sftpProgressInterval {
+			r.lastReport = time.Now()
+			r.emitter.EmitSFTPProgress(r.sessionID, r.direction, r.name, r.remotePath, r.transferred, r.total)
+		}
+	}
+	return read, readErr
 }
 
 // copySFTPWithProgress moves the bytes itself instead of leaning on io.Copy, because pkg/sftp provides

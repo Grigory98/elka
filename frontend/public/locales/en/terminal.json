@@ -42,6 +42,7 @@
   "sftp_size": "Size",
   "sftp_title": "SFTP — {{host}}",
   "sftp_upload": "Upload files",
+  "sftp_upload_dialog_title": "Choose files to upload",
   "sftp_uploading": "Uploading {{name}}…",
   "show_group_tabs": "Show tabs in {{name}}",
   "split_workspace_default_title": "Split workspace {{number}}",

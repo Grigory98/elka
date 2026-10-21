@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type React from "react";
 import { ArrowUp, Download, File, Folder, LoaderCircle, RefreshCw, Upload, X } from "lucide-react";
 import { Events } from "@wailsio/runtime";
 import { useTranslation } from "react-i18next";
@@ -25,10 +24,6 @@ function parentDirectory(directory: string) {
     return slashIndex <= 0 ? "/" : normalized.slice(0, slashIndex);
 }
 
-function childPath(directory: string, filename: string) {
-    return `${directory.endsWith("/") ? directory : `${directory}/`}${filename}`;
-}
-
 function formatFileSize(size: number) {
     if (size < 1024) return `${size} B`;
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
@@ -50,16 +45,6 @@ interface TransferState {
     total: number;
 }
 
-async function encodeFileBase64(file: File) {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    let binary = "";
-    const chunkSize = 0x8000;
-    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
-    }
-    return btoa(binary);
-}
-
 export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
     const {t} = useTranslation(["terminal", "common"]);
     const [directory, setDirectory] = useState("");
@@ -76,11 +61,10 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
     const [transfer, setTransfer] = useState<TransferState | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [hoveredEntryPath, setHoveredEntryPath] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
     const requestNumberRef = useRef(0);
     const transferCancelRef = useRef<(() => void) | null>(null);
     const cancelRequestedRef = useRef(false);
-    const transferKeyRef = useRef<string | null>(null);
+    const transferActiveRef = useRef(false);
     const sessionID = session?.id;
     const activeTransfer = transfer?.sessionID === sessionID ? transfer : null;
     const transferName = activeTransfer?.name ?? null;
@@ -127,10 +111,10 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
         const unsubscribe = Events.On(AppEvent.SftpProgress, (event) => {
             const payload = event.data;
             if (payload.id !== sessionID) return;
-            const direction: TransferDirection = payload.direction === "upload" ? "upload" : "download";
             // A transfer that has already been settled here must not be revived by a trailing
             // event, otherwise the progress bar and the row spinner stay on screen for good.
-            if (transferKeyRef.current !== `${direction}:${payload.name}`) return;
+            if (!transferActiveRef.current) return;
+            const direction: TransferDirection = payload.direction === "upload" ? "upload" : "download";
             setTransfer({
                 sessionID,
                 direction,
@@ -150,7 +134,7 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
     const handleDownload = async (entry: (typeof entries)[number]) => {
         if (!session || entry.isDir) return;
         cancelRequestedRef.current = false;
-        transferKeyRef.current = `download:${entry.name}`;
+        transferActiveRef.current = true;
         setTransfer({sessionID: session.id, direction: "download", name: entry.name, transferred: 0, total: entry.size});
         setError(null);
         const request = SshService.DownloadSFTPFile(session.id, entry.path, entry.name, t("sftp_save_dialog_title"));
@@ -162,39 +146,33 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
         } catch (cause) {
             if (!cancelRequestedRef.current) setError(errorText(cause));
         } finally {
+            transferActiveRef.current = false;
             transferCancelRef.current = null;
-            transferKeyRef.current = null;
             setTransfer(null);
         }
     };
 
-    const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(event.target.files || []);
-        if (!session || !directory || files.length === 0) return;
+    const handleUpload = async () => {
+        if (!session || !directory) return;
         cancelRequestedRef.current = false;
         setError(null);
+        transferActiveRef.current = true;
+        const request = SshService.UploadSFTPFiles(session.id, directory, t("sftp_upload_dialog_title"));
+        transferCancelRef.current = () => {
+            void request.cancel();
+        };
         try {
-            for (const file of files) {
-                transferKeyRef.current = `upload:${file.name}`;
-                setTransfer({sessionID: session.id, direction: "upload", name: file.name, transferred: 0, total: file.size});
-                const bytes = await encodeFileBase64(file);
-                const request = SshService.UploadSFTPFile(session.id, childPath(directory, file.name), bytes);
-                transferCancelRef.current = () => {
-                    void request.cancel();
-                };
-                // A cancel that landed while the file was still being encoded has nothing to stop yet.
-                if (cancelRequestedRef.current) transferCancelRef.current();
-                await request;
-            }
-            if (cancelRequestedRef.current) return;
-            await loadDirectory(directory);
+            const uploaded = await request;
+            if (!cancelRequestedRef.current && uploaded > 0) await loadDirectory(directory);
         } catch (cause) {
-            if (!cancelRequestedRef.current) setError(errorText(cause));
+            if (!cancelRequestedRef.current) {
+                setError(errorText(cause));
+                await loadDirectory(directory);
+            }
         } finally {
+            transferActiveRef.current = false;
             transferCancelRef.current = null;
-            transferKeyRef.current = null;
             setTransfer(null);
-            event.target.value = "";
         }
     };
 
@@ -247,11 +225,10 @@ export function SFTPBrowser({open, session, onClose}: SFTPBrowserProps) {
                             >
                                 <RefreshCw className="size-4"/>
                             </Button>
-                            <Button type="button" variant="default" onClick={() => fileInputRef.current?.click()} disabled={!!transferName || !directory}>
+                            <Button type="button" variant="default" onClick={() => void handleUpload()} disabled={!!transferName || !directory}>
                                 {transferName ? <LoaderCircle className="size-4 animate-spin"/> : <Upload className="size-4"/>}
                                 {t("sftp_upload")}
                             </Button>
-                            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleUpload}/>
                         </form>
 
                         {activeTransfer && (
