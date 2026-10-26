@@ -32,6 +32,16 @@ import { handleAppError } from "@/lib/error";
 const CARD_GRID_GAP = 16;
 const CARD_PITCH = CARD_HEIGHT + CARD_GRID_GAP;
 
+/**
+ * The narrowest column the cards grid accepts, in CSS pixels.
+ *
+ * The host rows handed to the virtual list are whole single lines of cards, so the chunking needs
+ * to know how many columns the grid has. This is the `20rem` the old auto-fit grid asked for, and
+ * the column count is derived exactly the way auto-fit counts its tracks: with the column-min and
+ * the gap, a track only fits when its width plus its share of the gaps stays inside the row.
+ */
+const CARD_MIN_COLUMN = 320;
+
 export function HostsPage() {
     const {t} = useTranslation(["hosts", "common"]);
     const {data: hosts, isLoading} = useHosts();
@@ -59,6 +69,20 @@ export function HostsPage() {
     const setReportedRange = useCallback((from: number, to: number) => {
         setVisibleRange((current) => (current.from === from && current.to === to ? current : {from, to}));
     }, []);
+
+    // The cards grid is virtualised one full line of cards at a time, and the line has to know how
+    // many cards it holds. The width is read off a wrapper the moment the view mounts and on every
+    // resize after that; a ref callback rather than an effect, because only the cards view mounts
+    // the wrapper and a callback travels with it.
+    const [cardsWidth, setCardsWidth] = useState(0);
+    const bindCardsArea = useCallback((element: HTMLDivElement | null) => {
+        if (!element) return;
+        const observer = new ResizeObserver(() => setCardsWidth(element.clientWidth));
+        observer.observe(element);
+        setCardsWidth(element.clientWidth);
+        return () => observer.disconnect();
+    }, []);
+    const cardColumns = Math.max(1, Math.floor((cardsWidth + CARD_GRID_GAP) / (CARD_MIN_COLUMN + CARD_GRID_GAP)));
 
     const handleCreateNew = () => {
         setEditingHost(null);
@@ -128,6 +152,19 @@ export function HostsPage() {
     }, [hosts, searchQuery, selectedHostGroup, showHostGroups]);
 
     const matchedHostCount = filteredHosts?.length || 0;
+
+    // The virtual list turns a scroll offset into a row number by dividing by one row height, so
+    // it has to be handed whole lines of cards: one item is one visual row of the grid. Feeding it
+    // cards and letting CSS wrap them counted every column as a full row — a spacer columns times
+    // longer than the grid, a slice that scrolled out of view within a screenful, and past that
+    // only empty distance, which is the dark stretch the long vaults scrolled into.
+    const cardRows = useMemo(() => {
+        const rows: Host[][] = [];
+        for (let i = 0; i < matchedHostCount; i += cardColumns) {
+            rows.push((filteredHosts ?? []).slice(i, i + cardColumns));
+        }
+        return rows;
+    }, [filteredHosts, matchedHostCount, cardColumns]);
 
     const treeGroups = useMemo(() => {
         const grouped = new Map<string, Host[]>();
@@ -228,27 +265,35 @@ export function HostsPage() {
             )}
 
             {displayedViewMode === "cards" && (
-                <VirtualizedList
-                    key="list"
-                    items={filteredHosts || []}
-                    itemHeight={CARD_PITCH}
-                    display="grid"
-                    renderItem={(host) => (
-                        <HostCard
-                            host={host}
-                            showGroup={showHostGroups}
-                            viewMode="cards"
-                            onConnect={handleConnect}
-                            onEdit={handleEdit}
-                            onDelete={handleDeletePrompt}
-                        />
-                    )}
-                    onRangeChange={setReportedRange}
-                />
+                <div ref={bindCardsArea}>
+                    <VirtualizedList
+                        items={cardRows}
+                        itemHeight={CARD_PITCH}
+                        renderItem={(row) => (
+                            <div
+                                className="grid"
+                                style={{gridTemplateColumns: `repeat(${cardColumns}, minmax(0, 1fr))`, gap: `${CARD_GRID_GAP}px`}}
+                            >
+                                {row.map((host, index) => (
+                                    <HostCard
+                                        key={index}
+                                        host={host}
+                                        showGroup={showHostGroups}
+                                        viewMode="cards"
+                                        onConnect={handleConnect}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDeletePrompt}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        onRangeChange={setReportedRange}
+                    />
+                </div>
             )}
             {displayedViewMode === "list" && (
                 <VirtualizedList
-                    key="list"
+                    key="rows"
                     items={filteredHosts || []}
                     itemHeight={LIST_ROW_HEIGHT}
                     renderItem={(host) => (
@@ -312,11 +357,16 @@ export function HostsPage() {
             )}
 
             {displayedViewMode !== "tree" && matchedHostCount > 0 && (
+                // The cards slice counts rows; each row carries cardColumns hosts, so the line
+                // translates back to host numbers before it is shown.
                 <p className="mb-3 text-xs text-muted-foreground">
                     {t("showing_range", {
                         ns: "hosts",
-                        from: visibleRange.from + 1,
-                        to: Math.min(visibleRange.to, matchedHostCount),
+                        from: (displayedViewMode === "cards" ? visibleRange.from * cardColumns : visibleRange.from) + 1,
+                        to: Math.min(
+                            displayedViewMode === "cards" ? visibleRange.to * cardColumns : visibleRange.to,
+                            matchedHostCount
+                        ),
                         total: matchedHostCount,
                     })}
                 </p>

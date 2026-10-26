@@ -17,21 +17,28 @@ interface SidebarItemProps {
 
 function SidebarItem({title, active, onClick, children, indicatorClassName}: SidebarItemProps) {
     const [isHovered, setIsHovered] = useState(false);
+    // A click selects the view the pointer is already over, and a label hanging over the view it
+    // just opened reads worse than no label. The click hides the tooltip outright; the state lives
+    // until the pointer returns, so walking to another item shows that item's label as usual.
+    const [dismissed, setDismissed] = useState(false);
+
+    const show = isHovered && !dismissed;
 
     return (
         <div
             className="sidebar-tooltip-parent group relative"
-            onPointerEnter={() => setIsHovered(true)}
+            // Every tooltip here is the span below; the native title tooltip has been left off the
+            // button because it lingers over the view the click just opened. Hover alone drives the
+            // span, and focus shows it only via keyboard (see main.css), so a click cannot clamp
+            // the label over the content the click navigated to.
+            onPointerEnter={() => {setDismissed(false); setIsHovered(true);}}
             onPointerLeave={() => setIsHovered(false)}
-            onFocusCapture={() => setIsHovered(true)}
-            onBlurCapture={() => setIsHovered(false)}
         >
             <Button
                 variant={active ? "secondary" : "ghost"}
                 size="icon"
-                onClick={onClick}
+                onClick={() => {setDismissed(true); onClick();}}
                 className="wails-no-drag"
-                title={title}
                 aria-label={title}
             >
                 {children}
@@ -42,7 +49,7 @@ function SidebarItem({title, active, onClick, children, indicatorClassName}: Sid
             <span
                 role="tooltip"
                 className="sidebar-tooltip pointer-events-none absolute left-full top-1/2 z-[100] ml-2 -translate-y-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md transition-opacity"
-                style={{opacity: isHovered ? 1 : 0}}
+                style={{opacity: show ? 1 : 0}}
             >
                 {title}
             </span>

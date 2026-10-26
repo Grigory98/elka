@@ -228,8 +228,10 @@ body,
     color: inherit !important;
 }
 
-.sidebar-tooltip-parent:hover .sidebar-tooltip,
-.sidebar-tooltip-parent:focus-within .sidebar-tooltip {
+/* The sidebar tooltip. The span itself is driven by hover state in Sidebar; this rule adds the
+   keyboard path only: focus that came from a click must not clamp the label over the view the
+   click just opened, so plain :focus-within is deliberately not used here. */
+.sidebar-tooltip-parent:has(:focus-visible) .sidebar-tooltip {
     opacity: 1 !important;
 }
 

@@ -24,8 +24,6 @@ export interface VirtualizedListProps<T> {
     /** Rendered for one row. Only called for the visible slice. */
     renderItem: (item: T, index: number) => ReactNode;
     className?: string;
-    /** `grid` for the card view, anything else for the plain column. */
-    display?: "grid" | "column";
     /** How many rows to keep above and below the viewport, so a fast scroll does not show gaps. */
     overscan?: number;
     /** Shown instead of the list when there is nothing to render. */
@@ -57,7 +55,6 @@ export function VirtualizedList<T>({
     itemHeight,
     renderItem,
     className,
-    display = "column",
     overscan = 6,
     emptyState,
     onRangeChange,
@@ -161,14 +158,13 @@ export function VirtualizedList<T>({
                         top: range.from * itemHeight,
                         left: 0,
                         right: 0,
-                        display: display === "grid" ? "grid" : "flex",
-                        gridTemplateColumns: display === "grid" ? "repeat(auto-fit, minmax(20rem, 1fr))" : undefined,
-                        flexDirection: display === "grid" ? undefined : "column",
-                        gap: display === "grid" ? "1rem" : 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0,
                     }}
                 >
                     {slots.map(({slot, absolute}) => (
-                        <div key={slot} style={display === "grid" ? undefined : {height: itemHeight}}>
+                        <div key={slot} style={{height: itemHeight}}>
                             {renderItem(items[absolute], absolute)}
                         </div>
                     ))}
